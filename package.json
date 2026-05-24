@@ -1,0 +1,40 @@
+{
+  "name": "stem-docs",
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.2.2",
+  "description": "Git-native, file-based documentation graphs for software teams.",
+  "type": "module",
+  "bin": {
+    "stem": "./dist/cli/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup ./src/index.ts ./src/cli/index.ts --format esm --dts --sourcemap --clean",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run --passWithNoTests",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "fast-glob": "^3.3.3",
+    "gray-matter": "^4.0.3",
+    "remark": "^15.0.1",
+    "unified": "^11.0.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^25.9.1",
+    "eslint": "^9.39.4",
+    "prettier": "^3.8.3",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.4",
+    "vitest": "^4.1.7"
+  }
+}
