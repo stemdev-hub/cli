@@ -72,6 +72,26 @@ Raw view files with `@stem[]` macros are accepted as an MVP tradeoff. Rendered p
 
 Market research compared Stem with DITA, Antora, Paligo, Swimm, Archbee, Structurizr, Obsidian, Dendron, and Logseq. The durable gap is the combination of Git-native Markdown, dynamic graphing without file mutation, section/tag filtered transclusion, and progressive enhancement for developer teams.
 
+## Parser Implementation Decisions
+
+### Validated MVP plugin strategy
+
+A focused spike validated a post-parse Remark transform for MVP. Stem will use `unist-util-visit` as a direct runtime dependency to visit mdast `text` nodes and replace recognized `@stem[...]` ranges with typed AST nodes. This is smaller than a micromark extension while Stem syntax remains a compact project macro rather than a new Markdown block grammar.
+
+The spike correctly recognized all ten supported directive forms, including filtered block references and scoped dependencies. It rejected empty, colonless, and unknown-type directives, and retained unknown parameters without changing the parsed known fields.
+
+### Code isolation and Markdown stability
+
+Code isolation is structural: fenced code blocks are `code` nodes and backtick spans are `inlineCode` nodes, while the plugin visits `text` nodes only. The spike found zero custom Stem nodes inside either code form and preserved the baseline heading, paragraph, and list counts.
+
+### Production parser boundary
+
+The spike validates syntax-node transformation only. The production parser still combines `gray-matter` frontmatter extraction, the Remark plugin, and two-pass section/tag binding, returning recoverable issues rather than throwing. Parser functions accept content and path metadata; file reads remain outside `core/parser/`.
+
+### Known MVP guardrail
+
+The production regular expression must prohibit `@stem[...]` matches that cross line boundaries. The spike established the traversal approach and supported node shapes, but its prototype parameter tail does not by itself enforce this single-line grammar rule. A later micromark extension remains the path for substantially richer syntax.
+
 ## Post-MVP Ideas
 
 Post-MVP work includes MCP support, UI composition, VS Code integration, rendered previews, CI rendering, live code references, external source references, parameterized blocks, aliases, cross-project blocks, and localization.

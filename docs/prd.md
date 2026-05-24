@@ -89,11 +89,15 @@ Cache entries store `dev` and `inode` as strings to avoid 64-bit truncation. `mt
 
 `stem check` reports broken references. Delete operations warn when a block or section is referenced and require `--force` to proceed.
 
-### Parser Requirements
+### Parser Strategy
 
 The parser must accept Markdown content, extract YAML frontmatter, recognize `@stem[...]` syntax, and produce typed `ParsedBlock` or `ParsedView` objects. It must resolve external tags through a two-pass section registry and ignore Stem examples inside inline code and fenced code blocks.
 
 Recoverable content errors must be returned as validation issues so `stem check` can report multiple problems in one run rather than aborting at the first malformed reference.
+
+The MVP `stem-plugin.ts` strategy has been spike-validated: parse standard Markdown with Remark, visit mdast `text` nodes with `unist-util-visit`, and replace recognized `@stem[...]` ranges with typed Stem AST nodes. This approach preserves ordinary Markdown structure and naturally isolates fenced code and inline code because Remark represents them as `code` and `inlineCode`, not transformable `text` nodes.
+
+The spike recognized all supported reference forms, rejected empty, colonless, and unknown-type directives, preserved headings/paragraphs/lists, and produced source positions for extracted nodes. Production implementation must tighten the matching expression to reject directives spanning a newline; richer macro grammar can move to a micromark extension post-MVP if required.
 
 ## Reference Grammar
 
@@ -271,6 +275,7 @@ Post-MVP: MCP server, UI, editor extensions, preview/render/build, GitHub Action
 | Package manager | pnpm |
 | CLI | commander.js |
 | Markdown | remark and unified |
+| AST traversal | unist-util-visit |
 | Frontmatter | gray-matter |
 | File scanning | fast-glob |
 | Testing | vitest |
