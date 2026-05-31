@@ -97,7 +97,7 @@ Recoverable content errors must be returned as validation issues so `stem check`
 
 The MVP `stem-plugin.ts` strategy has been spike-validated: parse standard Markdown with Remark, visit mdast `text` nodes with `unist-util-visit`, and replace recognized `@stem[...]` ranges with typed Stem AST nodes. This approach preserves ordinary Markdown structure and naturally isolates fenced code and inline code because Remark represents them as `code` and `inlineCode`, not transformable `text` nodes.
 
-The spike recognized all supported reference forms, rejected empty, colonless, and unknown-type directives, preserved headings/paragraphs/lists, and produced source positions for extracted nodes. Production implementation must tighten the matching expression to reject directives spanning a newline; richer macro grammar can move to a micromark extension post-MVP if required.
+The spike recognized all supported reference forms, rejected empty, colonless, and unknown-type directives, preserved headings/paragraphs/lists, and produced source positions for extracted nodes. The production implementation enforces the MVP single-line grammar so directives cannot span newline boundaries; richer macro grammar can move to a micromark extension post-MVP if required.
 
 ## Reference Grammar
 

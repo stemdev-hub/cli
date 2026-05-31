@@ -81,7 +81,7 @@ Allowed imports:
 | --- | --- |
 | `cli/commands/` | `core/operations/` only |
 | `core/operations/` | `core/fs/`, `core/parser/`, `core/graph/`, `core/cache/`, `core/validator/`, `core/types/` |
-| `core/parser/` | `core/types/` only |
+| `core/parser/` | Sibling files within `core/parser/`, `core/types/`, and approved external parser libraries only |
 | `core/graph/` | `core/types/` only |
 | `core/cache/` | `core/types/` only |
 | `core/validator/` | `core/types/` only |
@@ -92,6 +92,7 @@ Allowed imports:
 Forbidden imports:
 
 - Never let `parser` import from `graph`, `cache`, or `validator`.
+- Parser files may import sibling parser helpers, but parser behavior must remain independent of file scanning, graph construction, cache persistence, validation orchestration, and CLI formatting.
 - Never let `graph` import from `parser` or `cache`.
 - Never let `cache` import from `validator` or `graph`.
 - Never let `cli/commands/` import directly from `core/parser/`, `core/graph/`, `core/cache/`, or `core/validator/`; commands must go through `core/operations/`.
@@ -118,9 +119,16 @@ Forbidden imports:
 - ✅ Parses `@stem[]` syntax into AST nodes
 - ✅ Resolves section/tag relationships via two-pass algorithm
 - ✅ Returns typed `ParsedBlock` or `ParsedView` objects
+- ✅ Depends on `unist-util-visit` as a direct runtime dependency for Remark AST traversal
 - ❌ Never reads files itself - receives content as string input
 - ❌ Never writes files
 - ❌ Never knows about the graph or cache
+
+MVP syntax constraints are intentional:
+
+- `@stem[]` references are always single-line
+- Parameter values cannot contain `]`, spaces, or special characters
+- Both constraints can be lifted post-MVP if the parser migrates to a micromark extension
 
 #### `core/graph/`
 

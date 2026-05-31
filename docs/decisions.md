@@ -76,7 +76,7 @@ Market research compared Stem with DITA, Antora, Paligo, Swimm, Archbee, Structu
 
 ### Validated MVP plugin strategy
 
-A focused spike validated a post-parse Remark transform for MVP. Stem will use `unist-util-visit` as a direct runtime dependency to visit mdast `text` nodes and replace recognized `@stem[...]` ranges with typed AST nodes. This is smaller than a micromark extension while Stem syntax remains a compact project macro rather than a new Markdown block grammar.
+A focused spike validated a post-parse Remark transform for MVP. Stem uses `unist-util-visit` as a direct runtime dependency to visit mdast `text` nodes and replace recognized `@stem[...]` ranges with typed AST nodes. This is smaller than a micromark extension while Stem syntax remains a compact project macro rather than a new Markdown block grammar.
 
 The spike correctly recognized all ten supported directive forms, including filtered block references and scoped dependencies. It rejected empty, colonless, and unknown-type directives, and retained unknown parameters without changing the parsed known fields.
 
@@ -86,11 +86,11 @@ Code isolation is structural: fenced code blocks are `code` nodes and backtick s
 
 ### Production parser boundary
 
-The spike validates syntax-node transformation only. The production parser still combines `gray-matter` frontmatter extraction, the Remark plugin, and two-pass section/tag binding, returning recoverable issues rather than throwing. Parser functions accept content and path metadata; file reads remain outside `core/parser/`.
+The spike validated syntax-node transformation before production implementation. The production parser combines `gray-matter` frontmatter extraction, the Remark plugin, and two-pass section/tag binding, returning recoverable issues rather than throwing. Parser functions accept content and path metadata; file reads remain outside `core/parser/`.
 
 ### Known MVP guardrail
 
-The production regular expression must prohibit `@stem[...]` matches that cross line boundaries. The spike established the traversal approach and supported node shapes, but its prototype parameter tail does not by itself enforce this single-line grammar rule. A later micromark extension remains the path for substantially richer syntax.
+The production regular expression prohibits `@stem[...]` matches that cross line boundaries. Parameter values stay intentionally compact for MVP; they cannot contain spaces or `]`. A later micromark extension remains the path for substantially richer syntax.
 
 ## Post-MVP Ideas
 
