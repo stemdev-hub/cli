@@ -6,6 +6,7 @@ Stem is organized as a TypeScript Node.js CLI with a reusable core library. Plea
 
 - `src/cli/`: command registration and terminal output only.
 - `src/core/fs/`: project discovery, file scanning, reads, and writes.
+- `src/core/config/`: `.stem/config.json` loading, defaults, and config path normalization.
 - `src/core/parser/`: frontmatter parsing, `@stem[]` parsing, and two-pass section/tag resolution.
 - `src/core/graph/`: in-memory graph construction and traversal.
 - `src/core/cache/`: cache index, graph snapshots, and hybrid stat plus SHA invalidation.
@@ -80,18 +81,20 @@ Allowed imports:
 | From | May Import |
 | --- | --- |
 | `cli/commands/` | `core/operations/` only |
-| `core/operations/` | `core/fs/`, `core/parser/`, `core/graph/`, `core/cache/`, `core/validator/`, `core/types/` |
+| `core/operations/` | `core/fs/`, `core/config/`, `core/parser/`, `core/graph/`, `core/cache/`, `core/validator/`, `core/types/` |
+| `core/config/` | `core/fs/` and `core/types/` only |
 | `core/parser/` | Sibling files within `core/parser/`, `core/types/`, and approved external parser libraries only |
 | `core/graph/` | `core/types/` only |
 | `core/cache/` | `core/types/` only |
 | `core/validator/` | `core/types/` only |
 | `core/fs/` | `core/types/` only |
 | `core/types/` | Sibling files within `core/types/` using `import type`; type-only imports from external packages where needed |
-| `src/index.ts` | `core/operations/` and `core/types/` only, as the public API export |
+| `src/index.ts` | `core/config/`, `core/operations/`, and `core/types/` only, as the public API export |
 
 Forbidden imports:
 
 - Never let `parser` import from `graph`, `cache`, or `validator`.
+- Never let modules other than `core/config/` load `.stem/config.json`; other modules receive `ResolvedStemConfig` as input.
 - Parser files may import sibling parser helpers, but parser behavior must remain independent of file scanning, graph construction, cache persistence, validation orchestration, and CLI formatting.
 - Never let `graph` import from `parser` or `cache`.
 - Never let `cache` import from `validator` or `graph`.
@@ -111,6 +114,16 @@ Forbidden imports:
 - ❌ Never parses content
 - ❌ Never builds graphs
 - ❌ Never validates anything
+
+#### `core/config/`
+
+- ✅ Loads `.stem/config.json`
+- ✅ Applies default config values
+- ✅ Normalizes config paths to project-relative POSIX paths
+- ✅ Rejects unsupported config versions and unsafe paths
+- ❌ Never parses Markdown content
+- ❌ Never scans block or view files
+- ❌ Never builds graphs or validates documentation content
 
 #### `core/parser/`
 

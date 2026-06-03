@@ -1,4 +1,6 @@
 export type * from './core/types/index.js';
+export { getDefaultStemConfig, loadStemConfig, resolveStemConfig } from './core/config/index.js';
+export type { ConfigError, ConfigErrorCode, ConfigResult } from './core/config/index.js';
 export { initProject } from './core/operations/init.js';
 export { createBlock, createGroup, createView } from './core/operations/create.js';
 export { deleteBlock, deleteView } from './core/operations/delete.js';

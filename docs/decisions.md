@@ -24,6 +24,12 @@ Schemas live in `/blocks/schemas/` rather than `/.stem/schemas/` because they ar
 
 `.stem/config.json` replaced earlier `.stemrc` ideas. The `.stem/` folder marks the project root, and `config.json` keeps the version marker explicit without introducing a second root marker.
 
+Config loading lives in a dedicated `core/config` module because it combines file reading, shape checks, default resolution, and path normalization. The filesystem module stays focused on file access, while operations and future public API consumers can use already-resolved config without knowing how it was loaded.
+
+If `.stem/` exists but `.stem/config.json` is missing, Stem uses defaults. The project root marker is the folder, not the JSON file, and default config keeps newly initialized or minimal projects lightweight.
+
+Config paths are project-relative POSIX strings. Absolute paths and `..` segments are rejected so project configuration cannot silently escape the repository.
+
 ## Graph and Cache Decisions
 
 The connection graph is dynamic and is never written into block or view source files. This avoids merge conflicts caused by automatic backlink updates.

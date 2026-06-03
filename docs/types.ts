@@ -59,16 +59,18 @@ export interface StemDepNode extends StemASTNode {
 
 // config.ts
 export interface StemConfig {
-  version: string;
+  version?: string;
   blocksDir?: string;
   viewsDir?: string;
+  schemasDir?: string;
+  cacheDir?: string;
 }
 
 export interface ResolvedStemConfig {
   version: string;
+  projectRoot: string;
   blocksDir: string;
   viewsDir: string;
-  projectRoot: string;
   schemasDir: string;
   cacheDir: string;
 }

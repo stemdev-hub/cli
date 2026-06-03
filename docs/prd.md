@@ -203,9 +203,15 @@ group: by-audience/backend
 
 ```json
 {
-  "version": "1.0"
+  "version": "1",
+  "blocksDir": "blocks",
+  "viewsDir": "views",
+  "schemasDir": "blocks/schemas",
+  "cacheDir": ".stem/cache"
 }
 ```
+
+All fields are optional in the raw config. Missing `version` defaults to `"1"`, and missing directory fields default to the values shown above. Config paths must be project-relative, are normalized to POSIX forward-slash format, and cannot be absolute or contain `..`.
 
 ## Frontmatter Schema
 

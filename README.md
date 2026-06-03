@@ -34,6 +34,22 @@ stem check
 stem sync
 ```
 
+## Configuration
+
+Stem projects are rooted by a `.stem/` directory. Project settings live in `.stem/config.json`; if that file is missing, Stem uses defaults.
+
+```json
+{
+  "version": "1",
+  "blocksDir": "blocks",
+  "viewsDir": "views",
+  "schemasDir": "blocks/schemas",
+  "cacheDir": ".stem/cache"
+}
+```
+
+All directory fields are project-relative and optional. Paths are normalized to POSIX `/` separators so cache keys stay stable across operating systems.
+
 ## Architecture
 
 The CLI is intentionally thin. All business logic belongs in `src/core/`, and the public core API is exported from `src/index.ts` so future MCP servers, editor tools, and UI clients can import Stem without depending on CLI code.
