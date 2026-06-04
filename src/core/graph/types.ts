@@ -1,3 +1,12 @@
-export type { EdgeType, GraphEdge, GraphNode, NodeType, StemGraph } from '@stem/types';
+import type { StemGraph } from '@stem/types';
 
-// TODO: Keep graph-local type aliases colocated for graph module consumers.
+export interface GraphBuildResult {
+  graph: StemGraph;
+  issues: GraphBuildIssue[];
+}
+
+export interface GraphBuildIssue {
+  code: 'DUPLICATE_BLOCK_ID' | 'DUPLICATE_VIEW_ID';
+  id: string;
+  conflictingPaths: string[];
+}

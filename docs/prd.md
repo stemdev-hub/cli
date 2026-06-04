@@ -79,6 +79,14 @@ The graph is calculated by scanning blocks and views. It is never written to sou
 
 The graph combines view-to-block references from view bodies and block-to-block `depends-on` references from block frontmatter. Circular `depends-on` relationships are warnings, not errors, because they describe staleness relationships rather than render-time embedding.
 
+Graph nodes are blocks and views. A block node stores its ID, file paths, and block-level tags with `group: null`; a view node stores its ID, file paths, and group with an empty tags array.
+
+Graph edges are either `view-uses-block` or `block-depends-on`. Both edge types preserve optional `section` and `tag` metadata so filtered references remain distinct relationships. Multiple filtered references from the same view to the same block create multiple edges.
+
+The graph builder precomputes lookup maps for `blockUsedInViews`, `viewUsesBlocks`, `blockDependsOn`, and `blockDependents`. These maps power fast listing, impact analysis, delete warnings, and validation.
+
+The builder records duplicate block/view IDs as graph build issues while keeping the first node. It still creates edges to missing nodes; the validator reports broken references later. Content embedding cycles are structurally impossible because views embed blocks and blocks never embed other blocks.
+
 ### Cache Architecture
 
 The cache lives in `/.stem/cache/` and is gitignored. It uses hybrid stat plus SHA invalidation: compare `dev`, `inode`, `size`, and integer `mtimeMs` first; compute SHA only when stat data indicates a possible change.

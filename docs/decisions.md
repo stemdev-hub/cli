@@ -40,6 +40,20 @@ The cache uses hybrid stat plus SHA invalidation. `dev` and `inode` are stored a
 
 Pure SHA invalidation was rejected because it requires reading every file before deciding whether parsing can be skipped. Pure mtime invalidation was rejected because Git operations can change mtimes without changing content.
 
+## Graph Layer Decisions
+
+The graph builder creates edges to missing nodes because its job is to faithfully represent what the files say. The validator decides whether those relationships are valid. Mixing those responsibilities would make both graph construction and validation harder to test.
+
+Cycles in `block-depends-on` edges are warnings rather than errors because tightly coupled blocks may legitimately need to be reviewed together whenever either changes. A hard error would block useful documentation workflows.
+
+Content embedding cycles are impossible by design: views embed blocks, but blocks do not embed other blocks. Dependency cycles describe maintenance relationships, not render-time transclusion.
+
+Traversal functions are pure and operate only on a provided `StemGraph`. They do not read files, mutate graph state, or cache hidden results, which keeps dependency traversal independently testable.
+
+Multiple filtered references from one view to the same block create multiple edges because each `section=` and `tag=` filter is a semantically distinct relationship. Collapsing them would lose precision needed by validators and renderers.
+
+`GraphBuildResult` and `GraphBuildIssue` stay in `core/graph/types.ts` instead of `core/types/` because they are internal to graph construction. Exposing them through the shared type barrel would leak implementation details to public consumers.
+
 ## Cache Layer Decisions
 
 Unsupported cache versions return empty cache state rather than errors. Cache files are always regeneratable, so blocking operations for a version mismatch would add friction without protecting source data.
