@@ -40,6 +40,16 @@ The cache uses hybrid stat plus SHA invalidation. `dev` and `inode` are stored a
 
 Pure SHA invalidation was rejected because it requires reading every file before deciding whether parsing can be skipped. Pure mtime invalidation was rejected because Git operations can change mtimes without changing content.
 
+## Cache Layer Decisions
+
+Unsupported cache versions return empty cache state rather than errors. Cache files are always regeneratable, so blocking operations for a version mismatch would add friction without protecting source data.
+
+`metadataChanged` is separate from `unchanged` because operations need to update cache metadata after Git checkouts or filesystem timestamp changes without triggering a reparse. Folding that case into `unchanged` would lose the information needed to refresh the cache entry.
+
+Conversion helpers live in `core/cache` because cache owns the persistence shape. `toCachedBlock` and `toCachedView` convert in-memory parsed objects into serializable records without importing parser implementation code.
+
+`FileStats` lives in `core/types/cache.ts` because normalized stats are a shared contract between filesystem reads, cache invalidation, and future operations. Keeping it local to `core/fs` would make cache depend on filesystem implementation files just to reference the stat shape.
+
 ## Type System Decisions
 
 Cached types and in-memory parsed types are separate. Cached types are serializable and omit positions; parsed types include positions for diagnostics.

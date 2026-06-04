@@ -1,6 +1,8 @@
 import { readFile as readTextFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
+import type { FileStats } from '@stem/types';
+
 export type FsErrorCode =
   | 'NOT_FOUND'
   | 'NO_PROJECT_ROOT'
@@ -13,14 +15,6 @@ export interface FsError {
   code: FsErrorCode;
   message: string;
   path: string;
-}
-
-export interface FileStats {
-  filePath: string;
-  size: number;
-  mtimeMs: number;
-  dev: string;
-  inode: string;
 }
 
 type FsResult<T> = { success: true; data: T } | { success: false; error: FsError };

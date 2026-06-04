@@ -85,7 +85,7 @@ Allowed imports:
 | `core/config/` | `core/fs/` and `core/types/` only |
 | `core/parser/` | Sibling files within `core/parser/`, `core/types/`, and approved external parser libraries only |
 | `core/graph/` | `core/types/` only |
-| `core/cache/` | `core/types/` only |
+| `core/cache/` | `core/fs/` and `core/types/` only |
 | `core/validator/` | `core/types/` only |
 | `core/fs/` | `core/types/` only |
 | `core/types/` | Sibling files within `core/types/` using `import type`; type-only imports from external packages where needed |
@@ -158,6 +158,7 @@ MVP syntax constraints are intentional:
 - ✅ Reads and writes `/.stem/cache/index.json` and `graph.json`
 - ✅ Implements hybrid stat+SHA cache invalidation logic
 - ✅ Determines which files need re-parsing
+- ✅ Converts parsed blocks/views into serializable cached records
 - ❌ Never parses files
 - ❌ Never builds graphs
 - ❌ Never validates anything

@@ -185,6 +185,16 @@ export interface StemGraph {
 }
 
 // cache.ts
+// Filesystem stats normalized for cross-platform cache invalidation.
+// Lives here because these stats exist primarily for cache invalidation.
+export interface FileStats {
+  filePath: string; // absolute OS-native path
+  size: number; // bytes
+  mtimeMs: number; // Math.trunc() enforced - integer milliseconds
+  dev: string; // stringified BigInt - device ID
+  inode: string; // stringified BigInt - inode number
+}
+
 export interface CacheIndexEntry {
   filePath: string;
   relativePath: string;
@@ -205,6 +215,31 @@ export interface CacheIndexEntry {
 export interface CacheIndex {
   version: string;
   entries: Record<string, CacheIndexEntry>;
+}
+
+export interface DiscoveredFile {
+  filePath: string;
+  relativePath: string;
+  type: 'block' | 'view';
+}
+
+// A single file's invalidation classification result
+export interface FileInvalidation {
+  filePath: string;
+  relativePath: string;
+  type: 'block' | 'view';
+  stats: FileStats;
+  sha256?: string; // present for 'changed' and 'metadataChanged' only
+  cached?: CacheIndexEntry; // present for all except 'added'
+}
+
+// Full result of running cache invalidation against a set of discovered files
+export interface CacheInvalidationResult {
+  added: FileInvalidation[]; // no cache entry exists
+  changed: FileInvalidation[]; // SHA differs from cached SHA
+  unchanged: FileInvalidation[]; // stats and SHA both match
+  metadataChanged: FileInvalidation[]; // SHA matches but stats differ
+  deleted: CacheIndexEntry[]; // cache entry exists but file not in discovered set
 }
 
 export interface GraphSnapshot {

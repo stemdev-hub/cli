@@ -2,7 +2,16 @@ import type { CachedBlock, DependencyRef } from './block.js';
 import type { GraphEdge, GraphNode } from './graph.js';
 import type { CachedView } from './view.js';
 
-// TODO: Define serializable cache records for hybrid stat plus SHA invalidation.
+// Filesystem stats normalized for cross-platform cache invalidation.
+// Lives here because these stats exist primarily for cache invalidation.
+export interface FileStats {
+  filePath: string;
+  size: number;
+  mtimeMs: number;
+  dev: string;
+  inode: string;
+}
+
 export interface CacheIndexEntry {
   filePath: string;
   relativePath: string;
@@ -18,6 +27,31 @@ export interface CacheIndexEntry {
 export interface CacheIndex {
   version: string;
   entries: Record<string, CacheIndexEntry>;
+}
+
+export interface DiscoveredFile {
+  filePath: string;
+  relativePath: string;
+  type: 'block' | 'view';
+}
+
+// A single file's invalidation classification result.
+export interface FileInvalidation {
+  filePath: string;
+  relativePath: string;
+  type: 'block' | 'view';
+  stats: FileStats;
+  sha256?: string;
+  cached?: CacheIndexEntry;
+}
+
+// Full result of running cache invalidation against a set of discovered files.
+export interface CacheInvalidationResult {
+  added: FileInvalidation[];
+  changed: FileInvalidation[];
+  unchanged: FileInvalidation[];
+  metadataChanged: FileInvalidation[];
+  deleted: CacheIndexEntry[];
 }
 
 export interface GraphSnapshot {

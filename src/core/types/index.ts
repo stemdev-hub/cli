@@ -20,7 +20,15 @@ export type {
 } from './block.js';
 export type { CachedBlockRef, CachedView, BlockRef, ParsedView } from './view.js';
 export type { NodeType, GraphNode, EdgeType, GraphEdge, StemGraph } from './graph.js';
-export type { CacheIndexEntry, CacheIndex, GraphSnapshot } from './cache.js';
+export type {
+  FileStats,
+  CacheIndexEntry,
+  CacheIndex,
+  DiscoveredFile,
+  FileInvalidation,
+  CacheInvalidationResult,
+  GraphSnapshot
+} from './cache.js';
 export type {
   IssueSeverity,
   IssueContextMap,

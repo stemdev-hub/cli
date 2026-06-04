@@ -85,6 +85,12 @@ The cache lives in `/.stem/cache/` and is gitignored. It uses hybrid stat plus S
 
 Cache entries store `dev` and `inode` as strings to avoid 64-bit truncation. `mtimeMs` is integer-truncated before storage. The dynamic graph is persisted only as a regeneratable cache snapshot under `/.stem/cache/`.
 
+Invalidation classifies discovered files as `added`, `changed`, `unchanged`, or `metadataChanged`. `metadataChanged` means filesystem metadata changed but SHA stayed the same, so operations can update cache metadata without reparsing. Cache entries not found in the discovered file set are `deleted`.
+
+Missing cache files return empty cache state rather than errors. Invalid cache JSON returns an error because corruption should be visible. Unsupported cache or graph snapshot versions return empty/null state because cache output is regeneratable.
+
+The cache module owns persistence-shape conversion through `toCachedBlock` and `toCachedView`, which strip positions and runtime-only parser fields before writing parsed data to disk.
+
 ### Block and Section Deletion
 
 `stem check` reports broken references. Delete operations warn when a block or section is referenced and require `--force` to proceed.
