@@ -54,6 +54,18 @@ Multiple filtered references from one view to the same block create multiple edg
 
 `GraphBuildResult` and `GraphBuildIssue` stay in `core/graph/types.ts` instead of `core/types/` because they are internal to graph construction. Exposing them through the shared type barrel would leak implementation details to public consumers.
 
+## Validator Layer Decisions
+
+The validator defines its build-issue input shape locally instead of importing `core/graph/types.ts`. TypeScript structural typing keeps graph build issues compatible while preserving the dependency rule that validator imports only shared core types.
+
+Broken reference checks use `ParsedView.blockRefs` rather than graph edges because block refs retain `raw` text and source positions for precise diagnostics. Graph edges intentionally keep only relationship metadata.
+
+Cycles and orphaned blocks are precomputed by operations because the validator must not import `core/graph/traverser.ts`. Operations can call traversal helpers and pass plain arrays into the pure validator.
+
+Schema loading is an operations responsibility. The validator receives an in-memory schema map and performs no file I/O, which keeps schema rules independently testable.
+
+Parser errors pass through operations separately because they are produced before the graph exists. The validator only reports issues it can derive from the graph, parsed files, build issues, precomputed traversal results, and schemas.
+
 ## Cache Layer Decisions
 
 Unsupported cache versions return empty cache state rather than errors. Cache files are always regeneratable, so blocking operations for a version mismatch would add friction without protecting source data.

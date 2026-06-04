@@ -87,6 +87,14 @@ The graph builder precomputes lookup maps for `blockUsedInViews`, `viewUsesBlock
 
 The builder records duplicate block/view IDs as graph build issues while keeping the first node. It still creates edges to missing nodes; the validator reports broken references later. Content embedding cycles are structurally impossible because views embed blocks and blocks never embed other blocks.
 
+### Validator
+
+The validator is a pure in-memory layer. It receives a `StemGraph`, parsed blocks, parsed views, graph build issues, loaded tag schemas, precomputed dependency cycles, and precomputed orphaned block IDs. It never reads files, loads schemas, parses Markdown, mutates the graph, or imports CLI code.
+
+Validation errors are duplicate IDs, broken block references, broken section references, unresolved tags, and schema violations. Validation warnings are circular dependencies, orphaned blocks, and duplicate tags inside one section.
+
+Parser issues such as invalid frontmatter and external tags that target missing sections are produced before graph validation and flow through operations separately. Schema files are loaded by operations and passed into the validator as a `Map` so schema validation stays pure and testable.
+
 ### Cache Architecture
 
 The cache lives in `/.stem/cache/` and is gitignored. It uses hybrid stat plus SHA invalidation: compare `dev`, `inode`, `size`, and integer `mtimeMs` first; compute SHA only when stat data indicates a possible change.
