@@ -1,6 +1,50 @@
 import type { ValidationResult } from './validation.js';
 
-// TODO: Define operation result contracts returned by core orchestration modules.
+export type OperationErrorCode =
+  | 'PROJECT_ROOT_NOT_FOUND'
+  | 'CONFIG_ERROR'
+  | 'FS_ERROR'
+  | 'CACHE_ERROR'
+  | 'SCHEMA_LOAD_ERROR'
+  | 'INVALID_OPERATION'
+  | 'CONFLICT';
+
+export interface OperationError {
+  code: OperationErrorCode;
+  message: string;
+  path?: string;
+  cause?: unknown;
+}
+
+export type OperationResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: OperationError };
+
+export interface ProjectOperationOptions {
+  startDir?: string;
+}
+
+export interface InitProjectOptions extends ProjectOperationOptions {
+  force?: boolean;
+}
+
+export interface CreateBlockOptions extends ProjectOperationOptions {
+  tag?: string;
+}
+
+export interface CreateViewOptions extends ProjectOperationOptions {
+  group?: string;
+}
+
+export interface AddRefOptions extends ProjectOperationOptions {
+  section?: string;
+  tag?: string;
+}
+
+export interface DeleteOptions extends ProjectOperationOptions {
+  force?: boolean;
+}
+
 export interface InitResult {
   projectRoot: string;
   blocksDir: string;

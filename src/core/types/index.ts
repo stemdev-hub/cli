@@ -36,6 +36,15 @@ export type {
   ValidationResult
 } from './validation.js';
 export type {
+  OperationErrorCode,
+  OperationError,
+  OperationResult,
+  ProjectOperationOptions,
+  InitProjectOptions,
+  CreateBlockOptions,
+  CreateViewOptions,
+  AddRefOptions,
+  DeleteOptions,
   InitResult,
   CreateBlockResult,
   CreateViewResult,
