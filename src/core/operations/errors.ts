@@ -34,3 +34,9 @@ export function fromConfigError(error: SourceError): OperationError {
 
   return operationError('CONFIG_ERROR', error.message, options);
 }
+
+export function fromCacheError(error: SourceError): OperationError {
+  const options = error.path === undefined ? { cause: error } : { path: error.path, cause: error };
+
+  return operationError('CACHE_ERROR', error.message, options);
+}
