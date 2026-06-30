@@ -39,9 +39,48 @@ export interface LoadedProject {
   schemas: Map<string, TagSchema>;
 }
 
+export interface LoadedProjectGraph {
+  projectRoot: string;
+  config: ResolvedStemConfig;
+  blockFiles: DiscoveredFile[];
+  viewFiles: DiscoveredFile[];
+  blocks: ParsedBlock[];
+  views: ParsedView[];
+  parserIssues: ValidationIssue[];
+  graph: StemGraph;
+  graphBuildIssues: GraphBuildIssue[];
+}
+
 export async function loadProjectForCheck(
   options: ProjectOperationOptions = {}
 ): Promise<OperationResult<LoadedProject>> {
+  const graphResult = await loadProjectGraph(options);
+  if (!graphResult.success) {
+    return graphResult;
+  }
+
+  const project = graphResult.data;
+  const cycles = detectCycles(project.graph);
+  const orphanedBlocks = getOrphanedBlocks(project.graph);
+  const schemasResult = await loadSchemas(project.projectRoot, project.config);
+  if (!schemasResult.success) {
+    return schemasResult;
+  }
+
+  return {
+    success: true,
+    data: {
+      ...project,
+      cycles,
+      orphanedBlocks,
+      schemas: schemasResult.data
+    }
+  };
+}
+
+export async function loadProjectGraph(
+  options: ProjectOperationOptions = {}
+): Promise<OperationResult<LoadedProjectGraph>> {
   const startDir = options.startDir ?? process.cwd();
   const projectRootResult = await findProjectRoot(startDir);
   if (!projectRootResult.success) {
@@ -73,12 +112,6 @@ export async function loadProjectForCheck(
   }
 
   const graphResult = buildGraph(parseResult.data.blocks, parseResult.data.views);
-  const cycles = detectCycles(graphResult.graph);
-  const orphanedBlocks = getOrphanedBlocks(graphResult.graph);
-  const schemasResult = await loadSchemas(projectRoot, config);
-  if (!schemasResult.success) {
-    return schemasResult;
-  }
 
   return {
     success: true,
@@ -91,10 +124,7 @@ export async function loadProjectForCheck(
       views: parseResult.data.views,
       parserIssues: parseResult.data.parserIssues,
       graph: graphResult.graph,
-      graphBuildIssues: graphResult.issues,
-      cycles,
-      orphanedBlocks,
-      schemas: schemasResult.data
+      graphBuildIssues: graphResult.issues
     }
   };
 }
