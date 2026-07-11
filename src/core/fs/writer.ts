@@ -82,6 +82,20 @@ export async function ensureDir(dirPath: string): Promise<FsEmptyResult> {
   }
 }
 
+export async function deleteFile(filePath: string): Promise<FsEmptyResult> {
+  const targetPath = path.resolve(filePath);
+
+  try {
+    await unlink(targetPath);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: toFsError(error, 'WRITE_FAILED', targetPath, `Failed to delete file: ${targetPath}.`)
+    };
+  }
+}
+
 async function fileExists(filePath: string): Promise<FsResult<boolean>> {
   try {
     const stats = await stat(filePath);
