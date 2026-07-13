@@ -1,19 +1,19 @@
 import type { Command } from 'commander';
 import { listBlocks, listViews } from '../../core/operations/list.js';
+import { reportListBlocks, reportListViews } from '../output.js';
 
-// TODO: Wire `stem list` subcommands to graph-backed listing operations.
 export function registerListCommand(program: Command): void {
   const list = program.command('list').description('List Stem blocks and views');
   list
     .command('blocks')
     .option('--tag <tag>')
-    .action(async () => {
-      await listBlocks();
+    .action(async (options: { tag?: string }) => {
+      reportListBlocks(await listBlocks(options.tag === undefined ? {} : { tag: options.tag }));
     });
   list
     .command('views')
     .option('--block <blockId>')
-    .action(async () => {
-      await listViews();
+    .action(async (options: { block?: string }) => {
+      reportListViews(await listViews(options.block === undefined ? {} : { blockId: options.block }));
     });
 }
