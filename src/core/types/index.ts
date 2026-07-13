@@ -45,6 +45,8 @@ export type {
   CreateViewOptions,
   AddRefOptions,
   DeleteOptions,
+  ListBlocksOptions,
+  ListViewsOptions,
   InitResult,
   CreateBlockResult,
   CreateViewResult,

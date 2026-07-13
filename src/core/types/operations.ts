@@ -45,6 +45,14 @@ export interface DeleteOptions extends ProjectOperationOptions {
   force?: boolean;
 }
 
+export interface ListBlocksOptions extends ProjectOperationOptions {
+  tag?: string;
+}
+
+export interface ListViewsOptions extends ProjectOperationOptions {
+  blockId?: string;
+}
+
 export interface InitResult {
   projectRoot: string;
   blocksDir: string;

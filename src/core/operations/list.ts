@@ -1,16 +1,17 @@
 import type {
   ListBlocksResult,
+  ListBlocksOptions,
   ListViewsResult,
+  ListViewsOptions,
   OperationResult,
   ParsedBlock,
   ParsedView,
-  ProjectOperationOptions,
   StemGraph
 } from '@stem/types';
 import { loadProjectGraph } from './project.js';
 
 export async function listBlocks(
-  options: ProjectOperationOptions = {}
+  options: ListBlocksOptions = {}
 ): Promise<OperationResult<ListBlocksResult>> {
   const projectResult = await loadProjectGraph(options);
   if (!projectResult.success) {
@@ -18,6 +19,7 @@ export async function listBlocks(
   }
 
   const blocks = [...projectResult.data.blocks]
+    .filter((block) => options.tag === undefined || block.tags.includes(options.tag))
     .sort(compareByRelativePath)
     .map((block) => toListBlock(block, projectResult.data.graph));
 
@@ -31,7 +33,7 @@ export async function listBlocks(
 }
 
 export async function listViews(
-  options: ProjectOperationOptions = {}
+  options: ListViewsOptions = {}
 ): Promise<OperationResult<ListViewsResult>> {
   const projectResult = await loadProjectGraph(options);
   if (!projectResult.success) {
@@ -39,6 +41,10 @@ export async function listViews(
   }
 
   const views = [...projectResult.data.views]
+    .filter((view) => {
+      const blockId = options.blockId;
+      return blockId === undefined || (projectResult.data.graph.viewUsesBlocks.get(view.id) ?? []).includes(blockId);
+    })
     .sort(compareByRelativePath)
     .map((view) => toListView(view, projectResult.data.graph));
 

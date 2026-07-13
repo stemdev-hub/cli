@@ -130,6 +130,31 @@ group: backend
     }
   });
 
+  it('filters blocks by tag', async () => {
+    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\ntags: [backend]\n---\nAuth block.\n');
+    await writeProjectFile(testRoot, 'blocks/billing.md', '---\nid: billing\ntags: [frontend]\n---\nBilling block.\n');
+
+    const result = await listBlocks({ startDir: testRoot, tag: 'backend' });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.blocks.map((block) => block.id)).toEqual(['auth']);
+    }
+  });
+
+  it('filters views by referenced block', async () => {
+    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile(testRoot, 'views/auth.md', '---\nid: auth-view\n---\n@stem[block:auth]\n');
+    await writeProjectFile(testRoot, 'views/empty.md', '---\nid: empty-view\n---\nNo refs.\n');
+
+    const result = await listViews({ startDir: testRoot, blockId: 'auth' });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.views.map((view) => view.id)).toEqual(['auth-view']);
+    }
+  });
+
   it('returns an operation error when no project root exists', async () => {
     const outsideRoot = await mkdtemp(path.join(tmpdir(), 'stem-list-outside-'));
 
