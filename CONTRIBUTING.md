@@ -208,34 +208,33 @@ MVP syntax constraints are intentional:
 
 ```text
 cli/commands/check.ts
-  → calls core/operations/check.ts
-    → core/fs/finder.ts        finds all block and view files
-    → core/cache/invalidator   determines which files changed
-    → core/fs/reader.ts        reads changed files
-    → core/parser/index.ts     parses changed files → ParsedBlock[] / ParsedView[]
-    → core/cache/index-store   updates cache entries
-    → core/graph/builder.ts    builds in-memory StemGraph
-    → core/validator/rules.ts  validates graph → ValidationIssue[]
-    → returns CheckResult to cli
-  → cli formats and prints issues
-  → cli sets process.exit(1) if hasErrors
+  -> calls core/operations/check.ts
+    -> core/fs/finder.ts        finds all block and view files
+    -> core/fs/reader.ts        reads source files
+    -> core/parser/index.ts     parses source files into ParsedBlock[] / ParsedView[]
+    -> core/graph/builder.ts    builds in-memory StemGraph
+    -> core/graph/traverser.ts  computes cycles and orphaned blocks
+    -> operations/schema loader loads tag schemas
+    -> core/validator/rules.ts  validates graph into ValidationIssue[]
+    -> returns CheckResult to cli
+  -> cli formats and prints issues
+  -> cli sets process.exitCode = 1 if hasErrors
 ```
 
 `stem sync` data flow:
 
 ```text
 cli/commands/sync.ts
-  → calls core/operations/sync.ts
-    → core/fs/finder.ts        scans all blocks and views
-    → core/cache/invalidator   determines what changed since last sync
-    → core/fs/reader.ts        reads changed files
-    → core/parser/index.ts     parses changed files
-    → core/cache/index-store   updates per-file cache entries
-    → core/graph/builder.ts    builds full in-memory graph
-    → core/graph/traverser.ts  detects any cycles → warnings
-    → core/cache/graph-store   writes graph snapshot to /.stem/cache/graph.json
-    → returns SyncResult to cli
-  → cli prints summary
+  -> calls core/operations/sync.ts
+    -> core/fs/finder.ts        scans all blocks and views
+    -> core/cache/invalidator   determines what changed since last sync
+    -> core/fs/reader.ts        reads changed files
+    -> core/parser/index.ts     parses changed files
+    -> core/cache/index-store   updates per-file cache entries
+    -> core/graph/builder.ts    builds full in-memory graph
+    -> core/cache/graph-store   writes graph snapshot to /.stem/cache/graph.json
+    -> returns SyncResult to cli
+  -> cli prints summary
 ```
 
 ### How to Add a New Feature

@@ -76,6 +76,18 @@ Conversion helpers live in `core/cache` because cache owns the persistence shape
 
 `FileStats` lives in `core/types/cache.ts` because normalized stats are a shared contract between filesystem reads, cache invalidation, and future operations. Keeping it local to `core/fs` would make cache depend on filesystem implementation files just to reference the stat shape.
 
+## Operations Layer Decisions
+
+Operations return `OperationResult<T>` rather than throwing for expected project, config, filesystem, cache, schema, conflict, and invalid-operation failures. This keeps the CLI thin: commands pass options into operations and format typed success or error results.
+
+`stem check` parses current source files directly and never writes cache files. This preserves full source-position diagnostics and keeps the command safe for CI and pre-commit use.
+
+`stem sync` is the cache-writing operation. It reads the cache index, runs hybrid invalidation, parses only added or changed files, reuses cached parsed records for unchanged files, writes `.stem/cache/index.json`, and writes the graph snapshot.
+
+List operations load the parsed in-memory graph without loading schemas. Listing should expose project metadata even if a schema file is temporarily invalid; schema correctness remains the job of `stem check`.
+
+Mutating operations edit source files only: create writes block/view scaffolds, add appends view references, delete removes block/view files after reference checks, and rename rewrites block IDs plus references. They do not update `.stem/cache/`; users run `stem sync` when they want to refresh regeneratable cache state.
+
 ## Type System Decisions
 
 Cached types and in-memory parsed types are separate. Cached types are serializable and omit positions; parsed types include positions for diagnostics.

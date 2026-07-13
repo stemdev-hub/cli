@@ -257,9 +257,9 @@ View fields:
 | Command | Purpose |
 | --- | --- |
 | `stem init` | Create `.stem`, `blocks`, `views`, built-in schemas, and gitignore cache entry |
+| `stem init --force` | Recreate scaffold files when they already exist |
 | `stem create block <name>` | Create a block |
 | `stem create block <name> --tag <tag>` | Create a block scaffolded for a schema tag |
-| `stem create block <name> --domain <domain>` | Create a block under a domain folder |
 | `stem create view <name>` | Create a view |
 | `stem create view <name> --group <path>` | Create a view inside a group |
 | `stem create group <path>` | Create a view group |
@@ -283,16 +283,16 @@ Post-MVP: MCP server, UI, editor extensions, preview/render/build, GitHub Action
 
 ## Success Criteria
 
-- [ ] `stem init` creates a working project in under 10 seconds.
-- [ ] Plain, sectioned, and tagged blocks can be created.
-- [ ] Views can compose whole blocks, sections, and tags.
-- [ ] Local view content works beside transclusions.
-- [ ] Parser ignores `@stem[]` inside code.
-- [ ] Two-pass parsing resolves external tag section membership.
-- [ ] `stem check` is read-only and reports structural issues.
-- [ ] `stem sync` is safe across Git branch switches.
-- [ ] The graph is never written to source files.
-- [ ] `.stem/cache/` is gitignored.
+- [x] `stem init` creates a working project scaffold.
+- [x] Plain and tagged blocks can be created.
+- [x] Views can reference whole blocks, sections, and tags.
+- [x] Local view content works beside transclusions.
+- [x] Parser ignores `@stem[]` inside code.
+- [x] Two-pass parsing resolves external tag section membership.
+- [x] `stem check` is read-only and reports structural issues.
+- [x] `stem sync` rebuilds cache state and graph snapshots from source files.
+- [x] The graph is never written to source files.
+- [x] `.stem/cache/` is gitignored by `stem init`.
 
 ## Tech Stack
 
@@ -324,11 +324,15 @@ Data flow for `stem check`:
 ```mermaid
 flowchart LR
   CLI["CLI command"] --> Ops["core/operations/check"]
-  Ops --> Cache["cache/invalidator"]
-  Ops --> Reader["fs/reader"]
+  Ops --> Finder["fs/finder"]
+  Finder --> Reader["fs/reader"]
+  Ops --> SchemaLoader["operations/schema loader"]
   Reader --> Parser["parser/index"]
   Parser --> Graph["graph/builder"]
+  Graph --> Traverser["graph/traverser"]
   Graph --> Validator["validator/rules"]
+  SchemaLoader --> Validator
+  Traverser --> Validator
   Validator --> CLI
 ```
 
