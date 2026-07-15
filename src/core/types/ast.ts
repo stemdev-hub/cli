@@ -1,6 +1,5 @@
 import type { Position } from './position.js';
 
-// TODO: Define custom Unified AST nodes emitted by the Stem remark plugin.
 export interface StemASTNode {
   type: string;
   data?: Record<string, unknown>;

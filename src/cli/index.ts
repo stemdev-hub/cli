@@ -9,7 +9,6 @@ import { registerListCommand } from './commands/list.js';
 import { registerRenameCommand } from './commands/rename.js';
 import { registerSyncCommand } from './commands/sync.js';
 
-// TODO: Register the Stem CLI command tree and delegate all behavior to core operations.
 export function createStemProgram(): Command {
   const program = new Command();
   program.name('stem').description('Git-native documentation graphs for developers');

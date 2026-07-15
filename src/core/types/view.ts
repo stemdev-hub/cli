@@ -1,6 +1,5 @@
 import type { Position } from './position.js';
 
-// TODO: Define cached and parsed view file contracts.
 export interface CachedBlockRef {
   blockId: string;
   section: string | null;

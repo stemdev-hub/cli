@@ -1,6 +1,5 @@
 import type { DependencyRef } from './block.js';
 
-// TODO: Define graph node, edge, and lookup structures.
 export type NodeType = 'block' | 'view';
 
 export interface GraphNode {

@@ -1,4 +1,3 @@
-// TODO: Define unist-compatible source position primitives used by parser diagnostics.
 export interface Point {
   line: number;
   column: number;

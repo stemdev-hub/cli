@@ -1,6 +1,5 @@
 import type { Position } from './position.js';
 
-// TODO: Define validation issue contracts and strongly typed diagnostic contexts.
 export type IssueSeverity = 'error' | 'warning';
 
 export interface IssueContextMap {

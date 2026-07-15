@@ -1,4 +1,3 @@
-// TODO: Re-export all shared types from one type-only barrel.
 export type { Point, Position } from './position.js';
 export type {
   StemASTNode,

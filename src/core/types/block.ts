@@ -1,6 +1,5 @@
 import type { Position } from './position.js';
 
-// TODO: Define cached and parsed block data contracts.
 export interface DependencyRef {
   blockId: string;
   section: string | null;
