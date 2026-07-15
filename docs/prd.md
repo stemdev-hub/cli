@@ -107,9 +107,9 @@ Missing cache files return empty cache state rather than errors. Invalid cache J
 
 The cache module owns persistence-shape conversion through `toCachedBlock` and `toCachedView`, which strip positions and runtime-only parser fields before writing parsed data to disk.
 
-### Block and Section Deletion
+### Block and View Deletion
 
-`stem check` reports broken references. Delete operations warn when a block or section is referenced and require `--force` to proceed.
+`stem check` reports broken references. `stem delete block` warns when a block is referenced and requires `--force` to proceed. `stem delete view` removes a view file. Section-level deletion is not part of the current CLI surface.
 
 ### Parser Strategy
 
@@ -127,29 +127,29 @@ The spike recognized all supported reference forms, rejected empty, colonless, a
 @stem[type:identifier params]
 ```
 
-| Type | Syntax | Purpose |
-| --- | --- | --- |
-| `block` | `@stem[block:auth-flow-block]` | Transclude a whole block |
+| Type             | Syntax                            | Purpose                     |
+| ---------------- | --------------------------------- | --------------------------- |
+| `block`          | `@stem[block:auth-flow-block]`    | Transclude a whole block    |
 | `block` filtered | `@stem[block:id section=x tag=y]` | Transclude filtered content |
-| `dep` | `@stem[dep:block-id]` | Declare a block dependency |
-| `dep` scoped | `@stem[dep:block-id#section.tag]` | Declare a scoped dependency |
-| `section` | `@stem[section:name]` | Define a section |
-| `tag` | `@stem[tag:name]` | Define tagged content |
-| `tag` scoped | `@stem[tag:name section=x]` | Bind tag to a section |
-| `end` | `@stem[end]` | Close a section or tag |
+| `dep`            | `@stem[dep:block-id]`             | Declare a block dependency  |
+| `dep` scoped     | `@stem[dep:block-id#section.tag]` | Declare a scoped dependency |
+| `section`        | `@stem[section:name]`             | Define a section            |
+| `tag`            | `@stem[tag:name]`                 | Define tagged content       |
+| `tag` scoped     | `@stem[tag:name section=x]`       | Bind tag to a section       |
+| `end`            | `@stem[end]`                      | Close a section or tag      |
 
 Behavior rules:
 
-| Situation | Behavior |
-| --- | --- |
-| Multiple tag matches across sections | Concatenate in document order |
-| Duplicate tag in same section | Concatenate and warn |
-| Missing block reference | Error |
-| Missing section reference | Error |
-| Missing tag reference | Warning or typed unresolved-tag issue |
-| Cross-block section membership | Error |
-| Circular `depends-on` | Warning, traversal uses visited set |
-| Syntax inside code spans/fences | Ignored |
+| Situation                            | Behavior                              |
+| ------------------------------------ | ------------------------------------- |
+| Multiple tag matches across sections | Concatenate in document order         |
+| Duplicate tag in same section        | Concatenate and warn                  |
+| Missing block reference              | Error                                 |
+| Missing section reference            | Error                                 |
+| Missing tag reference                | Warning or typed unresolved-tag issue |
+| Cross-block section membership       | Error                                 |
+| Circular `depends-on`                | Warning, traversal uses visited set   |
+| Syntax inside code spans/fences      | Ignored                               |
 
 Parser rules:
 
@@ -239,41 +239,41 @@ All fields are optional in the raw config. Missing `version` defaults to `"1"`, 
 
 Block fields:
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| `id` | Yes | Globally unique block ID |
-| `tags` | No | Block-level labels |
-| `depends-on` | No | Whole-block or scoped dependency refs |
+| Field        | Required | Notes                                 |
+| ------------ | -------- | ------------------------------------- |
+| `id`         | Yes      | Globally unique block ID              |
+| `tags`       | No       | Block-level labels                    |
+| `depends-on` | No       | Whole-block or scoped dependency refs |
 
 View fields:
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| `id` | Yes | Unique view ID |
-| `group` | No | Path under `/views` |
+| Field   | Required | Notes               |
+| ------- | -------- | ------------------- |
+| `id`    | Yes      | Unique view ID      |
+| `group` | No       | Path under `/views` |
 
 ## CLI Commands
 
-| Command | Purpose |
-| --- | --- |
-| `stem init` | Create `.stem`, `blocks`, `views`, built-in schemas, and gitignore cache entry |
-| `stem init --force` | Recreate scaffold files when they already exist |
-| `stem create block <name>` | Create a block |
-| `stem create block <name> --tag <tag>` | Create a block scaffolded for a schema tag |
-| `stem create view <name>` | Create a view |
-| `stem create view <name> --group <path>` | Create a view inside a group |
-| `stem create group <path>` | Create a view group |
-| `stem rename <old-id> <new-id>` | Rename a block ID and update references |
-| `stem delete block <id> [--force]` | Delete a block after reference checks |
-| `stem delete view <id>` | Delete a view |
-| `stem add <block-id> to <view-id>` | Insert a block reference |
-| `stem add <block-id> to <view-id> --section <s> --tag <t>` | Insert a filtered block reference |
-| `stem sync` | Rebuild the dynamic graph cache |
-| `stem check` | Read-only validation |
-| `stem list blocks` | List blocks with usage counts |
-| `stem list blocks --tag <tag>` | Filter blocks by tag |
-| `stem list views` | List views and referenced blocks |
-| `stem list views --block <block-id>` | List views that reference a block |
+| Command                                                    | Purpose                                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `stem init`                                                | Create `.stem`, `blocks`, `views`, built-in schemas, and gitignore cache entry |
+| `stem init --force`                                        | Recreate scaffold files when they already exist                                |
+| `stem create block <name>`                                 | Create a block                                                                 |
+| `stem create block <name> --tag <tag>`                     | Create a block scaffolded for a schema tag                                     |
+| `stem create view <name>`                                  | Create a view                                                                  |
+| `stem create view <name> --group <path>`                   | Create a view inside a group                                                   |
+| `stem create group <path>`                                 | Create a view group                                                            |
+| `stem rename <old-id> <new-id>`                            | Rename a block ID and update references                                        |
+| `stem delete block <id> [--force]`                         | Delete a block after reference checks                                          |
+| `stem delete view <id>`                                    | Delete a view                                                                  |
+| `stem add <block-id> to <view-id>`                         | Insert a block reference                                                       |
+| `stem add <block-id> to <view-id> --section <s> --tag <t>` | Insert a filtered block reference                                              |
+| `stem sync`                                                | Rebuild the dynamic graph cache                                                |
+| `stem check`                                               | Read-only validation                                                           |
+| `stem list blocks`                                         | List blocks with usage counts                                                  |
+| `stem list blocks --tag <tag>`                             | Filter blocks by tag                                                           |
+| `stem list views`                                          | List views and referenced blocks                                               |
+| `stem list views --block <block-id>`                       | List views that reference a block                                              |
 
 ## MVP Scope
 
@@ -296,20 +296,20 @@ Post-MVP: MCP server, UI, editor extensions, preview/render/build, GitHub Action
 
 ## Tech Stack
 
-| Area | Choice |
-| --- | --- |
-| Language | TypeScript |
-| Runtime | Node.js ESM |
-| Package manager | pnpm |
-| CLI | commander.js |
-| Markdown | remark and unified |
-| AST traversal | unist-util-visit |
-| Frontmatter | gray-matter |
-| File scanning | fast-glob |
-| Testing | vitest |
-| Linting | ESLint with TypeScript plugin |
-| Formatting | Prettier |
-| Build | tsup |
+| Area            | Choice                        |
+| --------------- | ----------------------------- |
+| Language        | TypeScript                    |
+| Runtime         | Node.js ESM                   |
+| Package manager | pnpm                          |
+| CLI             | commander.js                  |
+| Markdown        | remark and unified            |
+| AST traversal   | unist-util-visit              |
+| Frontmatter     | gray-matter                   |
+| File scanning   | fast-glob                     |
+| Testing         | vitest                        |
+| Linting         | ESLint with TypeScript plugin |
+| Formatting      | Prettier                      |
+| Build           | tsup                          |
 
 ## System Architecture
 

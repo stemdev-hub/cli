@@ -24,6 +24,8 @@ pnpm lint
 pnpm build
 ```
 
+In some sandboxed environments, `pnpm build` can fail when esbuild scans parent directories and hits filesystem access denial. Rerun the build with broader filesystem access before treating that failure as a code or bundling issue.
+
 ## Contribution Rules
 
 - Keep the CLI as a thin shell over `src/core/operations/`.
@@ -53,43 +55,42 @@ Stem is deliberately layered. Every module has one job and a narrow set of allow
 ### The Layer Model
 
 ```text
-┌─────────────────────────────────┐
-│         CLI Layer               │  src/cli/commands/
-│  (formats output, parses args)  │
-└────────────────┬────────────────┘
-                 │ calls
-┌────────────────▼────────────────┐
-│       Operations Layer          │  src/core/operations/
-│  (orchestrates, coordinates)    │
-└──┬──────┬──────┬──────┬─────┬──┘
-   │      │      │      │     │ calls
-┌──▼─┐ ┌──▼─┐ ┌─▼──┐ ┌─▼─┐ ┌▼───┐
-│ fs │ │pars│ │grph│ │cch│ │vald│   src/core/{fs, parser, graph, cache, validator}
-│    │ │er  │ │    │ │   │ │    │
-└──┬─┘ └──┬─┘ └─┬──┘ └─┬─┘ └┬───┘
-   │      │     │      │    │ imports
-┌──▼──────▼─────▼──────▼────▼───┐
-│           Types Layer          │  src/core/types/
-│   (shared interfaces only)     │
-└────────────────────────────────┘
++----------------------------------+  src/cli/commands/
+|            CLI Layer             |
+|   formats output, parses args    |
++----------------+-----------------+
+                 | calls
++----------------v-----------------+  src/core/operations/
+|        Operations Layer           |
+|     orchestrates, coordinates     |
++----+--------+--------+------+----+
+     |        |        |      | calls
+  +--v--+  +--v---+  +-v--+ +-v--+ +-v---+
+  | fs  |  |parser|  |graph| |cache| |valid|
+  +--+--+  +--+---+  +-+--+ +-+--+ +-+---+
+     |        |        |      |      | imports
++----v--------v--------v------v------v----+  src/core/types/
+|               Types Layer              |
+|          shared interfaces only        |
++----------------------------------------+
 ```
 
 ### Dependency Rules
 
 Allowed imports:
 
-| From | May Import |
-| --- | --- |
-| `cli/commands/` | `core/operations/` only |
-| `core/operations/` | `core/fs/`, `core/config/`, `core/parser/`, `core/graph/`, `core/cache/`, `core/validator/`, `core/types/` |
-| `core/config/` | `core/fs/` and `core/types/` only |
-| `core/parser/` | Sibling files within `core/parser/`, `core/types/`, and approved external parser libraries only |
-| `core/graph/` | `core/types/` only |
-| `core/cache/` | `core/fs/` and `core/types/` only |
-| `core/validator/` | `core/types/` only |
-| `core/fs/` | `core/types/` only |
-| `core/types/` | Sibling files within `core/types/` using `import type`; type-only imports from external packages where needed |
-| `src/index.ts` | `core/config/`, `core/operations/`, and `core/types/` only, as the public API export |
+| From               | May Import                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `cli/commands/`    | `core/operations/` only                                                                                       |
+| `core/operations/` | `core/fs/`, `core/config/`, `core/parser/`, `core/graph/`, `core/cache/`, `core/validator/`, `core/types/`    |
+| `core/config/`     | `core/fs/` and `core/types/` only                                                                             |
+| `core/parser/`     | Sibling files within `core/parser/`, `core/types/`, and approved external parser libraries only               |
+| `core/graph/`      | `core/types/` only                                                                                            |
+| `core/cache/`      | `core/fs/` and `core/types/` only                                                                             |
+| `core/validator/`  | `core/types/` only                                                                                            |
+| `core/fs/`         | `core/types/` only                                                                                            |
+| `core/types/`      | Sibling files within `core/types/` using `import type`; type-only imports from external packages where needed |
+| `src/index.ts`     | `core/config/`, `core/operations/`, and `core/types/` only, as the public API export                          |
 
 Forbidden imports:
 
@@ -107,35 +108,35 @@ Forbidden imports:
 
 #### `core/fs/`
 
-- ✅ Finding project root by walking up directory tree
-- ✅ Scanning `/blocks` and `/views` folders
-- ✅ Reading file content and file stats
-- ✅ Writing files safely (atomic writes)
-- ❌ Never parses content
-- ❌ Never builds graphs
-- ❌ Never validates anything
+- OK: Finding project root by walking up directory tree
+- OK: Scanning `/blocks` and `/views` folders
+- OK: Reading file content and file stats
+- OK: Writing files safely (atomic writes)
+- Never: Parses content
+- Never: Builds graphs
+- Never: Validates anything
 
 #### `core/config/`
 
-- ✅ Loads `.stem/config.json`
-- ✅ Applies default config values
-- ✅ Normalizes config paths to project-relative POSIX paths
-- ✅ Rejects unsupported config versions and unsafe paths
-- ❌ Never parses Markdown content
-- ❌ Never scans block or view files
-- ❌ Never builds graphs or validates documentation content
+- OK: Loads `.stem/config.json`
+- OK: Applies default config values
+- OK: Normalizes config paths to project-relative POSIX paths
+- OK: Rejects unsupported config versions and unsafe paths
+- Never: Parses Markdown content
+- Never: Scans block or view files
+- Never: Builds graphs or validates documentation content
 
 #### `core/parser/`
 
-- ✅ Takes a file content string as input
-- ✅ Extracts YAML frontmatter
-- ✅ Parses `@stem[]` syntax into AST nodes
-- ✅ Resolves section/tag relationships via two-pass algorithm
-- ✅ Returns typed `ParsedBlock` or `ParsedView` objects
-- ✅ Depends on `unist-util-visit` as a direct runtime dependency for Remark AST traversal
-- ❌ Never reads files itself - receives content as string input
-- ❌ Never writes files
-- ❌ Never knows about the graph or cache
+- OK: Takes a file content string as input
+- OK: Extracts YAML frontmatter
+- OK: Parses `@stem[]` syntax into AST nodes
+- OK: Resolves section/tag relationships via two-pass algorithm
+- OK: Returns typed `ParsedBlock` or `ParsedView` objects
+- OK: Depends on `unist-util-visit` as a direct runtime dependency for Remark AST traversal
+- Never: Reads files itself - receives content as string input
+- Never: Writes files
+- Never: Knows about the graph or cache
 
 MVP syntax constraints are intentional:
 
@@ -145,62 +146,62 @@ MVP syntax constraints are intentional:
 
 #### `core/graph/`
 
-- ✅ Takes parsed file data as input
-- ✅ Builds the in-memory connection graph
-- ✅ Traverses the graph for dependency resolution
-- ✅ Detects cycles using visited-set depth-first search
-- ❌ Never reads files
-- ❌ Never writes files
-- ❌ Never validates schema rules
+- OK: Takes parsed file data as input
+- OK: Builds the in-memory connection graph
+- OK: Traverses the graph for dependency resolution
+- OK: Detects cycles using visited-set depth-first search
+- Never: Reads files
+- Never: Writes files
+- Never: Validates schema rules
 
 #### `core/cache/`
 
-- ✅ Reads and writes `/.stem/cache/index.json` and `graph.json`
-- ✅ Implements hybrid stat+SHA cache invalidation logic
-- ✅ Determines which files need re-parsing
-- ✅ Converts parsed blocks/views into serializable cached records
-- ❌ Never parses files
-- ❌ Never builds graphs
-- ❌ Never validates anything
-- ❌ Never contains business logic
+- OK: Reads and writes `/.stem/cache/index.json` and `graph.json`
+- OK: Implements hybrid stat+SHA cache invalidation logic
+- OK: Determines which files need re-parsing
+- OK: Converts parsed blocks/views into serializable cached records
+- Never: Parses files
+- Never: Builds graphs
+- Never: Validates anything
+- Never: Contains business logic
 
 #### `core/validator/`
 
-- ✅ Takes a graph as input
-- ✅ Returns a list of validation issues
-- ✅ Checks all validation rules (duplicate IDs, broken refs, schema violations, etc.)
-- ❌ Never reads or writes files
-- ❌ Never modifies the graph
-- ❌ No side effects of any kind - pure input -> output function
+- OK: Takes a graph as input
+- OK: Returns a list of validation issues
+- OK: Checks all validation rules (duplicate IDs, broken refs, schema violations, etc.)
+- Never: Reads or writes files
+- Never: Modifies the graph
+- Never: Has side effects of any kind - pure input -> output function
 
 #### `core/operations/`
 
-- ✅ The only layer that coordinates multiple core modules together
-- ✅ Orchestrates the full data flow for each CLI command
-- ✅ Calls fs -> parser -> graph -> cache -> validator in the right order
-- ❌ Never contains low-level implementation details
-- ❌ Never directly reads files (delegates to fs)
-- ❌ Never directly parses content (delegates to parser)
+- OK: The only layer that coordinates multiple core modules together
+- OK: Orchestrates the full data flow for each CLI command
+- OK: Calls fs -> parser -> graph -> cache -> validator in the right order
+- Never: Contains low-level implementation details
+- Never: Directly reads files (delegates to fs)
+- Never: Directly parses content (delegates to parser)
 
 #### `cli/commands/`
 
-- ✅ Parses CLI arguments and options
-- ✅ Calls the corresponding operation
-- ✅ Formats the operation result for terminal output
-- ✅ Sets process exit codes
-- ❌ Never contains business logic
-- ❌ Never calls core modules directly - always through operations
-- ❌ Never formats error messages from raw strings - always formats typed result objects
+- OK: Parses CLI arguments and options
+- OK: Calls the corresponding operation
+- OK: Formats the operation result for terminal output
+- OK: Sets process exit codes
+- Never: Contains business logic
+- Never: Calls core modules directly - always through operations
+- Never: Formats error messages from raw strings - always formats typed result objects
 
 #### `core/types/`
 
-- ✅ Defines all shared TypeScript interfaces
-- ✅ Exports everything through `index.ts` using `export type`
-- ✅ All cross-file imports within `core/types/` use `import type`
-- ❌ Never contains runtime logic
-- ❌ Never uses runtime imports between type files
-- ❌ Never imports from another internal layer
-- ❌ No `import type` circular dependencies
+- OK: Defines all shared TypeScript interfaces
+- OK: Exports everything through `index.ts` using `export type`
+- OK: All cross-file imports within `core/types/` use `import type`
+- Never: Contains runtime logic
+- Never: Uses runtime imports between type files
+- Never: Imports from another internal layer
+- Never: Has `import type` circular dependencies
 
 ### Data Flow Examples
 
