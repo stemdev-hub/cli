@@ -166,6 +166,55 @@ Endpoint summary.
     });
   }, cliTestTimeoutMs);
 
+  it('reports duplicate create conflicts on stderr with a non-zero exit code', async () => {
+    await createStemProject(testRoot);
+
+    const firstResult = await runStem(['create', 'block', 'Auth']);
+    const duplicateResult = await runStem(['create', 'block', 'Auth']);
+
+    expect(firstResult.exitCode).toBe(0);
+    expect(duplicateResult.exitCode).toBe(1);
+    expect(duplicateResult.stdout).toBe('');
+    expect(duplicateResult.stderr).toContain(`File already exists: ${path.join(testRoot, 'blocks/auth-block.md')}`);
+  }, cliTestTimeoutMs);
+
+  it('refuses to delete referenced blocks without --force', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
+
+    const result = await runStem(['delete', 'block', 'auth']);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: '',
+      stderr: 'Block "auth" is still referenced by: api-view.\n'
+    });
+    await expect(readProjectFile('blocks/auth.md')).resolves.toContain('Auth block.');
+  }, cliTestTimeoutMs);
+
+  it('rejects add commands without the documented "to" connective', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\nView.\n');
+
+    const result = await runStem(['add', 'auth', 'into', 'api-view']);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: '',
+      stderr: 'Usage: stem add <block-id> to <view-id>\n'
+    });
+  }, cliTestTimeoutMs);
+
+  it('reports commands run outside a Stem project on stderr with a non-zero exit code', async () => {
+    const result = await runStem(['list', 'blocks']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain(`No Stem project root found from ${testRoot}.`);
+  }, cliTestTimeoutMs);
+
   async function runStem(args: string[]): Promise<CliResult> {
     try {
       const { stdout, stderr } = await execFileAsync(process.execPath, [tsxCli, cliEntry, ...args], {
