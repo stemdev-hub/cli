@@ -53,6 +53,16 @@ export interface ListViewsOptions extends ProjectOperationOptions {
   blockId?: string;
 }
 
+export interface RenderOptions extends ProjectOperationOptions {
+  outDir?: string;
+}
+
+export interface RenderViewOptions extends RenderOptions {
+  stdout?: boolean;
+}
+
+export type RenderAllOptions = RenderOptions;
+
 export interface InitResult {
   projectRoot: string;
   blocksDir: string;
@@ -141,4 +151,18 @@ export interface ListViewsResult {
     blockIds: string[];
   }>;
   total: number;
+}
+
+export interface RenderedViewResult {
+  id: string;
+  relativePath: string;
+  outputPath: string | null;
+  outputRelativePath: string | null;
+  markdown: string | null;
+}
+
+export interface RenderResult {
+  views: RenderedViewResult[];
+  total: number;
+  outDir: string | null;
 }

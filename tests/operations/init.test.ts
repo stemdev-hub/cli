@@ -39,7 +39,7 @@ describe('initProject', () => {
     });
     await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toContain('name: api');
     await expect(readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')).resolves.toContain('name: adr');
-    await expect(readFile(path.join(testRoot, '.gitignore'), 'utf8')).resolves.toBe('.stem/cache/\n');
+    await expect(readFile(path.join(testRoot, '.gitignore'), 'utf8')).resolves.toBe('.stem/cache/\nrendered/\n');
   });
 
   it('returns a conflict when config already exists without force', async () => {
@@ -75,7 +75,7 @@ describe('initProject', () => {
     await initProject({ startDir: testRoot, force: true });
 
     await expect(readFile(path.join(testRoot, '.gitignore'), 'utf8')).resolves.toBe(
-      'node_modules\n.stem/cache/\n'
+      'node_modules\n.stem/cache/\nrendered/\n'
     );
   });
 

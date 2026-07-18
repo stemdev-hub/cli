@@ -124,6 +124,8 @@ The parser must ignore fenced code blocks and inline code spans so Stem can docu
 
 Raw view files with `@stem[]` macros are accepted as an MVP tradeoff. Rendered preview and PR rendering belong post-MVP; source files stay explicit and powerful.
 
+Stem renders to Markdown before HTML or static-site output. Markdown output keeps Stem focused on composition and lets projects feed generated files into MkDocs, Docusaurus, GitHub Pages, Pandoc, or any other publishing pipeline. HTML export, local preview servers, navigation generation, and link rewriting remain later features.
+
 Market research compared Stem with DITA, Antora, Paligo, Swimm, Archbee, Structurizr, Obsidian, Dendron, and Logseq. The durable gap is the combination of Git-native Markdown, dynamic graphing without file mutation, section/tag filtered transclusion, and progressive enhancement for developer teams.
 
 ## Parser Implementation Decisions

@@ -166,6 +166,54 @@ Endpoint summary.
     });
   }, cliTestTimeoutMs);
 
+  it('renders one view to Markdown', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n# API\n\n@stem[block:auth]\n');
+
+    const result = await runStem(['render', 'view', 'api-view']);
+
+    expect(result).toEqual({
+      exitCode: 0,
+      stdout: 'Rendered api-view to rendered/api.md\n1 view rendered\n',
+      stderr: ''
+    });
+    await expect(readProjectFile('rendered/api.md')).resolves.toBe('---\nid: api-view\n---\n# API\n\nAuth block.\n');
+  }, cliTestTimeoutMs);
+
+  it('renders one view to stdout without writing files', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
+
+    const result = await runStem(['render', 'view', 'api-view', '--stdout']);
+
+    expect(result).toEqual({
+      exitCode: 0,
+      stdout: '---\nid: api-view\n---\nAuth block.\n',
+      stderr: ''
+    });
+    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
+  }, cliTestTimeoutMs);
+
+  it('renders all views to a custom output directory', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile('views/backend/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
+    await writeProjectFile('views/ops/runbook.md', '---\nid: runbook-view\n---\nRunbook.\n');
+
+    const result = await runStem(['render', 'all', '--out', 'published']);
+
+    expect(result).toEqual({
+      exitCode: 0,
+      stdout:
+        'Rendered api-view to published/backend/api.md\nRendered runbook-view to published/ops/runbook.md\n2 views rendered\n',
+      stderr: ''
+    });
+    await expect(readProjectFile('published/backend/api.md')).resolves.toContain('Auth block.');
+    await expect(readProjectFile('published/ops/runbook.md')).resolves.toContain('Runbook.');
+  }, cliTestTimeoutMs);
+
   it('reports duplicate create conflicts on stderr with a non-zero exit code', async () => {
     await createStemProject(testRoot);
 
@@ -209,6 +257,14 @@ Endpoint summary.
 
   it('reports commands run outside a Stem project on stderr with a non-zero exit code', async () => {
     const result = await runStem(['list', 'blocks']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain(`No Stem project root found from ${testRoot}.`);
+  }, cliTestTimeoutMs);
+
+  it('reports render outside a Stem project on stderr with a non-zero exit code', async () => {
+    const result = await runStem(['render', 'view', 'api-view']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');

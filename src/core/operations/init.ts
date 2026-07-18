@@ -83,7 +83,7 @@ interface BuiltInSchema {
   content: string;
 }
 
-const GITIGNORE_CACHE_ENTRY = '.stem/cache/';
+const GITIGNORE_ENTRIES = ['.stem/cache/', 'rendered/'];
 
 const BUILT_IN_SCHEMAS: BuiltInSchema[] = [
   {
@@ -155,20 +155,21 @@ async function ensureGitignoreCacheEntry(projectRoot: string): Promise<Operation
       return { success: false, error: fromFsError(readResult.error) };
     }
 
-    return writeProjectFile(gitignorePath, `${GITIGNORE_CACHE_ENTRY}\n`, false);
+    return writeProjectFile(gitignorePath, `${GITIGNORE_ENTRIES.join('\n')}\n`, false);
   }
 
-  if (hasGitignoreCacheEntry(readResult.data)) {
+  const missingEntries = GITIGNORE_ENTRIES.filter((entry) => !hasGitignoreEntry(readResult.data, entry));
+  if (missingEntries.length === 0) {
     return { success: true, data: undefined };
   }
 
   const separator = readResult.data.length === 0 || readResult.data.endsWith('\n') ? '' : '\n';
-  return writeProjectFile(gitignorePath, `${readResult.data}${separator}${GITIGNORE_CACHE_ENTRY}\n`, true);
+  return writeProjectFile(gitignorePath, `${readResult.data}${separator}${missingEntries.join('\n')}\n`, true);
 }
 
-function hasGitignoreCacheEntry(content: string): boolean {
+function hasGitignoreEntry(content: string, entry: string): boolean {
   return content
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .some((line) => line === GITIGNORE_CACHE_ENTRY || line === `/${GITIGNORE_CACHE_ENTRY}`);
+    .some((line) => line === entry || line === `/${entry}`);
 }

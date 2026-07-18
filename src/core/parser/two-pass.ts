@@ -22,6 +22,11 @@ interface OpenTag {
   contentStartOffset: number | null;
 }
 
+interface OpenSection {
+  section: StemSection;
+  contentStartOffset: number | null;
+}
+
 interface TwoPassState {
   sections: StemSection[];
   sectionRegistry: Map<string, StemSection>;
@@ -29,7 +34,7 @@ interface TwoPassState {
   externalTags: StemTag[];
   blockRefs: BlockRef[];
   dependencies: DependencyRef[];
-  currentSection: StemSection | null;
+  currentSection: OpenSection | null;
   currentTag: OpenTag | null;
 }
 
@@ -118,7 +123,7 @@ function openSection(
     prose: node.prose,
     position: requirePosition(node.position)
   };
-  state.currentSection = section;
+  state.currentSection = { section, contentStartOffset: node.position?.end.offset ?? null };
   state.sections.push(section);
   state.sectionRegistry.set(node.name, section);
 }
@@ -126,7 +131,7 @@ function openSection(
 function openTag(state: TwoPassState, node: Extract<StemSyntaxNode, { type: 'stemTag' }>): void {
   const tag: StemTag = {
     name: node.name,
-    section: node.section ?? state.currentSection?.name ?? null,
+    section: node.section ?? state.currentSection?.section.name ?? null,
     content: '',
     position: requirePosition(node.position)
   };
@@ -134,7 +139,7 @@ function openTag(state: TwoPassState, node: Extract<StemSyntaxNode, { type: 'ste
   if (node.section !== null) {
     state.externalTags.push(tag);
   } else if (state.currentSection !== null) {
-    state.currentSection.tags.push(tag);
+    state.currentSection.section.tags.push(tag);
   } else {
     state.standaloneTags.push(tag);
   }
@@ -150,7 +155,20 @@ function closeCurrentScope(tree: StemRoot, state: TwoPassState, node: StemEndNod
     state.currentTag = null;
     return;
   }
-  state.currentSection = null;
+  if (state.currentSection !== null) {
+    state.currentSection.section.prose = extractContent(
+      tree,
+      state.currentSection.contentStartOffset,
+      node.position?.start.offset
+    );
+    if (node.position !== undefined) {
+      state.currentSection.section.position = {
+        start: state.currentSection.section.position.start,
+        end: node.position.end
+      };
+    }
+    state.currentSection = null;
+  }
 }
 
 function extractContent(

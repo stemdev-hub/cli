@@ -10,6 +10,7 @@ import type {
   ListViewsResult,
   OperationError,
   OperationResult,
+  RenderResult,
   RenameResult,
   SyncResult
 } from '@stem/types';
@@ -134,4 +135,21 @@ export function reportListViews(result: OperationResult<ListViewsResult>): void 
     console.log(`${view.id}\t${view.relativePath}\tgroup:${group}\tblocks:${blocks}`);
   }
   console.log(`${result.data.total} view${result.data.total === 1 ? '' : 's'}`);
+}
+
+export function reportRender(result: OperationResult<RenderResult>): void {
+  if (reportOperationError(result)) {
+    return;
+  }
+
+  const stdoutView = result.data.views.find((view) => view.markdown !== null);
+  if (stdoutView?.markdown !== undefined && stdoutView.markdown !== null) {
+    process.stdout.write(stdoutView.markdown);
+    return;
+  }
+
+  for (const view of result.data.views) {
+    console.log(`Rendered ${view.id} to ${view.outputRelativePath ?? '-'}`);
+  }
+  console.log(`${result.data.total} view${result.data.total === 1 ? '' : 's'} rendered`);
 }

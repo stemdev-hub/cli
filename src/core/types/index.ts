@@ -46,6 +46,9 @@ export type {
   DeleteOptions,
   ListBlocksOptions,
   ListViewsOptions,
+  RenderOptions,
+  RenderViewOptions,
+  RenderAllOptions,
   InitResult,
   CreateBlockResult,
   CreateViewResult,
@@ -56,5 +59,7 @@ export type {
   SyncResult,
   CheckResult,
   ListBlocksResult,
-  ListViewsResult
+  ListViewsResult,
+  RenderedViewResult,
+  RenderResult
 } from './operations.js';

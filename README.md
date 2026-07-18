@@ -32,6 +32,7 @@ stem create view auth-service --group by-audience/backend
 stem add auth-flow-block to auth-service-view
 stem check
 stem sync
+stem render view auth-service-view
 ```
 
 ## Configuration
@@ -62,6 +63,8 @@ All directory fields are project-relative and optional. Paths are normalized to 
 | `stem delete block <id> [--force]`                             | Delete a block after reference checks                                             |
 | `stem delete view <id>`                                        | Delete a view                                                                     |
 | `stem rename <old-id> <new-id>`                                | Rename a block ID and update references                                           |
+| `stem render view <view-id> [--out <dir>] [--stdout]`          | Render one view to Markdown                                                       |
+| `stem render all [--out <dir>]`                                | Render all views to Markdown                                                      |
 | `stem list blocks [--tag <tag>]`                               | List blocks and usage metadata                                                    |
 | `stem list views [--block <block-id>]`                         | List views and referenced blocks                                                  |
 | `stem check`                                                   | Validate without writing files                                                    |
@@ -70,3 +73,5 @@ All directory fields are project-relative and optional. Paths are normalized to 
 ## Architecture
 
 The CLI is intentionally thin. All business logic belongs in `src/core/`, and the public core API is exported from `src/index.ts` so future MCP servers, editor tools, and UI clients can import Stem without depending on CLI code.
+
+Rendered Markdown is generated under `rendered/` by default and should not be committed unless a project intentionally publishes generated output.
