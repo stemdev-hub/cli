@@ -22,6 +22,7 @@ pnpm typecheck
 pnpm test
 pnpm lint
 pnpm build
+pnpm smoke:built-cli
 ```
 
 In some sandboxed environments, `pnpm build` can fail when esbuild scans parent directories and hits filesystem access denial. Rerun the build with broader filesystem access before treating that failure as a code or bundling issue.

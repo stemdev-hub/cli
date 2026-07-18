@@ -21,6 +21,6 @@ export default tseslint.config(
     }
   },
   {
-    ignores: ['dist/**', 'node_modules/**', '.stem/cache/**', 'eslint.config.js']
+    ignores: ['dist/**', 'node_modules/**', '.stem/cache/**', 'eslint.config.js', 'tests/smoke/*.mjs']
   }
 );
