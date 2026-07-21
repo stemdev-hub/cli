@@ -353,6 +353,7 @@ export interface RenderViewOptions extends RenderOptions {
 }
 
 export type RenderAllOptions = RenderOptions;
+export type PreviewViewOptions = ProjectOperationOptions;
 
 export interface InitResult {
   projectRoot: string;
@@ -457,3 +458,5 @@ export interface RenderResult {
   total: number;
   outDir: string | null;
 }
+
+export type PreviewResult = RenderResult;

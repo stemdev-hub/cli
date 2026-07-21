@@ -49,6 +49,7 @@ export type {
   RenderOptions,
   RenderViewOptions,
   RenderAllOptions,
+  PreviewViewOptions,
   InitResult,
   CreateBlockResult,
   CreateViewResult,
@@ -61,5 +62,6 @@ export type {
   ListBlocksResult,
   ListViewsResult,
   RenderedViewResult,
-  RenderResult
+  RenderResult,
+  PreviewResult
 } from './operations.js';

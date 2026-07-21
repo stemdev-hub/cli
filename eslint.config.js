@@ -21,6 +21,13 @@ export default tseslint.config(
     }
   },
   {
-    ignores: ['dist/**', 'node_modules/**', '.stem/cache/**', 'eslint.config.js', 'tests/smoke/*.mjs']
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      '.stem/cache/**',
+      'eslint.config.js',
+      'tests/smoke/*.mjs',
+      'extensions/vscode-stem/extension.js'
+    ]
   }
 );

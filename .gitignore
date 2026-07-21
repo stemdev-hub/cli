@@ -2,3 +2,5 @@ node_modules/
 dist/
 .stem/cache/
 .pnpm-store/
+rendered/
+.temp/

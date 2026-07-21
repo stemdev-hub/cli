@@ -33,6 +33,7 @@ stem add auth-flow-block to auth-service-view
 stem check
 stem sync
 stem render view auth-service-view
+stem preview view auth-service-view
 ```
 
 ## Configuration
@@ -65,6 +66,7 @@ All directory fields are project-relative and optional. Paths are normalized to 
 | `stem rename <old-id> <new-id>`                                | Rename a block ID and update references                                           |
 | `stem render view <view-id> [--out <dir>] [--stdout]`          | Render one view to Markdown                                                       |
 | `stem render all [--out <dir>]`                                | Render all views to Markdown                                                      |
+| `stem preview view <view-id>`                                  | Print a rendered view to the terminal without writing files                       |
 | `stem list blocks [--tag <tag>]`                               | List blocks and usage metadata                                                    |
 | `stem list views [--block <block-id>]`                         | List views and referenced blocks                                                  |
 | `stem check`                                                   | Validate without writing files                                                    |

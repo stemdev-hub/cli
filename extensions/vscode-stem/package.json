@@ -1,0 +1,56 @@
+{
+  "name": "vscode-stem",
+  "displayName": "Stem",
+  "description": "Preview Stem rendered Markdown views inside VS Code.",
+  "version": "0.0.0",
+  "publisher": "stem",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:stem.previewToSide",
+    "onCommand:stem.refreshPreview"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "stem.previewToSide",
+        "title": "Stem: Open Preview to Side"
+      },
+      {
+        "command": "stem.refreshPreview",
+        "title": "Stem: Refresh Preview"
+      }
+    ],
+    "configuration": {
+      "title": "Stem",
+      "properties": {
+        "stem.cliPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Stem CLI executable. Leave empty to use the workspace dist/cli/index.js when present, then fall back to stem on PATH."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "stem.previewToSide",
+          "when": "resourceLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "stem.previewToSide",
+          "when": "editorLangId == markdown"
+        },
+        {
+          "command": "stem.refreshPreview"
+        }
+      ]
+    }
+  }
+}

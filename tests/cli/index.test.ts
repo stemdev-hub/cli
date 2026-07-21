@@ -214,6 +214,21 @@ Endpoint summary.
     await expect(readProjectFile('published/ops/runbook.md')).resolves.toContain('Runbook.');
   }, cliTestTimeoutMs);
 
+  it('previews one rendered view to stdout without writing files', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
+
+    const result = await runStem(['preview', 'view', 'api-view']);
+
+    expect(result).toEqual({
+      exitCode: 0,
+      stdout: '---\nid: api-view\n---\nAuth block.\n',
+      stderr: ''
+    });
+    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
+  }, cliTestTimeoutMs);
+
   it('reports duplicate create conflicts on stderr with a non-zero exit code', async () => {
     await createStemProject(testRoot);
 
@@ -265,6 +280,14 @@ Endpoint summary.
 
   it('reports render outside a Stem project on stderr with a non-zero exit code', async () => {
     const result = await runStem(['render', 'view', 'api-view']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain(`No Stem project root found from ${testRoot}.`);
+  }, cliTestTimeoutMs);
+
+  it('reports preview outside a Stem project on stderr with a non-zero exit code', async () => {
+    const result = await runStem(['preview', 'view', 'api-view']);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe('');

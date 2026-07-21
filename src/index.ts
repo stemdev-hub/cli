@@ -10,3 +10,4 @@ export { syncProject } from './core/operations/sync.js';
 export { checkProject } from './core/operations/check.js';
 export { listBlocks, listViews } from './core/operations/list.js';
 export { renderView, renderAll } from './core/operations/render.js';
+export { previewView } from './core/operations/preview.js';

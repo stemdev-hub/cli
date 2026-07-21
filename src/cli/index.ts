@@ -6,6 +6,7 @@ import { registerCreateCommand } from './commands/create.js';
 import { registerDeleteCommand } from './commands/delete.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerListCommand } from './commands/list.js';
+import { registerPreviewCommand } from './commands/preview.js';
 import { registerRenameCommand } from './commands/rename.js';
 import { registerRenderCommand } from './commands/render.js';
 import { registerSyncCommand } from './commands/sync.js';
@@ -19,6 +20,7 @@ export function createStemProgram(): Command {
   registerAddCommand(program);
   registerRenameCommand(program);
   registerRenderCommand(program);
+  registerPreviewCommand(program);
   registerSyncCommand(program);
   registerCheckCommand(program);
   registerListCommand(program);

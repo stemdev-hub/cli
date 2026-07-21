@@ -111,7 +111,7 @@ The cache module owns persistence-shape conversion through `toCachedBlock` and `
 
 `stem render` resolves view transclusions into plain Markdown output. Source views in `/views` are never modified; rendered Markdown is generated under `/rendered` by default and should not be committed unless a project intentionally publishes generated output.
 
-`stem render view <view-id>` renders one view, `stem render view <view-id> --stdout` prints one rendered view without writing files, and `stem render all` renders every view while preserving view group paths under the output directory. Rendering preserves view frontmatter, keeps local Markdown unchanged, fails on validation errors, and allows warnings.
+`stem render view <view-id>` renders one view, `stem render view <view-id> --stdout` prints one rendered view without writing files, and `stem render all` renders every view while preserving view group paths under the output directory. `stem preview view <view-id>` is the authoring shortcut for printing the rendered view to the terminal without writing generated files. Rendering preserves view frontmatter, keeps local Markdown unchanged, fails on validation errors, and allows warnings.
 
 ### Block and View Deletion
 
@@ -274,6 +274,7 @@ View fields:
 | `stem render view <view-id>`                               | Render one view to Markdown                                                    |
 | `stem render view <view-id> --stdout`                      | Print one rendered view without writing files                                  |
 | `stem render all [--out <dir>]`                            | Render all views to Markdown                                                   |
+| `stem preview view <view-id>`                              | Preview one rendered view in the terminal                                      |
 | `stem delete block <id> [--force]`                         | Delete a block after reference checks                                          |
 | `stem delete view <id>`                                    | Delete a view                                                                  |
 | `stem add <block-id> to <view-id>`                         | Insert a block reference                                                       |
@@ -287,7 +288,7 @@ View fields:
 
 ## MVP Scope
 
-Included: block store, optional sections/tags, tag schemas, view files and groups, dynamic graph, hybrid stat plus SHA cache, two-pass parser, code-block isolation, Markdown rendering, `rename`, `check`, `sync`, list/create/add/delete/render commands.
+Included: block store, optional sections/tags, tag schemas, view files and groups, dynamic graph, hybrid stat plus SHA cache, two-pass parser, code-block isolation, Markdown rendering and terminal preview, `rename`, `check`, `sync`, list/create/add/delete/render/preview commands.
 
 Post-MVP: MCP server, UI, editor extensions, preview/build, HTML export, GitHub Action publishing, live code references, external sources, parameterized blocks, aliases, localization, cross-project references.
 
@@ -302,6 +303,7 @@ Post-MVP: MCP server, UI, editor extensions, preview/build, HTML export, GitHub 
 - [x] `stem check` is read-only and reports structural issues.
 - [x] `stem sync` rebuilds cache state and graph snapshots from source files.
 - [x] `stem render` produces resolved Markdown without modifying source views.
+- [x] `stem preview` prints resolved Markdown without writing generated files.
 - [x] The graph is never written to source files.
 - [x] `.stem/cache/` is gitignored by `stem init`.
 

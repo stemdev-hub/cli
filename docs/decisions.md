@@ -126,6 +126,8 @@ Raw view files with `@stem[]` macros are accepted as an MVP tradeoff. Rendered p
 
 Stem renders to Markdown before HTML or static-site output. Markdown output keeps Stem focused on composition and lets projects feed generated files into MkDocs, Docusaurus, GitHub Pages, Pandoc, or any other publishing pipeline. HTML export, local preview servers, navigation generation, and link rewriting remain later features.
 
+`stem preview` is a terminal authoring shortcut over Markdown rendering. It prints the same resolved Markdown as `stem render view --stdout` and does not introduce a browser, local server, or separate rendering path.
+
 Market research compared Stem with DITA, Antora, Paligo, Swimm, Archbee, Structurizr, Obsidian, Dendron, and Logseq. The durable gap is the combination of Git-native Markdown, dynamic graphing without file mutation, section/tag filtered transclusion, and progressive enhancement for developer teams.
 
 ## Parser Implementation Decisions

@@ -58,6 +58,9 @@ endpoint request response summary.
   const stdoutResult = await runStem(['render', 'view', 'auth-service-view', '--stdout']);
   assertIncludes(stdoutResult.stdout, 'endpoint request response summary.', 'render stdout');
 
+  const previewResult = await runStem(['preview', 'view', 'auth-service-view']);
+  assertIncludes(previewResult.stdout, 'endpoint request response summary.', 'preview output');
+
   const renderAllResult = await runStem(['render', 'all', '--out', 'published']);
   assertIncludes(renderAllResult.stdout, 'Rendered auth-service-view to published/backend/services/auth-service-view.md', 'render all output');
   await assertFileContains('published/backend/services/auth-service-view.md', 'endpoint request response summary.');
