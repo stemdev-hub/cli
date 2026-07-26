@@ -31,6 +31,17 @@
           "type": "string",
           "default": "",
           "description": "Path to the Stem CLI executable. Leave empty to use the workspace dist/cli/index.js when present, then fall back to stem on PATH."
+        },
+        "stem.preview.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh open Stem previews when project blocks, views, schemas, or config files change."
+        },
+        "stem.preview.refreshDebounceMs": {
+          "type": "number",
+          "default": 250,
+          "minimum": 0,
+          "description": "Delay in milliseconds before refreshing open Stem previews after a watched project file changes."
         }
       }
     },
