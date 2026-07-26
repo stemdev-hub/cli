@@ -34,6 +34,24 @@ function activate(context) {
     vscode.commands.registerCommand('stem.refreshPreview', () => {
       provider.refresh();
     }),
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      if (document.uri.scheme !== PREVIEW_SCHEME) {
+        return;
+      }
+
+      const projectRoot = provider.untrack(document.uri);
+      if (projectRoot !== null && !provider.hasProject(projectRoot)) {
+        watchers.unwatchProject(projectRoot);
+      }
+    }),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (
+        event.affectsConfiguration('stem.preview.autoRefresh') ||
+        event.affectsConfiguration('stem.preview.refreshDebounceMs')
+      ) {
+        watchers.applyConfiguration();
+      }
+    }),
     watchers
   );
 }
@@ -41,9 +59,10 @@ function activate(context) {
 function deactivate() {}
 
 class StemPreviewProvider {
-  constructor(context) {
+  constructor(context, vscodeApi = vscode) {
     this.context = context;
-    this.emitter = new vscode.EventEmitter();
+    this.vscode = vscodeApi;
+    this.emitter = new this.vscode.EventEmitter();
     this.onDidChange = this.emitter.event;
     this.openPreviewUrisByProject = new Map();
   }
@@ -63,6 +82,32 @@ class StemPreviewProvider {
     this.openPreviewUrisByProject.set(params.projectRoot, tracked);
   }
 
+  untrack(uri) {
+    const params = parsePreviewUri(uri);
+    if (params === null) {
+      return null;
+    }
+
+    const tracked = this.openPreviewUrisByProject.get(params.projectRoot);
+    if (tracked === undefined) {
+      return params.projectRoot;
+    }
+
+    tracked.delete(uri.toString());
+    if (tracked.size === 0) {
+      this.openPreviewUrisByProject.delete(params.projectRoot);
+    }
+    return params.projectRoot;
+  }
+
+  hasProject(projectRoot) {
+    return this.openPreviewUrisByProject.has(projectRoot);
+  }
+
+  getTrackedProjects() {
+    return [...this.openPreviewUrisByProject.keys()];
+  }
+
   refresh() {
     for (const uriTexts of this.openPreviewUrisByProject.values()) {
       this.fireUris(uriTexts);
@@ -79,26 +124,31 @@ class StemPreviewProvider {
 
   fireUris(uriTexts) {
     for (const uriText of uriTexts) {
-      this.emitter.fire(vscode.Uri.parse(uriText));
+      this.emitter.fire(this.vscode.Uri.parse(uriText));
     }
   }
 }
 
 class StemPreviewWatcherManager {
-  constructor(provider) {
+  constructor(provider, options = {}) {
     this.provider = provider;
+    this.vscode = options.vscodeApi ?? vscode;
+    this.isAutoRefreshEnabled = options.isAutoRefreshEnabled ?? isAutoRefreshEnabled;
+    this.getRefreshDebounceMs = options.getRefreshDebounceMs ?? getRefreshDebounceMs;
+    this.setTimer = options.setTimer ?? setTimeout;
+    this.clearTimer = options.clearTimer ?? clearTimeout;
     this.watchersByProject = new Map();
     this.refreshTimers = new Map();
   }
 
   watchProject(projectRoot) {
-    if (!isAutoRefreshEnabled() || this.watchersByProject.has(projectRoot)) {
+    if (!this.isAutoRefreshEnabled() || this.watchersByProject.has(projectRoot)) {
       return;
     }
 
     const disposables = WATCH_PATTERNS.map((pattern) => {
-      const watcher = vscode.workspace.createFileSystemWatcher(
-        new vscode.RelativePattern(vscode.Uri.file(projectRoot), pattern)
+      const watcher = this.vscode.workspace.createFileSystemWatcher(
+        new this.vscode.RelativePattern(this.vscode.Uri.file(projectRoot), pattern)
       );
       watcher.onDidChange(() => this.scheduleRefresh(projectRoot));
       watcher.onDidCreate(() => this.scheduleRefresh(projectRoot));
@@ -109,26 +159,59 @@ class StemPreviewWatcherManager {
     this.watchersByProject.set(projectRoot, disposables);
   }
 
+  unwatchProject(projectRoot) {
+    const timer = this.refreshTimers.get(projectRoot);
+    if (timer !== undefined) {
+      this.clearTimer(timer);
+      this.refreshTimers.delete(projectRoot);
+    }
+
+    const disposables = this.watchersByProject.get(projectRoot);
+    if (disposables === undefined) {
+      return;
+    }
+
+    for (const disposable of disposables) {
+      disposable.dispose();
+    }
+    this.watchersByProject.delete(projectRoot);
+  }
+
+  applyConfiguration() {
+    if (!this.isAutoRefreshEnabled()) {
+      this.disposeWatchers();
+      return;
+    }
+
+    for (const projectRoot of this.provider.getTrackedProjects()) {
+      this.watchProject(projectRoot);
+    }
+  }
+
   scheduleRefresh(projectRoot) {
-    if (!isAutoRefreshEnabled()) {
+    if (!this.isAutoRefreshEnabled()) {
       return;
     }
 
     const existingTimer = this.refreshTimers.get(projectRoot);
     if (existingTimer !== undefined) {
-      clearTimeout(existingTimer);
+      this.clearTimer(existingTimer);
     }
 
-    const timer = setTimeout(() => {
+    const timer = this.setTimer(() => {
       this.refreshTimers.delete(projectRoot);
       this.provider.refreshProject(projectRoot);
-    }, getRefreshDebounceMs());
+    }, this.getRefreshDebounceMs());
     this.refreshTimers.set(projectRoot, timer);
   }
 
   dispose() {
+    this.disposeWatchers();
+  }
+
+  disposeWatchers() {
     for (const timer of this.refreshTimers.values()) {
-      clearTimeout(timer);
+      this.clearTimer(timer);
     }
     this.refreshTimers.clear();
 
@@ -144,22 +227,26 @@ class StemPreviewWatcherManager {
 async function openPreviewToSide(provider, watchers) {
   const editor = vscode.window.activeTextEditor;
   if (editor === undefined) {
-    throw new Error('Open a Stem view Markdown file before previewing.');
+    vscode.window.showInformationMessage('Open a Stem view Markdown file before previewing.');
+    return;
   }
 
   const document = editor.document;
   if (document.uri.scheme !== 'file' || document.languageId !== 'markdown') {
-    throw new Error('Stem preview is available for Markdown files on disk.');
+    vscode.window.showInformationMessage('Stem preview is available for Markdown files on disk.');
+    return;
   }
 
   const viewId = getFrontmatterId(document.getText());
   if (viewId === null) {
-    throw new Error('Stem preview requires a view frontmatter id.');
+    vscode.window.showInformationMessage('Stem preview requires a top-level frontmatter id, for example: id: api-view');
+    return;
   }
 
   const projectRoot = findProjectRoot(path.dirname(document.uri.fsPath));
   if (projectRoot === null) {
-    throw new Error('No Stem project root found for the active file.');
+    vscode.window.showInformationMessage('No Stem project root found for the active file.');
+    return;
   }
 
   const previewUri = createPreviewUri(projectRoot, viewId, document.uri);
@@ -171,14 +258,20 @@ async function openPreviewToSide(provider, watchers) {
 async function renderPreview(uri, extensionUri) {
   const params = parsePreviewUri(uri);
   if (params === null) {
-    return 'Stem preview could not resolve the requested view.';
+    return formatPreviewError(new Error('Stem preview could not resolve the requested view.'), {
+      nextAction: 'Close this preview and open it again from a Stem view Markdown file.'
+    });
   }
 
   try {
     const rendered = await runStemPreview(params.projectRoot, params.viewId, extensionUri);
     return rendered.stdout;
   } catch (error) {
-    return formatPreviewError(error);
+    return formatPreviewError(error, {
+      viewId: params.viewId,
+      projectRoot: params.projectRoot,
+      nextAction: 'Run `stem check` in the project root, fix any reported errors, then refresh this preview.'
+    });
   }
 }
 
@@ -190,12 +283,24 @@ async function runStemPreview(projectRoot, viewId, extensionUri) {
     pathExists: existsSync,
     nodePath: process.execPath
   });
-  return execFileAsync(resolved.command, [...resolved.args, 'preview', 'view', viewId], { cwd: projectRoot });
+  const args = [...resolved.args, 'preview', 'view', viewId];
+  try {
+    return await execFileAsync(resolved.command, args, { cwd: projectRoot });
+  } catch (error) {
+    if (error !== null && typeof error === 'object') {
+      error.stemCommandText = formatCommandText(resolved.command, args);
+      error.stemCwd = projectRoot;
+    }
+    throw error;
+  }
 }
 
 function resolveStemCommand({ configuredCliPath, projectRoot, extensionRoot, pathExists, nodePath }) {
   const trimmedCliPath = configuredCliPath.trim();
   if (trimmedCliPath.length > 0) {
+    if (isJavaScriptEntrypoint(trimmedCliPath)) {
+      return { command: nodePath, args: [trimmedCliPath] };
+    }
     return { command: trimmedCliPath, args: [] };
   }
 
@@ -213,7 +318,7 @@ function resolveStemCommand({ configuredCliPath, projectRoot, extensionRoot, pat
 }
 
 function createPreviewUri(projectRoot, viewId, sourceUri) {
-  return vscode.Uri.parse(createPreviewUriText(projectRoot, viewId, sourceUri.toString()));
+  return vscode.Uri.parse(createPreviewUriText(projectRoot, viewId, sourceUri.toString(true)));
 }
 
 function createPreviewUriText(projectRoot, viewId, sourceUriText) {
@@ -222,7 +327,7 @@ function createPreviewUriText(projectRoot, viewId, sourceUriText) {
     view: viewId,
     source: sourceUriText
   });
-  return `${PREVIEW_SCHEME}:/${encodeURIComponent(viewId)}.md?${query.toString()}`;
+  return `${PREVIEW_SCHEME}:/view/${encodeURIComponent(viewId)}.md?${query.toString()}`;
 }
 
 function parsePreviewUri(uri) {
@@ -259,22 +364,114 @@ function getFrontmatterId(content) {
   }
 
   const frontmatter = match[1] ?? '';
-  const idMatch = /^id:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m.exec(frontmatter);
-  return idMatch?.[1] ?? null;
+  const idMatch = /^id:\s*(?:"([^"\r\n]+)"|'([^'\r\n]+)'|([^#\r\n]+?))\s*(?:#.*)?$/m.exec(frontmatter);
+  const id = (idMatch?.[1] ?? idMatch?.[2] ?? idMatch?.[3] ?? '').trim();
+  return id.length > 0 ? id : null;
 }
 
-function formatPreviewError(error) {
-  return `# Stem Preview Error\n\n\`\`\`text\n${toErrorMessage(error)}\n\`\`\`\n`;
+function formatPreviewError(error, options = {}) {
+  const details = toPreviewErrorDetails(error);
+  const lines = ['# Stem Preview Error', ''];
+
+  if (options.viewId !== undefined) {
+    lines.push(`Stem could not render \`${options.viewId}\`.`, '');
+  }
+
+  if (details.commandText !== null) {
+    lines.push('## Command', '', fencedCode(details.commandText), '');
+  }
+
+  if (options.projectRoot !== undefined || details.cwd !== null) {
+    lines.push('## Project', '', `\`${options.projectRoot ?? details.cwd}\``, '');
+  }
+
+  if (details.exitCode !== null) {
+    lines.push('## Exit Code', '', `\`${details.exitCode}\``, '');
+  }
+
+  if (details.stderr.length > 0) {
+    lines.push('## stderr', '', fencedCode(details.stderr), '');
+  }
+
+  if (details.stdout.length > 0) {
+    lines.push('## stdout', '', fencedCode(details.stdout), '');
+  }
+
+  lines.push('## Summary', '', details.message, '');
+
+  if (options.nextAction !== undefined) {
+    lines.push('## Next Action', '', options.nextAction, '');
+  }
+
+  return `${lines.join('\n')}\n`;
 }
 
 function toErrorMessage(error) {
+  return toPreviewErrorDetails(error).message;
+}
+
+function toPreviewErrorDetails(error) {
   if (error instanceof Error) {
-    const detail = 'stderr' in error && typeof error.stderr === 'string' && error.stderr.length > 0
-      ? `\n${error.stderr}`
-      : '';
-    return `${error.message}${detail}`;
+    return {
+      message: cleanErrorMessage(error.message),
+      stderr: getStringProperty(error, 'stderr'),
+      stdout: getStringProperty(error, 'stdout'),
+      exitCode: getExitCode(error),
+      commandText: getStringProperty(error, 'stemCommandText') || getStringProperty(error, 'cmd') || null,
+      cwd: getStringProperty(error, 'stemCwd') || null
+    };
   }
-  return String(error);
+  return {
+    message: String(error),
+    stderr: '',
+    stdout: '',
+    exitCode: null,
+    commandText: null,
+    cwd: null
+  };
+}
+
+function cleanErrorMessage(message) {
+  const trimmed = message.trim();
+  if (trimmed.includes('\n')) {
+    return trimmed.split(/\r?\n/)[0] ?? trimmed;
+  }
+  return trimmed;
+}
+
+function getStringProperty(value, property) {
+  if (property in value && typeof value[property] === 'string') {
+    return value[property].trim();
+  }
+  return '';
+}
+
+function getExitCode(error) {
+  if (!('code' in error)) {
+    return null;
+  }
+
+  const code = error.code;
+  return typeof code === 'number' || typeof code === 'string' ? code : null;
+}
+
+function fencedCode(value) {
+  return `\`\`\`text\n${value.replaceAll('```', '`\\`\\`')}\n\`\`\``;
+}
+
+function isJavaScriptEntrypoint(filePath) {
+  return ['.js', '.mjs', '.cjs'].includes(path.extname(filePath).toLowerCase());
+}
+
+function formatCommandText(command, args) {
+  return [command, ...args].map(quoteCommandPart).join(' ');
+}
+
+function quoteCommandPart(part) {
+  if (!/[\s"]/u.test(part)) {
+    return part;
+  }
+  return `"${part.replaceAll('"', '\\"')}"`;
 }
 
 function getConfiguredCliPath() {
@@ -302,13 +499,16 @@ module.exports = {
   _private: {
     DEFAULT_REFRESH_DEBOUNCE_MS,
     PREVIEW_SCHEME,
+    StemPreviewWatcherManager,
     WATCH_PATTERNS,
     createPreviewUriText,
     findProjectRoot,
     formatPreviewError,
+    formatCommandText,
     getFrontmatterId,
     parsePreviewUri,
     resolveStemCommand,
+    toPreviewErrorDetails,
     toErrorMessage
   }
 };

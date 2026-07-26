@@ -49,7 +49,19 @@
       "editor/title": [
         {
           "command": "stem.previewToSide",
-          "when": "resourceLangId == markdown",
+          "when": "resourceScheme == file && resourceLangId == markdown",
+          "group": "navigation"
+        },
+        {
+          "command": "stem.refreshPreview",
+          "when": "resourceScheme == stem-preview",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "stem.previewToSide",
+          "when": "resourceScheme == file && resourceLangId == markdown",
           "group": "navigation"
         }
       ],
