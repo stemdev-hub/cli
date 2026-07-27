@@ -14,10 +14,11 @@ Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`. T
 1. Reads the active file's frontmatter `id`.
 2. Finds the nearest Stem project root by walking up to `.stem`.
 3. Runs `stem preview view <view-id>` from that project.
-4. Serves the rendered Markdown through a readonly `stem-preview:` virtual document.
+4. Serves the rendered Markdown body through a readonly `stem-preview:` virtual document.
 5. Opens that virtual document in VS Code's native Markdown preview.
 
 The extension does not duplicate Stem parser or renderer logic, and it does not use a custom webview.
+The CLI remains the source of truth; the preview only hides leading YAML frontmatter so the rendered document reads cleanly in VS Code.
 
 Open previews refresh automatically when project files change:
 

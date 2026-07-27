@@ -46,6 +46,8 @@ interface StemExtensionModule {
       pathExists(filePath: string): boolean;
       nodePath: string;
     }): { command: string; args: string[] };
+    stripLeadingFrontmatter(markdown: string): string;
+    toPreviewDisplayMarkdown(markdown: string): string;
     toErrorMessage(error: unknown): string;
     toPreviewErrorDetails(error: unknown): {
       message: string;
@@ -217,6 +219,12 @@ describe('VS Code Stem extension helpers', () => {
     expect(markdown).toContain('## Summary\n\nCommand failed: noisy stack prefix');
     expect(markdown).toContain('## Next Action\n\nRun `stem check`.');
     expect(stem.toErrorMessage('plain failure')).toBe('plain failure');
+  });
+
+  it('strips leading frontmatter from displayed preview Markdown only', () => {
+    expect(stem.toPreviewDisplayMarkdown('---\nid: api-view\n---\n# API\n')).toBe('# API\n');
+    expect(stem.stripLeadingFrontmatter('---\nid: api-view\n---')).toBe('');
+    expect(stem.toPreviewDisplayMarkdown('# API\n\n---\nNot frontmatter\n')).toBe('# API\n\n---\nNot frontmatter\n');
   });
 
   it('extracts preview error details without folding stderr into the summary', () => {

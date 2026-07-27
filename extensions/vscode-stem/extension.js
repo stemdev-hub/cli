@@ -265,7 +265,7 @@ async function renderPreview(uri, extensionUri) {
 
   try {
     const rendered = await runStemPreview(params.projectRoot, params.viewId, extensionUri);
-    return rendered.stdout;
+    return toPreviewDisplayMarkdown(rendered.stdout);
   } catch (error) {
     return formatPreviewError(error, {
       viewId: params.viewId,
@@ -367,6 +367,19 @@ function getFrontmatterId(content) {
   const idMatch = /^id:\s*(?:"([^"\r\n]+)"|'([^'\r\n]+)'|([^#\r\n]+?))\s*(?:#.*)?$/m.exec(frontmatter);
   const id = (idMatch?.[1] ?? idMatch?.[2] ?? idMatch?.[3] ?? '').trim();
   return id.length > 0 ? id : null;
+}
+
+function toPreviewDisplayMarkdown(markdown) {
+  return stripLeadingFrontmatter(markdown);
+}
+
+function stripLeadingFrontmatter(markdown) {
+  const match = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/.exec(markdown);
+  if (match === null) {
+    return markdown;
+  }
+
+  return markdown.slice(match[0].length);
 }
 
 function formatPreviewError(error, options = {}) {
@@ -508,6 +521,8 @@ module.exports = {
     getFrontmatterId,
     parsePreviewUri,
     resolveStemCommand,
+    stripLeadingFrontmatter,
+    toPreviewDisplayMarkdown,
     toPreviewErrorDetails,
     toErrorMessage
   }

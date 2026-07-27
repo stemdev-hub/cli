@@ -17,11 +17,13 @@
     "commands": [
       {
         "command": "stem.previewToSide",
-        "title": "Stem: Open Preview to Side"
+        "title": "Stem: Open Preview to Side",
+        "icon": "$(open-preview)"
       },
       {
         "command": "stem.refreshPreview",
-        "title": "Stem: Refresh Preview"
+        "title": "Stem: Refresh Preview",
+        "icon": "$(refresh)"
       }
     ],
     "configuration": {
@@ -48,20 +50,8 @@
     "menus": {
       "editor/title": [
         {
-          "command": "stem.previewToSide",
-          "when": "resourceScheme == file && resourceLangId == markdown",
-          "group": "navigation"
-        },
-        {
           "command": "stem.refreshPreview",
           "when": "resourceScheme == stem-preview",
-          "group": "navigation"
-        }
-      ],
-      "editor/context": [
-        {
-          "command": "stem.previewToSide",
-          "when": "resourceScheme == file && resourceLangId == markdown",
           "group": "navigation"
         }
       ],
