@@ -229,6 +229,22 @@ Endpoint summary.
     await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
   }, cliTestTimeoutMs);
 
+  it('reports preview validation errors on stderr with a non-zero exit code', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth tag=api]\n');
+
+    const result = await runStem(['preview', 'view', 'api-view']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('Cannot render project with 1 validation error. Run stem check for details.');
+    expect(result.stderr).toContain(
+      'ERROR INVALID_BLOCK_REF_FILTER views/api.md: Block reference "@stem[block:auth tag=api]" uses a tag filter without a section filter.'
+    );
+    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
+  }, cliTestTimeoutMs);
+
   it('reports duplicate create conflicts on stderr with a non-zero exit code', async () => {
     await createStemProject(testRoot);
 

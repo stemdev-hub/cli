@@ -49,6 +49,127 @@ describe('previewView', () => {
       }
     });
   });
+
+  it('renders section and tag filters while preserving local Markdown and frontmatter', async () => {
+    await writeProjectFile(
+      'blocks/auth.md',
+      `---
+id: auth
+---
+@stem[section:summary]
+@stem[tag:api]
+Endpoint summary.
+@stem[end]
+@stem[end]
+`
+    );
+    await writeProjectFile(
+      'views/api.md',
+      `---
+id: api-view
+group: backend
+---
+# API
+
+Before.
+
+@stem[block:auth section=summary tag=api]
+
+After.
+`
+    );
+
+    const result = await previewView('api-view', { startDir: testRoot });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        views: [
+          {
+            markdown: `---
+id: api-view
+group: backend
+---
+# API
+
+Before.
+
+Endpoint summary.
+
+After.
+`
+          }
+        ]
+      }
+    });
+  });
+
+  it('allows duplicate tag warnings and concatenates duplicate tag content', async () => {
+    await writeProjectFile(
+      'blocks/auth.md',
+      `---
+id: auth
+---
+@stem[section:summary]
+@stem[tag:api]
+First summary.
+@stem[end]
+@stem[tag:api]
+Second summary.
+@stem[end]
+@stem[end]
+`
+    );
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth section=summary tag=api]\n');
+
+    const result = await previewView('api-view', { startDir: testRoot });
+
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        views: [{ markdown: '---\nid: api-view\n---\nFirst summary.\nSecond summary.\n' }]
+      }
+    });
+    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
+  });
+
+  it('rejects tag-only block filters instead of rendering the whole block', async () => {
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth content.\n');
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth tag=api]\n');
+
+    const result = await previewView('api-view', { startDir: testRoot });
+
+    expect(result).toMatchObject({
+      success: false,
+      error: {
+        code: 'INVALID_OPERATION',
+        cause: {
+          issues: [
+            {
+              code: 'INVALID_BLOCK_REF_FILTER',
+              relativePath: 'views/api.md',
+              message: 'Block reference "@stem[block:auth tag=api]" uses a tag filter without a section filter.'
+            }
+          ]
+        }
+      }
+    });
+    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
+  });
+
+  it('returns an operation error for a missing view id', async () => {
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\nLocal.\n');
+
+    const result = await previewView('missing-view', { startDir: testRoot });
+
+    expect(result).toMatchObject({
+      success: false,
+      error: {
+        code: 'INVALID_OPERATION',
+        message: 'View "missing-view" was not found.'
+      }
+    });
+  });
 });
 
 async function createStemProject(projectRoot: string): Promise<void> {

@@ -22,6 +22,7 @@ export function validateGraph(input: ValidatorInput): ValidationIssue[] {
   return [
     ...checkDuplicateIds(input.buildIssues),
     ...checkBrokenBlockRefs(input.views, input.graph),
+    ...checkInvalidBlockRefFilters(input.views),
     ...checkBrokenSectionRefs(input.views, blockLookup),
     ...checkUnresolvedTags(input.views, blockLookup),
     ...checkCircularDependencies(input.cycles, input.graph),
@@ -52,6 +53,27 @@ function checkDuplicateIds(buildIssues: ValidatorBuildIssue[]): ValidationIssue[
       })
     );
   });
+}
+
+function checkInvalidBlockRefFilters(views: ParsedView[]): ValidationIssue[] {
+  return views.flatMap((view) =>
+    view.blockRefs
+      .filter((blockRef) => blockRef.section === null && blockRef.tag !== null)
+      .map(
+        (blockRef): ValidationIssue => ({
+          code: 'INVALID_BLOCK_REF_FILTER',
+          severity: 'error',
+          message: `Block reference "${blockRef.raw}" uses a tag filter without a section filter.`,
+          filePath: view.filePath,
+          relativePath: view.relativePath,
+          position: blockRef.position,
+          context: {
+            targetId: blockRef.blockId,
+            rawRef: blockRef.raw
+          }
+        })
+      )
+  );
 }
 
 function checkBrokenBlockRefs(views: ParsedView[], graph: StemGraph): ValidationIssue[] {

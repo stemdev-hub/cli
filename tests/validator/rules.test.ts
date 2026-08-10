@@ -194,6 +194,21 @@ describe('validateGraph', () => {
     expect(issues.filter((issue) => issue.code === 'UNRESOLVED_TAG')).toEqual([]);
   });
 
+  it('emits INVALID_BLOCK_REF_FILTER when a block reference has a tag without a section', () => {
+    const block = createBlock('auth-block');
+    const view = createView('auth-view', [createBlockRef('auth-block', { tag: 'summary' })]);
+    const graph = createGraph([block], [view]);
+
+    const issues = validateGraph(createInput({ graph, blocks: [block], views: [view], orphanedBlocks: [] }));
+
+    expect(issues[0]).toMatchObject({
+      code: 'INVALID_BLOCK_REF_FILTER',
+      severity: 'error',
+      message: 'Block reference "@stem[block:auth-block tag=summary]" uses a tag filter without a section filter.',
+      context: { targetId: 'auth-block', rawRef: '@stem[block:auth-block tag=summary]' }
+    });
+  });
+
   it('does not emit CIRCULAR_DEPENDENCY when cycles array is empty', () => {
     const issues = validateGraph(createInput({ cycles: [] }));
 
@@ -274,7 +289,7 @@ describe('validateGraph', () => {
     const block = createBlock('auth-block', {
       sections: [createSection('auth-flow', { tags: [createTag('summary'), createTag('summary')] })]
     });
-    const view = createView('auth-view', [createBlockRef('missing-block')]);
+    const view = createView('auth-view', [createBlockRef('missing-block', { tag: 'summary' })]);
     const graph = createGraph([block], [view]);
 
     const issues = validateGraph(
@@ -297,6 +312,7 @@ describe('validateGraph', () => {
     expect(issues.map((issue) => issue.code)).toEqual([
       'DUPLICATE_ID',
       'BROKEN_BLOCK_REF',
+      'INVALID_BLOCK_REF_FILTER',
       'CIRCULAR_DEPENDENCY',
       'ORPHANED_BLOCK',
       'DUPLICATE_TAG_IN_SECTION'
@@ -373,11 +389,16 @@ function createBlockRef(
   blockId: string,
   overrides: Partial<Omit<BlockRef, 'blockId' | 'raw' | 'position'>> = {}
 ): BlockRef {
+  const section = overrides.section ?? null;
+  const tag = overrides.tag ?? null;
+  const sectionParam = section === null ? '' : ` section=${section}`;
+  const tagParam = tag === null ? '' : ` tag=${tag}`;
+
   return {
     blockId,
-    section: overrides.section ?? null,
-    tag: overrides.tag ?? null,
-    raw: `@stem[block:${blockId}]`,
+    section,
+    tag,
+    raw: `@stem[block:${blockId}${sectionParam}${tagParam}]`,
     position: POSITION
   };
 }

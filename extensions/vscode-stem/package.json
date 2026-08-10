@@ -13,6 +13,12 @@
     "onCommand:stem.refreshPreview"
   ],
   "main": "./extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Stem preview runs the configured Stem CLI in the workspace."
+    }
+  },
   "contributes": {
     "commands": [
       {
@@ -51,17 +57,18 @@
       "editor/title": [
         {
           "command": "stem.refreshPreview",
-          "when": "resourceScheme == stem-preview",
+          "when": "resourceScheme == stem-preview && isWorkspaceTrusted",
           "group": "navigation"
         }
       ],
       "commandPalette": [
         {
           "command": "stem.previewToSide",
-          "when": "editorLangId == markdown"
+          "when": "editorLangId == markdown && isWorkspaceTrusted"
         },
         {
-          "command": "stem.refreshPreview"
+          "command": "stem.refreshPreview",
+          "when": "isWorkspaceTrusted"
         }
       ]
     }

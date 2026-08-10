@@ -65,6 +65,30 @@ id: api-view
     expect(renderViewMarkdown(view, [block])).toBe('Endpoint summary.\n');
   });
 
+  it('concatenates duplicate filtered tags in document order', () => {
+    const block = parseBlock(`---
+id: auth
+---
+@stem[section:summary]
+@stem[tag:api]
+First summary.
+@stem[end]
+@stem[tag:api]
+Second summary.
+@stem[end]
+@stem[end]
+`);
+    const view = parseView(`---
+id: api-view
+---
+@stem[block:auth section=summary tag=api]
+`);
+
+    expect(renderViewMarkdown(view, [block])).toBe(`First summary.
+Second summary.
+`);
+  });
+
   it('preserves local Markdown and code examples', () => {
     const block = parseBlock(`---
 id: auth

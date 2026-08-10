@@ -94,7 +94,8 @@ async function loadRenderableProject(
       success: false,
       error: operationError(
         'INVALID_OPERATION',
-        `Cannot render project with ${validation.errorCount} validation error${validation.errorCount === 1 ? '' : 's'}. Run stem check for details.`
+        `Cannot render project with ${validation.errorCount} validation error${validation.errorCount === 1 ? '' : 's'}. Run stem check for details.`,
+        { cause: validation }
       )
     };
   }

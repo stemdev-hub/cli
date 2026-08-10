@@ -13,6 +13,7 @@ export interface IssueContextMap {
   ORPHANED_BLOCK: { blockId: string };
   DUPLICATE_TAG_IN_SECTION: { tagName: string; sectionName: string };
   UNRESOLVED_TAG: { targetId: string; targetSection: string; missingTag: string };
+  INVALID_BLOCK_REF_FILTER: { targetId: string; rawRef: string };
   INVALID_FRONTMATTER: { parseError: string };
 }
 

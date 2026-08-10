@@ -14,6 +14,7 @@ try {
 const execFileAsync = promisify(execFile);
 const PREVIEW_SCHEME = 'stem-preview';
 const DEFAULT_REFRESH_DEBOUNCE_MS = 250;
+const PREVIEW_EXEC_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 const WATCH_PATTERNS = [
   'views/**/*.md',
   'blocks/**/*.md',
@@ -224,35 +225,48 @@ class StemPreviewWatcherManager {
   }
 }
 
-async function openPreviewToSide(provider, watchers) {
-  const editor = vscode.window.activeTextEditor;
+async function openPreviewToSide(provider, watchers, vscodeApi = vscode) {
+  if (vscodeApi.workspace.isTrusted === false) {
+    vscodeApi.window.showWarningMessage('Stem preview is disabled in untrusted workspaces because it runs the Stem CLI.');
+    return;
+  }
+
+  const editor = vscodeApi.window.activeTextEditor;
   if (editor === undefined) {
-    vscode.window.showInformationMessage('Open a Stem view Markdown file before previewing.');
+    vscodeApi.window.showInformationMessage('Open a Stem view Markdown file before previewing.');
     return;
   }
 
   const document = editor.document;
   if (document.uri.scheme !== 'file' || document.languageId !== 'markdown') {
-    vscode.window.showInformationMessage('Stem preview is available for Markdown files on disk.');
+    vscodeApi.window.showInformationMessage('Stem preview is available for Markdown files on disk.');
     return;
   }
 
   const viewId = getFrontmatterId(document.getText());
   if (viewId === null) {
-    vscode.window.showInformationMessage('Stem preview requires a top-level frontmatter id, for example: id: api-view');
+    vscodeApi.window.showInformationMessage('Stem preview requires a top-level frontmatter id, for example: id: api-view');
     return;
   }
 
   const projectRoot = findProjectRoot(path.dirname(document.uri.fsPath));
   if (projectRoot === null) {
-    vscode.window.showInformationMessage('No Stem project root found for the active file.');
+    vscodeApi.window.showInformationMessage('No Stem project root found for the active file.');
     return;
   }
 
-  const previewUri = createPreviewUri(projectRoot, viewId, document.uri);
+  const previewUri = createPreviewUri(projectRoot, viewId, document.uri, vscodeApi);
   provider.track(previewUri);
   watchers.watchProject(projectRoot);
-  await vscode.commands.executeCommand('markdown.showPreviewToSide', previewUri);
+  try {
+    await vscodeApi.commands.executeCommand('markdown.showPreviewToSide', previewUri);
+  } catch (error) {
+    const untrackedProjectRoot = provider.untrack(previewUri);
+    if (untrackedProjectRoot !== null && !provider.hasProject(untrackedProjectRoot)) {
+      watchers.unwatchProject(untrackedProjectRoot);
+    }
+    throw error;
+  }
 }
 
 async function renderPreview(uri, extensionUri) {
@@ -267,10 +281,11 @@ async function renderPreview(uri, extensionUri) {
     const rendered = await runStemPreview(params.projectRoot, params.viewId, extensionUri);
     return toPreviewDisplayMarkdown(rendered.stdout);
   } catch (error) {
+    const details = toPreviewErrorDetails(error);
     return formatPreviewError(error, {
       viewId: params.viewId,
       projectRoot: params.projectRoot,
-      nextAction: 'Run `stem check` in the project root, fix any reported errors, then refresh this preview.'
+      nextAction: getPreviewFailureNextAction(details)
     });
   }
 }
@@ -281,11 +296,20 @@ async function runStemPreview(projectRoot, viewId, extensionUri) {
     projectRoot,
     extensionRoot: extensionUri.fsPath,
     pathExists: existsSync,
-    nodePath: process.execPath
+    nodePath: process.execPath,
+    env: process.env
   });
   const args = [...resolved.args, 'preview', 'view', viewId];
+  const execOptions = getPreviewExecOptions({
+    command: resolved.command,
+    args,
+    cwd: projectRoot,
+    nodePath: process.execPath,
+    env: process.env,
+    runtimeVersions: process.versions
+  });
   try {
-    return await execFileAsync(resolved.command, args, { cwd: projectRoot });
+    return await execFileAsync(resolved.command, args, execOptions);
   } catch (error) {
     if (error !== null && typeof error === 'object') {
       error.stemCommandText = formatCommandText(resolved.command, args);
@@ -295,30 +319,109 @@ async function runStemPreview(projectRoot, viewId, extensionUri) {
   }
 }
 
-function resolveStemCommand({ configuredCliPath, projectRoot, extensionRoot, pathExists, nodePath }) {
+function resolveStemCommand({
+  configuredCliPath,
+  projectRoot,
+  extensionRoot,
+  pathExists,
+  nodePath,
+  env = process.env,
+  runtimeVersions = process.versions
+}) {
   const trimmedCliPath = configuredCliPath.trim();
   if (trimmedCliPath.length > 0) {
     if (isJavaScriptEntrypoint(trimmedCliPath)) {
-      return { command: nodePath, args: [trimmedCliPath] };
+      return { command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }), args: [trimmedCliPath] };
     }
     return { command: trimmedCliPath, args: [] };
   }
 
   const workspaceCli = path.join(projectRoot, 'dist', 'cli', 'index.js');
   if (pathExists(workspaceCli)) {
-    return { command: nodePath, args: [workspaceCli] };
+    return { command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }), args: [workspaceCli] };
   }
 
   const bundledCli = path.resolve(extensionRoot, '..', '..', 'dist', 'cli', 'index.js');
   if (pathExists(bundledCli)) {
-    return { command: nodePath, args: [bundledCli] };
+    return { command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }), args: [bundledCli] };
   }
 
   return { command: 'stem', args: [] };
 }
 
-function createPreviewUri(projectRoot, viewId, sourceUri) {
-  return vscode.Uri.parse(createPreviewUriText(projectRoot, viewId, sourceUri.toString(true)));
+function resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions = process.versions }) {
+  if (!isElectronBackedNodePath(nodePath, runtimeVersions)) {
+    return nodePath;
+  }
+
+  return findNodeOnPath(env, pathExists) ?? nodePath;
+}
+
+function findNodeOnPath(env, pathExists) {
+  const pathValue = env.PATH ?? env.Path ?? env.path ?? '';
+  if (pathValue.length === 0) {
+    return null;
+  }
+
+  const executableNames = process.platform === 'win32' ? ['node.exe'] : ['node'];
+  for (const directory of pathValue.split(path.delimiter)) {
+    if (directory.trim().length === 0) {
+      continue;
+    }
+
+    for (const executableName of executableNames) {
+      const candidate = path.join(directory, executableName);
+      if (pathExists(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getPreviewExecOptions({ command, args, cwd, nodePath, env, runtimeVersions }) {
+  const options = {
+    cwd,
+    maxBuffer: PREVIEW_EXEC_MAX_BUFFER_BYTES
+  };
+
+  if (shouldRunElectronAsNode({ command, args, nodePath, runtimeVersions })) {
+    options.env = { ...env, ELECTRON_RUN_AS_NODE: '1' };
+  }
+
+  return options;
+}
+
+function shouldRunElectronAsNode({ command, args, nodePath, runtimeVersions }) {
+  return (
+    command === nodePath &&
+    isElectronBackedNodePath(nodePath, runtimeVersions) &&
+    typeof args[0] === 'string' &&
+    isJavaScriptEntrypoint(args[0])
+  );
+}
+
+function isElectronBackedNodePath(nodePath, runtimeVersions) {
+  if (typeof runtimeVersions.electron === 'string' && runtimeVersions.electron.length > 0) {
+    return true;
+  }
+
+  const executableName = path.basename(nodePath).toLowerCase();
+  return [
+    'code.exe',
+    'code - insiders.exe',
+    'code - oss.exe',
+    'code',
+    'code-insiders',
+    'code-oss',
+    'electron',
+    'electron.exe'
+  ].includes(executableName);
+}
+
+function createPreviewUri(projectRoot, viewId, sourceUri, vscodeApi = vscode) {
+  return vscodeApi.Uri.parse(createPreviewUriText(projectRoot, viewId, sourceUri.toString(true)));
 }
 
 function createPreviewUriText(projectRoot, viewId, sourceUriText) {
@@ -444,6 +547,14 @@ function toPreviewErrorDetails(error) {
   };
 }
 
+function getPreviewFailureNextAction(details) {
+  if (details.exitCode === 'ENOENT' || /spawn .*ENOENT/u.test(details.message)) {
+    return 'Build Stem in this workspace or set `stem.cliPath` to a Stem CLI executable or JavaScript entrypoint, then refresh this preview.';
+  }
+
+  return 'Run `stem check` in the project root, fix any reported errors, then refresh this preview.';
+}
+
 function cleanErrorMessage(message) {
   const trimmed = message.trim();
   if (trimmed.includes('\n')) {
@@ -512,15 +623,24 @@ module.exports = {
   _private: {
     DEFAULT_REFRESH_DEBOUNCE_MS,
     PREVIEW_SCHEME,
+    PREVIEW_EXEC_MAX_BUFFER_BYTES,
     StemPreviewWatcherManager,
     WATCH_PATTERNS,
+    createPreviewUri,
     createPreviewUriText,
     findProjectRoot,
+    findNodeOnPath,
     formatPreviewError,
     formatCommandText,
+    getPreviewExecOptions,
+    getPreviewFailureNextAction,
     getFrontmatterId,
+    isElectronBackedNodePath,
+    openPreviewToSide,
     parsePreviewUri,
+    resolveNodeRuntime,
     resolveStemCommand,
+    shouldRunElectronAsNode,
     stripLeadingFrontmatter,
     toPreviewDisplayMarkdown,
     toPreviewErrorDetails,

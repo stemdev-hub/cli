@@ -19,6 +19,7 @@ Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`. T
 
 The extension does not duplicate Stem parser or renderer logic, and it does not use a custom webview.
 The CLI remains the source of truth; the preview only hides leading YAML frontmatter so the rendered document reads cleanly in VS Code.
+Because preview runs the Stem CLI from the project root, it is available only in trusted VS Code workspaces.
 
 Open previews refresh automatically when project files change:
 
@@ -51,6 +52,7 @@ Run `pnpm build` in this repo before testing the extension against the workspace
 - If preview cannot open, make sure the active editor is a Markdown file on disk inside a Stem project and has top-level frontmatter like `id: api-view`.
 - If rendering fails, the preview shows Markdown with the failed command, project root, exit code when available, stdout/stderr, and a suggested next action.
 - If the CLI cannot be found, set `stem.cliPath` to a `stem` executable or JavaScript CLI entrypoint. JavaScript entrypoints are run with VS Code's Node runtime.
+- If VS Code says the workspace is untrusted, trust the workspace before opening a Stem preview.
 - If auto-refresh feels too eager or too slow, adjust `stem.preview.refreshDebounceMs`.
 - If auto-refresh is disabled, run `Stem: Refresh Preview` from the Command Palette or from a Stem preview editor title.
 

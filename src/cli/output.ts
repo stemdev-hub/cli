@@ -12,7 +12,9 @@ import type {
   OperationResult,
   RenderResult,
   RenameResult,
-  SyncResult
+  SyncResult,
+  ValidationIssue,
+  ValidationResult
 } from '@stem/types';
 
 type OperationFailure = { success: false; error: OperationError };
@@ -23,6 +25,13 @@ export function reportOperationError<T>(result: OperationResult<T>): result is O
   }
 
   console.error(result.error.message);
+  if (isValidationResult(result.error.cause)) {
+    for (const issue of result.error.cause.issues) {
+      if (issue.severity === 'error') {
+        console.error(formatValidationIssue(issue));
+      }
+    }
+  }
   process.exitCode = 1;
   return true;
 }
@@ -102,13 +111,25 @@ export function reportCheck(result: OperationResult<CheckResult>): void {
 
   const { validation } = result.data;
   for (const issue of validation.issues) {
-    console.log(`${issue.severity.toUpperCase()} ${issue.code} ${issue.relativePath}: ${issue.message}`);
+    console.log(formatValidationIssue(issue));
   }
 
   console.log(`${validation.errorCount} error${validation.errorCount === 1 ? '' : 's'}, ${validation.warningCount} warning${validation.warningCount === 1 ? '' : 's'}`);
   if (validation.hasErrors) {
     process.exitCode = 1;
   }
+}
+
+function formatValidationIssue(issue: ValidationIssue): string {
+  return `${issue.severity.toUpperCase()} ${issue.code} ${issue.relativePath}: ${issue.message}`;
+}
+
+function isValidationResult(value: unknown): value is ValidationResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as Partial<ValidationResult>).issues)
+  );
 }
 
 export function reportListBlocks(result: OperationResult<ListBlocksResult>): void {

@@ -47,8 +47,11 @@ function resolveBlockRef(block: ParsedBlock, blockRef: BlockRef): string {
     return cleanRenderedMarkdown(section.prose);
   }
 
-  const tag = [...section.tags, ...section.externalTags].find((candidate) => candidate.name === blockRef.tag);
-  return tag?.content ?? '';
+  return [...section.tags, ...section.externalTags]
+    .filter((candidate) => candidate.name === blockRef.tag)
+    .sort((left, right) => (left.position.start.offset ?? 0) - (right.position.start.offset ?? 0))
+    .map((tag) => tag.content)
+    .join('\n');
 }
 
 function applyOffsetReplacements(content: string, replacements: OffsetReplacement[]): string {
