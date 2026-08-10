@@ -24,6 +24,7 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'node_modules/**',
+      'coverage/**',
       '.stem/cache/**',
       'eslint.config.js',
       'tests/smoke/*.mjs',

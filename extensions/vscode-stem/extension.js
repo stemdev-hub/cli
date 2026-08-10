@@ -598,21 +598,21 @@ function quoteCommandPart(part) {
   return `"${part.replaceAll('"', '\\"')}"`;
 }
 
-function getConfiguredCliPath() {
-  return vscode.workspace.getConfiguration('stem').get('cliPath', '').trim();
+function getConfiguredCliPath(vscodeApi = vscode) {
+  return vscodeApi.workspace.getConfiguration('stem').get('cliPath', '').trim();
 }
 
 function isAutoRefreshEnabled() {
   return vscode.workspace.getConfiguration('stem').get('preview.autoRefresh', true);
 }
 
-function getRefreshDebounceMs() {
-  const configured = vscode.workspace.getConfiguration('stem').get('preview.refreshDebounceMs', DEFAULT_REFRESH_DEBOUNCE_MS);
+function getRefreshDebounceMs(vscodeApi = vscode) {
+  const configured = vscodeApi.workspace.getConfiguration('stem').get('preview.refreshDebounceMs', DEFAULT_REFRESH_DEBOUNCE_MS);
   return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_REFRESH_DEBOUNCE_MS;
 }
 
-function assertVscode() {
-  if (vscode === null) {
+function assertVscode(vscodeApi = vscode) {
+  if (vscodeApi === null) {
     throw new Error('The Stem VS Code extension must be activated inside the VS Code extension host.');
   }
 }
@@ -626,18 +626,22 @@ module.exports = {
     PREVIEW_EXEC_MAX_BUFFER_BYTES,
     StemPreviewWatcherManager,
     WATCH_PATTERNS,
+    assertVscode,
     createPreviewUri,
     createPreviewUriText,
     findProjectRoot,
     findNodeOnPath,
     formatPreviewError,
     formatCommandText,
+    getConfiguredCliPath,
+    getRefreshDebounceMs,
     getPreviewExecOptions,
     getPreviewFailureNextAction,
     getFrontmatterId,
     isElectronBackedNodePath,
     openPreviewToSide,
     parsePreviewUri,
+    quoteCommandPart,
     resolveNodeRuntime,
     resolveStemCommand,
     shouldRunElectronAsNode,

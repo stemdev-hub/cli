@@ -4,3 +4,4 @@ dist/
 .pnpm-store/
 rendered/
 .temp/
+coverage/

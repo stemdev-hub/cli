@@ -7,7 +7,9 @@
   "bin": {
     "stem": "./dist/cli/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup ./src/index.ts ./src/cli/index.ts --format esm --dts --sourcemap --clean",
     "dev": "tsx src/cli/index.ts",
@@ -32,6 +34,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@types/node": "^25.9.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9.39.4",
     "prettier": "^3.8.3",
     "tsup": "^8.5.1",

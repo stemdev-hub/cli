@@ -149,6 +149,55 @@ id: api-view
     };
     expect(Object.keys(indexContent.entries)).toEqual(['blocks/auth.md']);
   });
+
+  it('serializes block-to-block depends-on edges into the graph snapshot', async () => {
+    await writeProjectFile(
+      testRoot,
+      'blocks/users.md',
+      `---
+id: users
+tags:
+  - backend
+---
+Users block.
+`
+    );
+    await writeProjectFile(
+      testRoot,
+      'blocks/auth.md',
+      `---
+id: auth
+tags:
+  - backend
+depends-on:
+  - users
+---
+@stem[dep:users]
+Auth block that depends on users.
+`
+    );
+    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
+
+    const result = await syncProject({ startDir: testRoot });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.graphEdges).toBeGreaterThanOrEqual(2); // view-uses-block + block-depends-on
+    }
+
+    const snapshot = await readGraphSnapshot(testRoot, config);
+    expect(snapshot.success).toBe(true);
+    if (snapshot.success && snapshot.data) {
+      // The blockDependsOn map should be serialized correctly
+      expect(snapshot.data.blockDependsOn['auth']).toBeDefined();
+      const authDep = snapshot.data.blockDependsOn['auth'];
+      expect(authDep).toEqual(
+        expect.arrayContaining([expect.objectContaining({ blockId: 'users' })])
+      );
+      // blockDependents is the reverse: users is a dependent of auth
+      expect(snapshot.data.blockDependents['users']).toContain('auth');
+    }
+  });
 });
 
 function createConfig(projectRoot: string): ResolvedStemConfig {

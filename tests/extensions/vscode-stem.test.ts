@@ -44,6 +44,8 @@ interface StemExtensionModule {
     findProjectRoot(startDir: string): string | null;
     findNodeOnPath(env: Record<string, string | undefined>, pathExists: (filePath: string) => boolean): string | null;
     formatCommandText(command: string, args: string[]): string;
+    getConfiguredCliPath(vscodeApi: unknown): string;
+    getRefreshDebounceMs(vscodeApi: unknown): number;
     formatPreviewError(error: unknown, options?: { viewId?: string; projectRoot?: string; nextAction?: string }): string;
     getPreviewExecOptions(options: {
       command: string;
@@ -76,6 +78,7 @@ interface StemExtensionModule {
       vscodeApi: OpenPreviewFakeVscodeApi
     ): Promise<void>;
     parsePreviewUri(uri: { query: string }): { projectRoot: string; viewId: string; source: string | null } | null;
+    quoteCommandPart(part: string): string;
     resolveStemCommand(options: {
       configuredCliPath: string;
       projectRoot: string;
@@ -654,6 +657,59 @@ describe('VS Code Stem extension helpers', () => {
     expect(unwatched).toEqual([projectRoot]);
   });
 
+  describe('formatCommandText & quoteCommandPart', () => {
+    it('quotes command parts that contain spaces', () => {
+      expect(stem.formatCommandText('node', ['C:\\path with spaces\\index.js'])).toBe(
+        'node "C:\\path with spaces\\index.js"'
+      );
+    });
+
+    it('quotes command parts that contain double quotes', () => {
+      expect(stem.formatCommandText('node', ['arg"with"quote'])).toBe(
+        'node "arg\\"with\\"quote"'
+      );
+    });
+
+    it('does not quote command parts that contain no spaces or quotes', () => {
+      expect(stem.formatCommandText('stem', ['preview', 'view', 'api-view'])).toBe(
+        'stem preview view api-view'
+      );
+    });
+  });
+
+  describe('Configuration Fallbacks', () => {
+    it('falls back to DEFAULT_REFRESH_DEBOUNCE_MS when configured value is not a finite number', () => {
+      const fakeVscode = {
+        workspace: {
+          getConfiguration: () => ({
+            get: (key: string, defaultVal: number) => {
+              if (key === 'preview.refreshDebounceMs') return NaN;
+              return defaultVal;
+            }
+          })
+        }
+      };
+      const result = stem.getRefreshDebounceMs(fakeVscode);
+      expect(result).toBe(stem.DEFAULT_REFRESH_DEBOUNCE_MS);
+    });
+
+    it('falls back to DEFAULT_REFRESH_DEBOUNCE_MS when configured value is negative', () => {
+      const fakeVscode = {
+        workspace: {
+          getConfiguration: () => ({
+            get: (key: string, defaultVal: number) => {
+              if (key === 'preview.refreshDebounceMs') return -1;
+              return defaultVal;
+            }
+          })
+        }
+      };
+      const result = stem.getRefreshDebounceMs(fakeVscode);
+      expect(result).toBe(stem.DEFAULT_REFRESH_DEBOUNCE_MS);
+    });
+  });
+
+  describe('StemPreviewWatcherManager', () => {
   it('applies auto-refresh configuration without leaving stale watchers or timers', () => {
     const fake = createFakeWatcherEnvironment();
     const manager = new stem.StemPreviewWatcherManager(
@@ -850,3 +906,4 @@ function createOpenPreviewFakeVscodeApi(options: {
     workspace
   };
 }
+});
