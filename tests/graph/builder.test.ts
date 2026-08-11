@@ -259,6 +259,7 @@ function createBlock(overrides: Partial<ParsedBlock> = {}): ParsedBlock {
     filePath: `/project/blocks/${id}.md`,
     relativePath: `blocks/${id}.md`,
     rawContent: '',
+    bodyStartLine: 1,
     ...overrides
   };
 }
@@ -273,6 +274,7 @@ function createView(overrides: Partial<ParsedView> = {}): ParsedView {
     filePath: `/project/views/${id}.md`,
     relativePath: `views/${id}.md`,
     localContent: '',
+    bodyStartLine: 1,
     ...overrides
   };
 }
@@ -285,6 +287,8 @@ function createBlockRef(
     blockId,
     section: overrides.section ?? null,
     tag: overrides.tag ?? null,
+    parameters: overrides.parameters ?? [],
+    syntax: overrides.syntax ?? 'legacy',
     raw: `@stem[block:${blockId}]`,
     position: POSITION
   };

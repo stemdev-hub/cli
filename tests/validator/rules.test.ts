@@ -370,6 +370,7 @@ function createBlock(id: string, overrides: Partial<ParsedBlock> = {}): ParsedBl
     filePath: `/project/blocks/${id}.md`,
     relativePath: `blocks/${id}.md`,
     rawContent: '',
+    bodyStartLine: 1,
     ...overrides
   };
 }
@@ -381,7 +382,8 @@ function createView(id: string, blockRefs: BlockRef[] = []): ParsedView {
     blockRefs,
     filePath: `/project/views/${id}.md`,
     relativePath: `views/${id}.md`,
-    localContent: ''
+    localContent: '',
+    bodyStartLine: 1
   };
 }
 
@@ -398,6 +400,8 @@ function createBlockRef(
     blockId,
     section,
     tag,
+    parameters: overrides.parameters ?? [],
+    syntax: overrides.syntax ?? 'legacy',
     raw: `@stem[block:${blockId}${sectionParam}${tagParam}]`,
     position: POSITION
   };
@@ -412,6 +416,7 @@ function createSection(
     tags: overrides.tags ?? [],
     externalTags: overrides.externalTags ?? [],
     prose: '',
+    proseRange: { startOffset: 0, endOffset: 0 },
     position: POSITION
   };
 }
@@ -421,6 +426,7 @@ function createTag(name: string, content: string = ''): StemTag {
     name,
     section: null,
     content,
+    contentRange: { startOffset: 0, endOffset: content.length },
     position: POSITION
   };
 }

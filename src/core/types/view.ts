@@ -1,9 +1,12 @@
+import type { BlockParameter, BlockRefSyntax } from './ast.js';
 import type { Position } from './position.js';
 
 export interface CachedBlockRef {
   blockId: string;
   section: string | null;
   tag: string | null;
+  parameters: readonly BlockParameter[];
+  syntax: BlockRefSyntax;
   raw: string;
 }
 
@@ -22,4 +25,5 @@ export interface ParsedView extends Omit<CachedView, 'blockRefs'> {
   filePath: string;
   relativePath: string;
   localContent: string;
+  bodyStartLine: number;
 }

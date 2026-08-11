@@ -204,7 +204,8 @@ function createBlock(id: string, dependsOn: DependencyRef[] = []): ParsedBlock {
     standaloneTags: [],
     filePath: `/project/blocks/${id}.md`,
     relativePath: `blocks/${id}.md`,
-    rawContent: ''
+    rawContent: '',
+    bodyStartLine: 1
   };
 }
 
@@ -215,7 +216,8 @@ function createView(id: string, blockRefs: BlockRef[] = []): ParsedView {
     blockRefs,
     filePath: `/project/views/${id}.md`,
     relativePath: `views/${id}.md`,
-    localContent: ''
+    localContent: '',
+    bodyStartLine: 1
   };
 }
 
@@ -224,6 +226,8 @@ function createBlockRef(blockId: string): BlockRef {
     blockId,
     section: null,
     tag: null,
+    parameters: [],
+    syntax: 'legacy',
     raw: `@stem[block:${blockId}]`,
     position: POSITION
   };

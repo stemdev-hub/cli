@@ -322,12 +322,14 @@ function fromCachedBlock(cached: CachedBlock, entry: CacheIndexEntry): ParsedBlo
       prose: section.prose,
       tags: section.tags.map(fromCachedTag),
       externalTags: section.externalTags.map(fromCachedTag),
-      position: ZERO_POSITION
+      position: ZERO_POSITION,
+      proseRange: { startOffset: 0, endOffset: 0 }
     })),
     standaloneTags: cached.standaloneTags.map(fromCachedTag),
     filePath: entry.filePath,
     relativePath: entry.relativePath,
-    rawContent: ''
+    rawContent: '',
+    bodyStartLine: 1
   };
 }
 
@@ -338,14 +340,16 @@ function fromCachedView(cached: CachedView, entry: CacheIndexEntry): ParsedView 
     blockRefs: cached.blockRefs.map((blockRef) => ({ ...blockRef, position: ZERO_POSITION })),
     filePath: entry.filePath,
     relativePath: entry.relativePath,
-    localContent: ''
+    localContent: '',
+    bodyStartLine: 1
   };
 }
 
 function fromCachedTag(tag: CachedTag): ParsedBlock['standaloneTags'][number] {
   return {
     ...tag,
-    position: ZERO_POSITION
+    position: ZERO_POSITION,
+    contentRange: { startOffset: 0, endOffset: 0 }
   };
 }
 

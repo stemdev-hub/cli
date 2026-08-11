@@ -15,6 +15,17 @@ export interface IssueContextMap {
   UNRESOLVED_TAG: { targetId: string; targetSection: string; missingTag: string };
   INVALID_BLOCK_REF_FILTER: { targetId: string; rawRef: string };
   INVALID_FRONTMATTER: { parseError: string };
+  INVALID_STEM_PARAMETER: { rawRef: string; reason: string };
+  MISSING_BLOCK_VARIABLE: {
+    blockId: string;
+    variableName: string;
+    rawRef: string;
+    viewPath: string;
+    viewLine: number;
+    viewColumn: number;
+  };
+  INLINE_BLOCK_REFERENCE: { blockId: string; rawRef: string };
+  BLOCK_REFERENCE_IN_TABLE_CELL: { blockId: string; rawRef: string };
 }
 
 export type ValidationIssue = {

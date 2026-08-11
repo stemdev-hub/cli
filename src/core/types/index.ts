@@ -1,6 +1,8 @@
 export type { Point, Position } from './position.js';
 export type {
   StemASTNode,
+  BlockParameter,
+  BlockRefSyntax,
   StemTagNode,
   StemSectionNode,
   StemBlockRefNode,
@@ -13,6 +15,7 @@ export type {
   CachedTag,
   CachedSection,
   CachedBlock,
+  SourceRange,
   StemTag,
   StemSection,
   ParsedBlock

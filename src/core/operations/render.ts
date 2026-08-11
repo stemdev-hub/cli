@@ -108,7 +108,19 @@ async function renderLoadedView(
   view: ParsedView,
   options: RenderViewOptions | RenderAllOptions
 ): Promise<OperationResult<RenderedViewResult>> {
-  const body = renderViewMarkdown(view, project.blocks);
+  const renderResult = renderViewMarkdown(view, project.blocks);
+  if (!renderResult.success) {
+    return {
+      success: false,
+      error: operationError(
+        'INVALID_OPERATION',
+        `Cannot render view "${view.id}" with ${renderResult.validation.errorCount} validation error${renderResult.validation.errorCount === 1 ? '' : 's'}.`,
+        { cause: renderResult.validation }
+      )
+    };
+  }
+
+  const body = renderResult.markdown;
   const markdownResult = await attachViewFrontmatter(view, body);
   if (!markdownResult.success) {
     return markdownResult;

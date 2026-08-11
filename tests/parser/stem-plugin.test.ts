@@ -11,6 +11,8 @@ describe('Stem remark plugin', () => {
       blockId: 'auth-flow-block',
       section: null,
       tag: null,
+      parameters: [],
+      syntax: 'legacy',
       raw: '@stem[block:auth-flow-block]'
     });
   });
@@ -24,8 +26,72 @@ describe('Stem remark plugin', () => {
       type: 'stemBlockRef',
       blockId: 'auth-flow-block',
       section: 'auth-flow',
-      tag: 'summary'
+      tag: 'summary',
+      parameters: [],
+      syntax: 'legacy'
     });
+  });
+
+  it('identifies extended block reference parameters', () => {
+    const nodes = collectStemNodes(
+      parseMarkdownBody('@stem[block:db-setup, db_name="PostgreSQL", port="5432"]')
+    );
+
+    expect(nodes[0]).toMatchObject({
+      type: 'stemBlockRef',
+      blockId: 'db-setup',
+      section: null,
+      tag: null,
+      parameters: [
+        { name: 'db_name', value: 'PostgreSQL' },
+        { name: 'port', value: '5432' }
+      ],
+      syntax: 'extended'
+    });
+  });
+
+  it('routes comma and quoted reserved-filter-only syntax as extended', () => {
+    const nodes = collectStemNodes(parseMarkdownBody('@stem[block:db-setup, section="setup"]'));
+
+    expect(nodes[0]).toMatchObject({
+      type: 'stemBlockRef',
+      blockId: 'db-setup',
+      section: 'setup',
+      parameters: [],
+      syntax: 'extended'
+    });
+  });
+
+  it('accepts empty quoted parameter values', () => {
+    const nodes = collectStemNodes(parseMarkdownBody('@stem[block:db-setup, port=""]'));
+
+    expect(nodes[0]).toMatchObject({
+      type: 'stemBlockRef',
+      parameters: [{ name: 'port', value: '' }],
+      syntax: 'extended'
+    });
+  });
+
+  it('emits typed invalid nodes for malformed and unsafe arguments', () => {
+    const nodes = collectStemNodes(
+      parseMarkdownBody('@stem[block:db-setup, port] @stem[block:db-setup, constructor="x"]')
+    );
+
+    expect(nodes).toMatchObject([
+      { type: 'stemInvalid', raw: '@stem[block:db-setup, port]' },
+      { type: 'stemInvalid', raw: '@stem[block:db-setup, constructor="x"]' }
+    ]);
+  });
+
+  it('emits typed invalid nodes for duplicate and non-ASCII argument names', () => {
+    const nodes = collectStemNodes(
+      parseMarkdownBody('@stem[block:db-setup, port="1", port="2"] @stem[block:db-setup, café="x"]')
+    );
+
+    expect(nodes).toMatchObject([
+      { type: 'stemInvalid', raw: '@stem[block:db-setup, port="1", port="2"]' },
+      { type: 'stemInvalid', raw: '@stem[block:db-setup, café="x"]' }
+    ]);
   });
 
   it('identifies multiple references on the same line', () => {
@@ -88,6 +154,17 @@ describe('Stem remark plugin', () => {
 
   it('ignores Stem syntax inside inline code spans', () => {
     const nodes = collectStemNodes(parseMarkdownBody('Ignore `@stem[block:ignored]` and parse @stem[block:included].'));
+
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({ type: 'stemBlockRef', blockId: 'included' });
+  });
+
+  it('ignores Stem syntax inside raw HTML nodes', () => {
+    const nodes = collectStemNodes(
+      parseMarkdownBody(`<div>@stem[block:ignored]</div>
+
+@stem[block:included]`)
+    );
 
     expect(nodes).toHaveLength(1);
     expect(nodes[0]).toMatchObject({ type: 'stemBlockRef', blockId: 'included' });

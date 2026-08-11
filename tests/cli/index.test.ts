@@ -142,7 +142,7 @@ Endpoint summary.
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toBe('');
-    expect(result.stdout).toContain('ERROR BROKEN_BLOCK_REF views/api.md: View references missing block "missing".');
+    expect(result.stdout).toContain('ERROR BROKEN_BLOCK_REF views/api.md:4:1: View references missing block "missing".');
     expect(result.stdout).toContain('1 error, 0 warnings');
   }, cliTestTimeoutMs);
 
@@ -159,7 +159,7 @@ Endpoint summary.
       stderr: ''
     });
     await expect(readJson(path.join(testRoot, '.stem/cache/index.json'))).resolves.toMatchObject({
-      version: '1'
+      version: '2'
     });
     await expect(readJson(path.join(testRoot, '.stem/cache/graph.json'))).resolves.toMatchObject({
       version: '1'
@@ -240,7 +240,7 @@ Endpoint summary.
     expect(result.stdout).toBe('');
     expect(result.stderr).toContain('Cannot render project with 1 validation error. Run stem check for details.');
     expect(result.stderr).toContain(
-      'ERROR INVALID_BLOCK_REF_FILTER views/api.md: Block reference "@stem[block:auth tag=api]" uses a tag filter without a section filter.'
+      'ERROR INVALID_BLOCK_REF_FILTER views/api.md:4:1: Block reference "@stem[block:auth tag=api]" uses a tag filter without a section filter.'
     );
     await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
   }, cliTestTimeoutMs);

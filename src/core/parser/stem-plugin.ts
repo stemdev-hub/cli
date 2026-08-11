@@ -1,5 +1,7 @@
 import { SKIP, visit } from 'unist-util-visit';
 import type {
+  BlockParameter,
+  BlockRefSyntax,
   Position,
   StemASTNode,
   StemBlockRefNode,
@@ -13,12 +15,19 @@ export interface StemEndNode extends StemASTNode {
   raw: string;
 }
 
+export interface StemInvalidNode extends StemASTNode {
+  type: 'stemInvalid';
+  raw: string;
+  reason: string;
+}
+
 export type StemSyntaxNode =
   | StemTagNode
   | StemSectionNode
   | StemBlockRefNode
   | StemDepNode
-  | StemEndNode;
+  | StemEndNode
+  | StemInvalidNode;
 
 export interface StemTextNode extends StemASTNode {
   type: 'text';
@@ -47,20 +56,26 @@ interface StemParameterMap {
   tag: string | null;
 }
 
-const STEM_IDENTIFIER_PATTERN = '[A-Za-z0-9_-]+';
-const STEM_PARAMS_PATTERN = '[^\\]\\r\\n]*';
-const STEM_SCOPED_DEP_PATTERN = `${STEM_IDENTIFIER_PATTERN}(?:#${STEM_IDENTIFIER_PATTERN}(?:\\.${STEM_IDENTIFIER_PATTERN})?)?`;
+interface ParsedArguments {
+  section: string | null;
+  tag: string | null;
+  parameters: BlockParameter[];
+  syntax: BlockRefSyntax;
+  reason: string | null;
+}
 
-// Matches a single-line Stem macro with no capture groups:
-// - @stem[end]
-// - @stem[block:id ...params], @stem[section:id ...params], @stem[tag:id ...params]
-// - @stem[dep:block-id] and @stem[dep:block-id#section.tag]
-const STEM_MACRO_PATTERN = new RegExp(
-  `@stem\\[(?:end|(?:block|section|tag):${STEM_IDENTIFIER_PATTERN}(?:[ \\t]+${STEM_PARAMS_PATTERN})?|dep:${STEM_SCOPED_DEP_PATTERN})\\]`,
-  'g'
-);
+interface ArgumentToken {
+  name: string;
+  value: string;
+  quoted: boolean;
+}
 
-// Transform only mdast text nodes; code and inlineCode remain untouched by construction.
+const STEM_IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]+$/;
+const STEM_ARGUMENT_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
+const STEM_SCOPED_DEP_PATTERN = /^[A-Za-z0-9_-]+(?:#[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?)?$/;
+const DANGEROUS_PARAMETER_NAMES = new Set(['__proto__', 'constructor', 'prototype']);
+
+// Transform only mdast text nodes; code, inlineCode, and raw html remain untouched.
 export function createStemRemarkPlugin(): (tree: StemRoot) => void {
   return function transformer(tree: StemRoot): void {
     visit(tree, 'text', (node: StemTextNode, index, parent) => {
@@ -85,9 +100,7 @@ export function createStemRemarkPlugin(): (tree: StemRoot) => void {
 }
 
 export function parseStemMacro(raw: string, position?: Position): StemSyntaxNode | null {
-  STEM_MACRO_PATTERN.lastIndex = 0;
-  const match = STEM_MACRO_PATTERN.exec(raw);
-  if (match === null || match[0] !== raw) {
+  if (!raw.startsWith('@stem[') || !raw.endsWith(']') || raw.includes('\n') || raw.includes('\r')) {
     return null;
   }
 
@@ -96,30 +109,67 @@ export function parseStemMacro(raw: string, position?: Position): StemSyntaxNode
     return withOptionalPosition<StemEndNode>({ type: 'stemEnd', raw }, position);
   }
 
-  const [head = '', ...parameterParts] = inner.split(/[ \t]+/);
-  const separatorIndex = head.indexOf(':');
-  const type = head.slice(0, separatorIndex);
-  const identifier = head.slice(separatorIndex + 1);
-  const params = parseParameters(parameterParts);
+  const separatorIndex = inner.indexOf(':');
+  if (separatorIndex < 0) {
+    return null;
+  }
+
+  const type = inner.slice(0, separatorIndex);
+  const rest = inner.slice(separatorIndex + 1);
+  if (type !== 'block' && type !== 'section' && type !== 'tag' && type !== 'dep') {
+    return null;
+  }
+
+  if (type === 'dep') {
+    const scopedIdentifier = rest.trim();
+    const { argumentSource } = splitIdentifierAndArguments(rest);
+    if (argumentSource.trim().length > 0 || !STEM_SCOPED_DEP_PATTERN.test(rest.trim())) {
+      return invalid(raw, 'Dependency references do not accept arguments.', position);
+    }
+    return createDepNode(scopedIdentifier, raw, position);
+  }
+
+  const { identifier, argumentSource } = splitIdentifierAndArguments(rest);
+  if (!isValidIdentifier(identifier)) {
+    return invalid(raw, `Invalid ${type} identifier.`, position);
+  }
+
+  const args = parseArguments(argumentSource);
+  if (args.reason !== null) {
+    return invalid(raw, args.reason, position);
+  }
 
   if (type === 'block') {
-    return createBlockRefNode(identifier, params, raw, position);
+    return createBlockRefNode(identifier, args, raw, position);
   }
 
   if (type === 'section') {
+    if (args.parameters.length > 0 || args.section !== null || args.tag !== null) {
+      return invalid(raw, 'Section macros do not accept arguments.', position);
+    }
     return createSectionNode(identifier, position);
   }
 
-  if (type === 'tag') {
-    return createTagNode(identifier, params, position);
-  }
+  return createTagNode(identifier, args, position);
+}
 
-  return createDepNode(identifier, raw, position);
+export function collectStemNodes(tree: StemRoot): StemSyntaxNode[] {
+  const nodes: StemSyntaxNode[] = [];
+  visit(tree, (node) => {
+    if (isStemSyntaxNode(node)) {
+      nodes.push(node);
+    }
+  });
+  return nodes;
+}
+
+export function isDangerousParameterName(name: string): boolean {
+  return DANGEROUS_PARAMETER_NAMES.has(name);
 }
 
 function createBlockRefNode(
   blockId: string,
-  params: StemParameterMap,
+  params: ParsedArguments,
   raw: string,
   position: Position | undefined
 ): StemBlockRefNode {
@@ -129,6 +179,8 @@ function createBlockRefNode(
       blockId,
       section: params.section,
       tag: params.tag,
+      parameters: params.parameters,
+      syntax: params.syntax,
       raw
     },
     position
@@ -171,14 +223,8 @@ function createDepNode(
   );
 }
 
-export function collectStemNodes(tree: StemRoot): StemSyntaxNode[] {
-  const nodes: StemSyntaxNode[] = [];
-  visit(tree, (node) => {
-    if (isStemSyntaxNode(node)) {
-      nodes.push(node);
-    }
-  });
-  return nodes;
+function invalid(raw: string, reason: string, position: Position | undefined): StemInvalidNode {
+  return withOptionalPosition<StemInvalidNode>({ type: 'stemInvalid', raw, reason }, position);
 }
 
 function replaceTextNode(node: StemTextNode): StemMdastNode[] | null {
@@ -205,18 +251,227 @@ function replaceTextNode(node: StemTextNode): StemMdastNode[] | null {
 
 function findMacros(node: StemTextNode): StemMacro[] {
   const macros: StemMacro[] = [];
-  STEM_MACRO_PATTERN.lastIndex = 0;
+  let searchFrom = 0;
 
-  for (const match of node.value.matchAll(STEM_MACRO_PATTERN)) {
-    const raw = match[0];
-    const startIndex = match.index;
-    const endIndex = startIndex + raw.length;
-    const parsed = parseStemMacro(raw, slicePosition(node, startIndex, endIndex));
+  while (searchFrom < node.value.length) {
+    const startIndex = node.value.indexOf('@stem[', searchFrom);
+    if (startIndex < 0) {
+      break;
+    }
+
+    const endIndex = findMacroEnd(node.value, startIndex);
+    if (endIndex === null) {
+      searchFrom = startIndex + 6;
+      continue;
+    }
+
+    const raw = node.value.slice(startIndex, endIndex + 1);
+    const parsed = parseStemMacro(raw, slicePosition(node, startIndex, endIndex + 1));
     if (parsed !== null) {
-      macros.push({ node: parsed, startIndex, endIndex });
+      macros.push({ node: parsed, startIndex, endIndex: endIndex + 1 });
+    }
+    searchFrom = endIndex + 1;
+  }
+
+  return macros;
+}
+
+function findMacroEnd(value: string, startIndex: number): number | null {
+  let cursor = startIndex + 6;
+  let inQuote = false;
+
+  while (cursor < value.length) {
+    const character = value[cursor];
+    if (character === '\n' || character === '\r') {
+      return null;
+    }
+
+    if (inQuote) {
+      if (character === '\\') {
+        cursor += 2;
+        continue;
+      }
+      if (character === '"') {
+        inQuote = false;
+      }
+      cursor += 1;
+      continue;
+    }
+
+    if (character === '"') {
+      inQuote = true;
+    } else if (character === ']') {
+      return cursor;
+    }
+    cursor += 1;
+  }
+
+  return null;
+}
+
+function splitIdentifierAndArguments(input: string): { identifier: string; argumentSource: string } {
+  const trimmedStart = input.trimStart();
+  const leadingWhitespace = input.length - trimmedStart.length;
+  const firstSeparator = trimmedStart.search(/[ \t,]/);
+  if (firstSeparator < 0) {
+    return { identifier: trimmedStart, argumentSource: '' };
+  }
+
+  return {
+    identifier: trimmedStart.slice(0, firstSeparator),
+    argumentSource: input.slice(leadingWhitespace + firstSeparator)
+  };
+}
+
+function parseArguments(source: string): ParsedArguments {
+  const result: ParsedArguments = {
+    section: null,
+    tag: null,
+    parameters: [],
+    syntax: 'legacy',
+    reason: null
+  };
+  const seen = new Set<string>();
+  let cursor = 0;
+  let sawComma = false;
+
+  while (cursor < source.length) {
+    const separator = readSeparators(source, cursor);
+    cursor = separator.cursor;
+    sawComma ||= separator.sawComma;
+
+    if (cursor >= source.length) {
+      break;
+    }
+
+    const token = readArgument(source, cursor);
+    if (token.reason !== null) {
+      return { ...result, reason: token.reason };
+    }
+    cursor = token.cursor;
+
+    const arg = token.argument;
+    if (!STEM_ARGUMENT_NAME_PATTERN.test(arg.name)) {
+      return { ...result, reason: `Invalid argument name "${arg.name}".` };
+    }
+    if (isDangerousParameterName(arg.name)) {
+      return { ...result, reason: `Argument name "${arg.name}" is reserved.` };
+    }
+    if (seen.has(arg.name)) {
+      return { ...result, reason: `Duplicate argument "${arg.name}".` };
+    }
+    seen.add(arg.name);
+
+    if (arg.quoted) {
+      result.syntax = 'extended';
+    }
+
+    if (arg.name === 'section') {
+      result.section = normalizeToken(arg.value);
+    } else if (arg.name === 'tag') {
+      result.tag = normalizeToken(arg.value);
+    } else {
+      result.parameters.push({ name: arg.name, value: arg.value });
+      result.syntax = 'extended';
     }
   }
-  return macros;
+
+  if (sawComma) {
+    result.syntax = 'extended';
+  }
+
+  return result;
+}
+
+function readSeparators(source: string, start: number): { cursor: number; sawComma: boolean } {
+  let cursor = start;
+  let sawComma = false;
+  while (cursor < source.length && (source[cursor] === ' ' || source[cursor] === '\t' || source[cursor] === ',')) {
+    if (source[cursor] === ',') {
+      sawComma = true;
+    }
+    cursor += 1;
+  }
+  return { cursor, sawComma };
+}
+
+function readArgument(
+  source: string,
+  start: number
+): { argument: ArgumentToken; cursor: number; reason: null } | { argument?: never; cursor: number; reason: string } {
+  let cursor = start;
+  while (cursor < source.length && !/[=\s,]/.test(source[cursor] ?? '')) {
+    cursor += 1;
+  }
+
+  const name = source.slice(start, cursor);
+  if (name.length === 0) {
+    return { cursor, reason: 'Expected argument name.' };
+  }
+
+  while (cursor < source.length && (source[cursor] === ' ' || source[cursor] === '\t')) {
+    cursor += 1;
+  }
+
+  if (source[cursor] !== '=') {
+    return { cursor, reason: `Expected "=" after argument "${name}".` };
+  }
+  cursor += 1;
+
+  while (cursor < source.length && (source[cursor] === ' ' || source[cursor] === '\t')) {
+    cursor += 1;
+  }
+
+  if (source[cursor] === '"') {
+    return readQuotedArgument(source, cursor + 1, name);
+  }
+
+  const valueStart = cursor;
+  while (cursor < source.length && source[cursor] !== ',' && source[cursor] !== ' ' && source[cursor] !== '\t') {
+    cursor += 1;
+  }
+
+  if (cursor === valueStart) {
+    return { cursor, reason: `Expected value for argument "${name}".` };
+  }
+
+  return {
+    argument: { name, value: source.slice(valueStart, cursor), quoted: false },
+    cursor,
+    reason: null
+  };
+}
+
+function readQuotedArgument(
+  source: string,
+  start: number,
+  name: string
+): { argument: ArgumentToken; cursor: number; reason: null } | { argument?: never; cursor: number; reason: string } {
+  let cursor = start;
+  let value = '';
+  while (cursor < source.length) {
+    const character = source[cursor];
+    if (character === '"') {
+      return {
+        argument: { name, value, quoted: true },
+        cursor: cursor + 1,
+        reason: null
+      };
+    }
+    if (character === '\\') {
+      const next = source[cursor + 1];
+      if (next === undefined) {
+        return { cursor, reason: `Unterminated escape in argument "${name}".` };
+      }
+      value += next;
+      cursor += 2;
+      continue;
+    }
+    value += character;
+    cursor += 1;
+  }
+
+  return { cursor, reason: `Unterminated quoted value for argument "${name}".` };
 }
 
 function createTextSlice(node: StemTextNode, startIndex: number, endIndex: number): StemTextNode {
@@ -247,7 +502,7 @@ function pointAt(start: Position['start'], value: string, index: number): Positi
     if (value[offset] === '\n') {
       line += 1;
       column = 1;
-    } else {
+    } else if (!isTrailingSurrogate(value.charCodeAt(offset))) {
       column += 1;
     }
   }
@@ -257,19 +512,6 @@ function pointAt(start: Position['start'], value: string, index: number): Positi
     point.offset = start.offset + index;
   }
   return point;
-}
-
-function parseParameters(parts: string[]): StemParameterMap {
-  const params: StemParameterMap = { section: null, tag: null };
-  for (const part of parts) {
-    const [key, value] = part.split('=', 2);
-    if (key === 'section') {
-      params.section = normalizeToken(value);
-    } else if (key === 'tag') {
-      params.tag = normalizeToken(value);
-    }
-  }
-  return params;
 }
 
 function parseScopedIdentifier(identifier: string): StemParameterMap & { blockId: string } {
@@ -282,14 +524,23 @@ function normalizeToken(value: string | undefined): string | null {
   return value !== undefined && value.trim().length > 0 ? value.trim() : null;
 }
 
+function isValidIdentifier(identifier: string): boolean {
+  return STEM_IDENTIFIER_PATTERN.test(identifier);
+}
+
 function isStemSyntaxNode(node: { type: string }): node is StemSyntaxNode {
   return (
     node.type === 'stemTag' ||
     node.type === 'stemSection' ||
     node.type === 'stemBlockRef' ||
     node.type === 'stemDep' ||
-    node.type === 'stemEnd'
+    node.type === 'stemEnd' ||
+    node.type === 'stemInvalid'
   );
+}
+
+function isTrailingSurrogate(charCode: number): boolean {
+  return charCode >= 0xdc00 && charCode <= 0xdfff;
 }
 
 function withOptionalPosition<T extends StemASTNode>(node: T, position: Position | undefined): T {

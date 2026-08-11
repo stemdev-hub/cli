@@ -2,6 +2,7 @@ import type {
   BlockRef,
   DependencyRef,
   Position,
+  SourceRange,
   StemSection,
   StemTag,
   ValidationIssue
@@ -57,7 +58,7 @@ export function runTwoPassParse(
   const errors: ValidationIssue[] = [];
 
   for (const node of collectStemNodes(tree)) {
-    collectNode(tree, state, node);
+    collectNode(tree, state, node, errors, filePath, relativePath);
   }
 
   for (const tag of state.externalTags) {
@@ -79,7 +80,14 @@ export function runTwoPassParse(
   };
 }
 
-function collectNode(tree: StemRoot, state: TwoPassState, node: StemSyntaxNode): void {
+function collectNode(
+  tree: StemRoot,
+  state: TwoPassState,
+  node: StemSyntaxNode,
+  errors: ValidationIssue[],
+  filePath: string,
+  relativePath: string
+): void {
   if (node.type === 'stemBlockRef') {
     state.blockRefs.push(toBlockRef(node));
   } else if (node.type === 'stemDep') {
@@ -90,6 +98,8 @@ function collectNode(tree: StemRoot, state: TwoPassState, node: StemSyntaxNode):
     openTag(state, node);
   } else if (isStemEndNode(node)) {
     closeCurrentScope(tree, state, node);
+  } else if (node.type === 'stemInvalid') {
+    errors.push(createInvalidStemParameterIssue(node, filePath, relativePath));
   }
 }
 
@@ -98,6 +108,8 @@ function toBlockRef(node: Extract<StemSyntaxNode, { type: 'stemBlockRef' }>): Bl
     blockId: node.blockId,
     section: node.section,
     tag: node.tag,
+    parameters: node.parameters,
+    syntax: node.syntax,
     raw: node.raw,
     position: requirePosition(node.position)
   };
@@ -121,7 +133,8 @@ function openSection(
     tags: [],
     externalTags: [],
     prose: node.prose,
-    position: requirePosition(node.position)
+    position: requirePosition(node.position),
+    proseRange: zeroRange(node.position?.end.offset ?? 0)
   };
   state.currentSection = { section, contentStartOffset: node.position?.end.offset ?? null };
   state.sections.push(section);
@@ -133,7 +146,8 @@ function openTag(state: TwoPassState, node: Extract<StemSyntaxNode, { type: 'ste
     name: node.name,
     section: node.section ?? state.currentSection?.section.name ?? null,
     content: '',
-    position: requirePosition(node.position)
+    position: requirePosition(node.position),
+    contentRange: zeroRange(node.position?.end.offset ?? 0)
   };
   state.currentTag = { tag, contentStartOffset: node.position?.end.offset ?? null };
   if (node.section !== null) {
@@ -147,20 +161,24 @@ function openTag(state: TwoPassState, node: Extract<StemSyntaxNode, { type: 'ste
 
 function closeCurrentScope(tree: StemRoot, state: TwoPassState, node: StemEndNode): void {
   if (state.currentTag !== null) {
-    state.currentTag.tag.content = extractContent(
+    const extracted = extractContent(
       tree,
       state.currentTag.contentStartOffset,
       node.position?.start.offset
     );
+    state.currentTag.tag.content = extracted.content;
+    state.currentTag.tag.contentRange = extracted.range;
     state.currentTag = null;
     return;
   }
   if (state.currentSection !== null) {
-    state.currentSection.section.prose = extractContent(
+    const extracted = extractContent(
       tree,
       state.currentSection.contentStartOffset,
       node.position?.start.offset
     );
+    state.currentSection.section.prose = extracted.content;
+    state.currentSection.section.proseRange = extracted.range;
     if (node.position !== undefined) {
       state.currentSection.section.position = {
         start: state.currentSection.section.position.start,
@@ -175,12 +193,20 @@ function extractContent(
   tree: StemRoot,
   startOffset: number | null,
   endOffset: number | undefined
-): string {
+): { content: string; range: SourceRange } {
   if (startOffset === null || endOffset === undefined || endOffset < startOffset) {
-    return '';
+    return { content: '', range: zeroRange(startOffset ?? 0) };
   }
   const source = typeof tree.data?.['stemSource'] === 'string' ? tree.data['stemSource'] : '';
-  return source.slice(startOffset, endOffset).trim();
+  const raw = source.slice(startOffset, endOffset);
+  const leadingTrim = raw.length - raw.trimStart().length;
+  const trailingTrim = raw.length - raw.trimEnd().length;
+  const trimmedStart = startOffset + leadingTrim;
+  const trimmedEnd = Math.max(trimmedStart, endOffset - trailingTrim);
+  return {
+    content: source.slice(trimmedStart, trimmedEnd),
+    range: { startOffset: trimmedStart, endOffset: trimmedEnd }
+  };
 }
 
 function createMissingSectionIssue(
@@ -202,8 +228,34 @@ function createMissingSectionIssue(
   };
 }
 
+function createInvalidStemParameterIssue(
+  node: Extract<StemSyntaxNode, { type: 'stemInvalid' }>,
+  filePath: string,
+  relativePath: string
+): ValidationIssue {
+  const issue: ValidationIssue = {
+    code: 'INVALID_STEM_PARAMETER',
+    severity: 'error',
+    message: node.reason,
+    filePath,
+    relativePath,
+    context: {
+      rawRef: node.raw,
+      reason: node.reason
+    }
+  };
+  if (node.position !== undefined) {
+    return { ...issue, position: node.position };
+  }
+  return issue;
+}
+
 function requirePosition(position: Position | undefined): Position {
   return position ?? { start: { line: 1, column: 1 }, end: { line: 1, column: 1 } };
+}
+
+function zeroRange(offset: number): SourceRange {
+  return { startOffset: offset, endOffset: offset };
 }
 
 function isStemEndNode(node: StemSyntaxNode): node is StemEndNode {

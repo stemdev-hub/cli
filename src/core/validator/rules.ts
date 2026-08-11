@@ -66,7 +66,7 @@ function checkInvalidBlockRefFilters(views: ParsedView[]): ValidationIssue[] {
           message: `Block reference "${blockRef.raw}" uses a tag filter without a section filter.`,
           filePath: view.filePath,
           relativePath: view.relativePath,
-          position: blockRef.position,
+          position: shiftBodyPosition(blockRef.position, view),
           context: {
             targetId: blockRef.blockId,
             rawRef: blockRef.raw
@@ -87,7 +87,7 @@ function checkBrokenBlockRefs(views: ParsedView[], graph: StemGraph): Validation
           message: `View references missing block "${blockRef.blockId}".`,
           filePath: view.filePath,
           relativePath: view.relativePath,
-          position: blockRef.position,
+          position: shiftBodyPosition(blockRef.position, view),
           context: {
             targetId: blockRef.blockId,
             rawRef: blockRef.raw
@@ -116,7 +116,7 @@ function checkBrokenSectionRefs(views: ParsedView[], blockLookup: Map<string, Pa
           message: `View references missing section "${blockRef.section}" in block "${blockRef.blockId}".`,
           filePath: view.filePath,
           relativePath: view.relativePath,
-          position: blockRef.position,
+          position: shiftBodyPosition(blockRef.position, view),
           context: {
             targetId: blockRef.blockId,
             targetSection: blockRef.section
@@ -147,7 +147,7 @@ function checkUnresolvedTags(views: ParsedView[], blockLookup: Map<string, Parse
           message: `View references missing tag "${blockRef.tag}" in section "${blockRef.section}" of block "${blockRef.blockId}".`,
           filePath: view.filePath,
           relativePath: view.relativePath,
-          position: blockRef.position,
+          position: shiftBodyPosition(blockRef.position, view),
           context: {
             targetId: blockRef.blockId,
             targetSection: blockRef.section,
@@ -238,6 +238,19 @@ function hasSection(block: ParsedBlock, sectionName: string): boolean {
 
 function hasTagInSection(section: ParsedBlock['sections'][number], tagName: string): boolean {
   return [...section.tags, ...section.externalTags].some((tag) => tag.name === tagName);
+}
+
+function shiftBodyPosition(position: ParsedView['blockRefs'][number]['position'], view: ParsedView): typeof position {
+  const lineOffset = view.bodyStartLine - 1;
+  if (lineOffset === 0) {
+    return position;
+  }
+
+  return {
+    ...position,
+    start: { ...position.start, line: position.start.line + lineOffset },
+    end: { ...position.end, line: position.end.line + lineOffset }
+  };
 }
 
 function formatDependencyChain(cycle: string[]): string {

@@ -1,7 +1,9 @@
 import path from 'node:path';
 
 import type {
+  BlockParameter,
   CachedBlock,
+  CachedBlockRef,
   CachedSection,
   CachedTag,
   CachedView,
@@ -16,7 +18,7 @@ import { ensureDir, writeFile } from '../fs/writer.js';
 import { cacheError } from './errors.js';
 import type { CacheResult } from './errors.js';
 
-export const CACHE_VERSION = '1';
+export const CACHE_VERSION = '2';
 
 const CACHE_INDEX_FILE = 'index.json';
 
@@ -52,6 +54,13 @@ export async function readCacheIndex(
 
   if (parseResult.data.version !== CACHE_VERSION) {
     return { success: true, data: createEmptyCacheIndex() };
+  }
+
+  if (!isCacheEntriesShape(parseResult.data)) {
+    return {
+      success: false,
+      error: cacheError('CACHE_INVALID_SCHEMA', 'Cache index contains invalid parsed entry data.', indexPath)
+    };
   }
 
   return parseResult;
@@ -122,6 +131,8 @@ export function toCachedView(parsed: ParsedView): CachedView {
       blockId: blockRef.blockId,
       section: blockRef.section,
       tag: blockRef.tag,
+      parameters: blockRef.parameters.map((parameter) => ({ ...parameter })),
+      syntax: blockRef.syntax,
       raw: blockRef.raw
     }))
   };
@@ -174,6 +185,55 @@ function toCachedTag(tag: ParsedBlock['standaloneTags'][number]): CachedTag {
 
 function isCacheIndexShape(value: unknown): value is CacheIndex {
   return isPlainObject(value) && typeof value['version'] === 'string' && isPlainObject(value['entries']);
+}
+
+function isCacheEntriesShape(index: CacheIndex): boolean {
+  return Object.values(index.entries).every((entry) => {
+    if (!isPlainObject(entry.parsed)) {
+      return false;
+    }
+
+    if (entry.type === 'view') {
+      return isCachedViewShape(entry.parsed);
+    }
+
+    return entry.type === 'block';
+  });
+}
+
+function isCachedViewShape(value: unknown): value is CachedView {
+  if (!isPlainObject(value) || !Array.isArray(value['blockRefs'])) {
+    return false;
+  }
+
+  return value['blockRefs'].every((blockRef) => isCachedBlockRefShape(blockRef));
+}
+
+function isCachedBlockRefShape(value: unknown): value is CachedBlockRef {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  const syntax = value['syntax'];
+  const parameters = value['parameters'];
+  return (
+    typeof value['blockId'] === 'string' &&
+    (value['section'] === null || typeof value['section'] === 'string') &&
+    (value['tag'] === null || typeof value['tag'] === 'string') &&
+    typeof value['raw'] === 'string' &&
+    (syntax === 'legacy' || syntax === 'extended') &&
+    Array.isArray(parameters) &&
+    parameters.every((parameter) => isBlockParameterShape(parameter))
+  );
+}
+
+function isBlockParameterShape(value: unknown): value is BlockParameter {
+  return (
+    isPlainObject(value) &&
+    typeof value['name'] === 'string' &&
+    typeof value['value'] === 'string' &&
+    /^[A-Za-z][A-Za-z0-9_-]*$/.test(value['name']) &&
+    !['__proto__', 'constructor', 'prototype'].includes(value['name'])
+  );
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

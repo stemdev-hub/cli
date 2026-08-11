@@ -6,6 +6,13 @@ export interface StemASTNode {
   position?: Position;
 }
 
+export type BlockRefSyntax = 'legacy' | 'extended';
+
+export interface BlockParameter {
+  name: string;
+  value: string;
+}
+
 export interface StemTagNode extends StemASTNode {
   type: 'stemTag';
   name: string;
@@ -24,6 +31,8 @@ export interface StemBlockRefNode extends StemASTNode {
   blockId: string;
   section: string | null;
   tag: string | null;
+  parameters: readonly BlockParameter[];
+  syntax: BlockRefSyntax;
   raw: string;
 }
 

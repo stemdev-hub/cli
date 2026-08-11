@@ -187,8 +187,75 @@ describe('index-store', () => {
     expect(cached).toEqual({
       id: 'auth-view',
       group: 'backend',
-      blockRefs: [{ blockId: 'auth-block', section: 'auth-flow', tag: 'summary', raw: '@stem[block:auth-block]' }]
+      blockRefs: [
+        {
+          blockId: 'auth-block',
+          section: 'auth-flow',
+          tag: 'summary',
+          parameters: [],
+          syntax: 'legacy',
+          raw: '@stem[block:auth-block]'
+        }
+      ]
     });
+  });
+
+  it('toCachedView preserves parameterized block metadata', () => {
+    const cached = toCachedView({
+      ...createParsedView(),
+      blockRefs: [
+        {
+          blockId: 'db-setup',
+          section: 'setup',
+          tag: null,
+          parameters: [{ name: 'db_name', value: 'PostgreSQL' }],
+          syntax: 'extended',
+          raw: '@stem[block:db-setup, section="setup", db_name="PostgreSQL"]',
+          position: {
+            start: { line: 1, column: 1 },
+            end: { line: 1, column: 2 }
+          }
+        }
+      ]
+    });
+
+    expect(cached.blockRefs[0]).toEqual({
+      blockId: 'db-setup',
+      section: 'setup',
+      tag: null,
+      parameters: [{ name: 'db_name', value: 'PostgreSQL' }],
+      syntax: 'extended',
+      raw: '@stem[block:db-setup, section="setup", db_name="PostgreSQL"]'
+    });
+  });
+
+  it('readCacheIndex rejects cached dangerous parameter names', async () => {
+    const index = upsertCacheEntry(createEmptyCacheIndex(), {
+      ...createEntry('views/a.md'),
+      type: 'view',
+      parsed: {
+        id: 'auth-view',
+        group: null,
+        blockRefs: [
+          {
+            blockId: 'auth-block',
+            section: null,
+            tag: null,
+            parameters: [{ name: '__proto__', value: 'polluted' }],
+            syntax: 'extended',
+            raw: '@stem[block:auth-block, __proto__="polluted"]'
+          }
+        ]
+      }
+    });
+    await writeCacheFile(testRoot, config, 'index.json', `${JSON.stringify(index)}\n`);
+
+    const result = await readCacheIndex(testRoot, config);
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('CACHE_INVALID_SCHEMA');
+    }
   });
 });
 
@@ -248,15 +315,25 @@ function createParsedBlock(): ParsedBlock {
       {
         name: 'auth-flow',
         prose: 'Section prose',
-        tags: [{ name: 'summary', section: null, content: 'Summary', position }],
-        externalTags: [{ name: 'detail', section: 'auth-flow', content: 'Detail', position }],
+        proseRange: { startOffset: 0, endOffset: 13 },
+        tags: [{ name: 'summary', section: null, content: 'Summary', contentRange: { startOffset: 0, endOffset: 7 }, position }],
+        externalTags: [
+          {
+            name: 'detail',
+            section: 'auth-flow',
+            content: 'Detail',
+            contentRange: { startOffset: 0, endOffset: 6 },
+            position
+          }
+        ],
         position
       }
     ],
-    standaloneTags: [{ name: 'api', section: null, content: 'API', position }],
+    standaloneTags: [{ name: 'api', section: null, content: 'API', contentRange: { startOffset: 0, endOffset: 3 }, position }],
     filePath: '/project/blocks/auth.md',
     relativePath: 'blocks/auth.md',
-    rawContent: 'raw'
+    rawContent: 'raw',
+    bodyStartLine: 1
   };
 }
 
@@ -269,6 +346,8 @@ function createParsedView(): ParsedView {
         blockId: 'auth-block',
         section: 'auth-flow',
         tag: 'summary',
+        parameters: [],
+        syntax: 'legacy',
         raw: '@stem[block:auth-block]',
         position: {
           start: { line: 1, column: 1 },
@@ -278,6 +357,7 @@ function createParsedView(): ParsedView {
     ],
     filePath: '/project/views/auth.md',
     relativePath: 'views/auth.md',
-    localContent: 'local'
+    localContent: 'local',
+    bodyStartLine: 1
   };
 }

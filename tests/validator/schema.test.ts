@@ -120,6 +120,7 @@ function createBlock(id: string, overrides: Partial<ParsedBlock> = {}): ParsedBl
     filePath: `/project/blocks/${id}.md`,
     relativePath: `blocks/${id}.md`,
     rawContent: '',
+    bodyStartLine: 1,
     ...overrides
   };
 }
@@ -133,6 +134,7 @@ function createSection(
     tags: overrides.tags ?? [],
     externalTags: overrides.externalTags ?? [],
     prose: '',
+    proseRange: { startOffset: 0, endOffset: 0 },
     position: POSITION
   };
 }
@@ -142,6 +144,7 @@ function createTag(name: string, content: string): StemTag {
     name,
     section: null,
     content,
+    contentRange: { startOffset: 0, endOffset: content.length },
     position: POSITION
   };
 }

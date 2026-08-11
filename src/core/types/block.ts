@@ -1,5 +1,10 @@
 import type { Position } from './position.js';
 
+export interface SourceRange {
+  startOffset: number;
+  endOffset: number;
+}
+
 export interface DependencyRef {
   blockId: string;
   section: string | null;
@@ -30,12 +35,14 @@ export interface CachedBlock {
 
 export interface StemTag extends CachedTag {
   position: Position;
+  contentRange: SourceRange;
 }
 
 export interface StemSection extends Omit<CachedSection, 'tags' | 'externalTags'> {
   tags: StemTag[];
   externalTags: StemTag[];
   position: Position;
+  proseRange: SourceRange;
 }
 
 export interface ParsedBlock extends Omit<CachedBlock, 'sections' | 'standaloneTags'> {
@@ -44,4 +51,5 @@ export interface ParsedBlock extends Omit<CachedBlock, 'sections' | 'standaloneT
   filePath: string;
   relativePath: string;
   rawContent: string;
+  bodyStartLine: number;
 }

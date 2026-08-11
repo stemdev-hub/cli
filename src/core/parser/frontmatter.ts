@@ -4,6 +4,7 @@ import type { DependencyRef, IssueContextMap, StemConfig, ValidationIssue } from
 export interface ParsedFrontmatter<T extends object = StemConfig> {
   data: T;
   body: string;
+  bodyStartLine: number;
   errors: ValidationIssue[];
 }
 
@@ -37,13 +38,16 @@ export function parseFrontmatter<T extends object = StemConfig>(
       // gray-matter intentionally returns untyped YAML data; callers choose the expected shape.
       data: parsed.data as T,
       body: parsed.content,
+      bodyStartLine: getBodyStartLine(content, parsed.content),
       errors: []
     };
   } catch (error) {
+    const body = stripFrontmatterBestEffort(content);
     return {
       // Malformed frontmatter has no trustworthy parsed shape, so return the requested empty shape.
       data: {} as T,
-      body: stripFrontmatterBestEffort(content),
+      body,
+      bodyStartLine: getBodyStartLine(content, body),
       errors: [
         createFrontmatterIssue(
           filePath,
@@ -75,6 +79,7 @@ export function parseBlockFrontmatter(
       dependsOn: normalizeDependencyList(parsed.data['depends-on'])
     },
     body: parsed.body,
+    bodyStartLine: parsed.bodyStartLine,
     errors
   };
 }
@@ -97,6 +102,7 @@ export function parseViewFrontmatter(
       group: normalizeOptionalString(parsed.data.group)
     },
     body: parsed.body,
+    bodyStartLine: parsed.bodyStartLine,
     errors
   };
 }
@@ -176,4 +182,10 @@ function stripFrontmatterBestEffort(content: string): string {
 
   const closingFenceIndex = content.indexOf('\n---', 3);
   return closingFenceIndex >= 0 ? content.slice(closingFenceIndex + 4) : content;
+}
+
+function getBodyStartLine(content: string, body: string): number {
+  const prefixLength = Math.max(0, content.length - body.length);
+  const prefix = content.slice(0, prefixLength);
+  return [...prefix].filter((character) => character === '\n').length + 1;
 }

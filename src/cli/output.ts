@@ -121,7 +121,11 @@ export function reportCheck(result: OperationResult<CheckResult>): void {
 }
 
 function formatValidationIssue(issue: ValidationIssue): string {
-  return `${issue.severity.toUpperCase()} ${issue.code} ${issue.relativePath}: ${issue.message}`;
+  const location =
+    issue.position === undefined
+      ? issue.relativePath
+      : `${issue.relativePath}:${issue.position.start.line}:${issue.position.start.column}`;
+  return `${issue.severity.toUpperCase()} ${issue.code} ${location}: ${issue.message}`;
 }
 
 function isValidationResult(value: unknown): value is ValidationResult {
