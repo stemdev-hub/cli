@@ -7,6 +7,8 @@ import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import type { ListBlocksResult, ValidationResult } from '@stem/types';
+
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const cliEntry = path.join(repoRoot, 'src/cli/index.ts');
@@ -364,6 +366,44 @@ Endpoint summary.
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain('MISSING_SNAPSHOT');
     expect(result.stdout).toContain('1 error, 0 warnings');
+  }, cliTestTimeoutMs);
+
+  it('outputs check results as JSON when --json is provided', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:missing]\n');
+
+    const result = await runStem(['check', '--json']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe('');
+    const jsonOutput = JSON.parse(result.stdout) as ValidationResult;
+    expect(jsonOutput).toMatchObject({
+      hasErrors: true,
+      errorCount: 1,
+      warningCount: 0,
+      issues: [
+        {
+          code: 'BROKEN_BLOCK_REF',
+          severity: 'error'
+        }
+      ]
+    });
+  }, cliTestTimeoutMs);
+
+  it('outputs list blocks results as JSON when --json is provided', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('blocks/auth.md', '---\nid: auth\ntags: [backend]\n---\nAuth block.\n');
+
+    const result = await runStem(['list', 'blocks', '--json']);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe('');
+    const jsonOutput = JSON.parse(result.stdout) as ListBlocksResult['blocks'];
+    expect(jsonOutput).toHaveLength(1);
+    expect(jsonOutput[0]).toMatchObject({
+      id: 'auth',
+      tags: ['backend']
+    });
   }, cliTestTimeoutMs);
 
   async function runStem(args: string[], extraEnv?: Record<string, string>): Promise<CliResult> {

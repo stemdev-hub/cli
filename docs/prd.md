@@ -94,6 +94,7 @@ The validator is a pure in-memory layer. It receives a `StemGraph`, parsed block
 Validation errors are duplicate IDs, broken block references, broken section references, unresolved tags, and schema violations. Validation warnings are circular dependencies, orphaned blocks, and duplicate tags inside one section.
 
 Cross-project reference warnings:
+
 - `UNRESOLVED_NAMESPACE`: Namespace is not declared in `.stem/config.json`.
 - `MISSING_SNAPSHOT`: Namespace is declared with `graphUrl`, but no snapshot is cached locally.
 - `EXPIRED_SNAPSHOT`: Cached snapshot is older than the hardcoded snapshot TTL (7 days).
@@ -140,17 +141,17 @@ The spike recognized all supported reference forms, rejected empty, colonless, a
 @stem[type:namespace:identifier params]
 ```
 
-| Type             | Syntax                            | Purpose                     |
-| ---------------- | --------------------------------- | --------------------------- |
-| `block`          | `@stem[block:auth-flow-block]`    | Transclude a whole block    |
-| `block` external | `@stem[block:api:auth-block]`     | Transclude an external block|
-| `block` filtered | `@stem[block:id section=x tag=y]` | Transclude filtered content |
-| `dep`            | `@stem[dep:block-id]`             | Declare a block dependency  |
-| `dep` scoped     | `@stem[dep:block-id#section.tag]` | Declare a scoped dependency |
-| `section`        | `@stem[section:name]`             | Define a section            |
-| `tag`            | `@stem[tag:name]`                 | Define tagged content       |
-| `tag` scoped     | `@stem[tag:name section=x]`       | Bind tag to a section       |
-| `end`            | `@stem[end]`                      | Close a section or tag      |
+| Type             | Syntax                            | Purpose                      |
+| ---------------- | --------------------------------- | ---------------------------- |
+| `block`          | `@stem[block:auth-flow-block]`    | Transclude a whole block     |
+| `block` external | `@stem[block:api:auth-block]`     | Transclude an external block |
+| `block` filtered | `@stem[block:id section=x tag=y]` | Transclude filtered content  |
+| `dep`            | `@stem[dep:block-id]`             | Declare a block dependency   |
+| `dep` scoped     | `@stem[dep:block-id#section.tag]` | Declare a scoped dependency  |
+| `section`        | `@stem[section:name]`             | Define a section             |
+| `tag`            | `@stem[tag:name]`                 | Define tagged content        |
+| `tag` scoped     | `@stem[tag:name section=x]`       | Bind tag to a section        |
+| `end`            | `@stem[end]`                      | Close a section or tag       |
 
 Behavior rules:
 
@@ -311,32 +312,32 @@ View fields:
 
 ## CLI Commands
 
-| Command                                                    | Purpose                                                                        |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `stem init`                                                | Create `.stem`, `blocks`, `views`, built-in schemas, and gitignore cache entry |
-| `stem init --force`                                        | Recreate scaffold files when they already exist                                |
-| `stem create block <name>`                                 | Create a block                                                                 |
-| `stem create block <name> --tag <tag>`                     | Create a block scaffolded for a schema tag                                     |
-| `stem create view <name>`                                  | Create a view                                                                  |
-| `stem create view <name> --group <path>`                   | Create a view inside a group                                                   |
-| `stem create group <path>`                                 | Create a view group                                                            |
-| `stem rename <old-id> <new-id>`                            | Rename a block ID and update references                                        |
-| `stem render view <view-id>`                               | Render one view to Markdown                                                    |
-| `stem render view <view-id> --stdout`                      | Print one rendered view without writing files                                  |
-| `stem render all [--out <dir>]`                            | Render all views to Markdown                                                   |
-| `stem preview view <view-id>`                              | Preview one rendered view in the terminal                                      |
-| `stem delete block <id> [--force]`                         | Delete a block after reference checks                                          |
-| `stem delete view <id>`                                    | Delete a view                                                                  |
-| `stem add <block-id> to <view-id>`                         | Insert a block reference                                                       |
-| `stem add <block-id> to <view-id> --section <s> --tag <t>` | Insert a filtered block reference                                              |
-| `stem sync`                                                | Rebuild the dynamic graph cache                                                |
-| `stem fetch-namespaces`                                    | Download external graph snapshots for all configured namespaces                |
-| `stem publish-graph`                                       | Publish structural snapshot (validates JSON namespace matches config)          |
-| `stem check [--strict-external] [--use-remote]`            | Read-only validation (strict promotes all three external reference warnings to errors, remote bypasses localPath) |
-| `stem list blocks`                                         | List blocks with usage counts                                                  |
-| `stem list blocks --tag <tag>`                             | Filter blocks by tag                                                           |
-| `stem list views`                                          | List views and referenced blocks                                               |
-| `stem list views --block <block-id>`                       | List views that reference a block                                              |
+| Command                                                    | Purpose                                                                                                                                                  |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stem init`                                                | Create `.stem`, `blocks`, `views`, built-in schemas, and gitignore cache entry                                                                           |
+| `stem init --force`                                        | Recreate scaffold files when they already exist                                                                                                          |
+| `stem create block <name>`                                 | Create a block                                                                                                                                           |
+| `stem create block <name> --tag <tag>`                     | Create a block scaffolded for a schema tag                                                                                                               |
+| `stem create view <name>`                                  | Create a view                                                                                                                                            |
+| `stem create view <name> --group <path>`                   | Create a view inside a group                                                                                                                             |
+| `stem create group <path>`                                 | Create a view group                                                                                                                                      |
+| `stem rename <old-id> <new-id>`                            | Rename a block ID and update references                                                                                                                  |
+| `stem render view <view-id>`                               | Render one view to Markdown                                                                                                                              |
+| `stem render view <view-id> --stdout`                      | Print one rendered view without writing files                                                                                                            |
+| `stem render all [--out <dir>]`                            | Render all views to Markdown                                                                                                                             |
+| `stem preview view <view-id>`                              | Preview one rendered view in the terminal                                                                                                                |
+| `stem delete block <id> [--force]`                         | Delete a block after reference checks                                                                                                                    |
+| `stem delete view <id>`                                    | Delete a view                                                                                                                                            |
+| `stem add <block-id> to <view-id>`                         | Insert a block reference                                                                                                                                 |
+| `stem add <block-id> to <view-id> --section <s> --tag <t>` | Insert a filtered block reference                                                                                                                        |
+| `stem sync`                                                | Rebuild the dynamic graph cache                                                                                                                          |
+| `stem fetch-namespaces`                                    | Download external graph snapshots for all configured namespaces                                                                                          |
+| `stem publish-graph`                                       | Publish structural snapshot (validates JSON namespace matches config)                                                                                    |
+| `stem check [--strict-external] [--use-remote] [--json]`   | Read-only validation (strict promotes all three external reference warnings to errors, remote bypasses localPath, json outputs machine-readable results) |
+| `stem list blocks [--json]`                                | List blocks with usage counts                                                                                                                            |
+| `stem list blocks --tag <tag> [--json]`                    | Filter blocks by tag                                                                                                                                     |
+| `stem list views [--json]`                                 | List views and referenced blocks                                                                                                                         |
+| `stem list views --block <block-id>`                       | List views that reference a block                                                                                                                        |
 
 **Auth Model**: Commands that interact with remote graphs (e.g., `stem publish-graph`, `stem fetch-namespaces`) expect Ambient OIDC credentials as the primary auth mechanism, with a per-repo service account token as a fallback.
 

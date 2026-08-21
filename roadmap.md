@@ -8,7 +8,7 @@ These are internal architecture improvements to prepare the codebase for complex
 
 - [x] **Namespace Syntax:** Update ID validation to accept namespaces (e.g., `@stem[block:my-repo:auth-flow]`). This is the necessary groundwork for cross-project references.
 - [x] **Cross-Project References:** Implement `stem publish-graph` and `stem fetch-namespaces` CLI commands to safely map, cache, and validate structural snapshots across different repositories.
-- [ ] **Machine-Readable CLI Output:** Add a `--json` flag to commands like `stem check` and `stem list` to output structured JSON arrays, enabling trivial CI/CD integration.
+- [x] **Machine-Readable CLI Output:** Add a `--json` flag to commands like `stem check` and `stem list` to output structured JSON arrays, enabling trivial CI/CD integration.
 
 ## Phase 2: Major Integrations
 

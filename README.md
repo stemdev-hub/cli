@@ -67,9 +67,9 @@ All directory fields are project-relative and optional. Paths are normalized to 
 | `stem render view <view-id> [--out <dir>] [--stdout]`          | Render one view to Markdown                                                       |
 | `stem render all [--out <dir>]`                                | Render all views to Markdown                                                      |
 | `stem preview view <view-id>`                                  | Print a rendered view to the terminal without writing files                       |
-| `stem list blocks [--tag <tag>]`                               | List blocks and usage metadata                                                    |
-| `stem list views [--block <block-id>]`                         | List views and referenced blocks                                                  |
-| `stem check`                                                   | Validate without writing files                                                    |
+| `stem list blocks [--tag <tag>] [--json]`                      | List blocks and usage metadata                                                    |
+| `stem list views [--block <block-id>] [--json]`                | List views and referenced blocks                                                  |
+| `stem check [--json]`                                          | Validate without writing files                                                    |
 | `stem sync`                                                    | Rebuild `.stem/cache/index.json` and `.stem/cache/graph.json`                     |
 
 ## Architecture

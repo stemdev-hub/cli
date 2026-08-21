@@ -19,9 +19,20 @@ import type {
 
 type OperationFailure = { success: false; error: OperationError };
 
-export function reportOperationError<T>(result: OperationResult<T>): result is OperationFailure {
+export function reportOperationError<T>(result: OperationResult<T>, json = false): result is OperationFailure {
   if (result.success) {
     return false;
+  }
+
+  if (json) {
+    const errorPayload = {
+      success: false,
+      error: result.error.message,
+      issues: isValidationResult(result.error.cause) ? result.error.cause.issues : undefined
+    };
+    console.error(JSON.stringify(errorPayload, null, 2));
+    process.exitCode = 1;
+    return true;
   }
 
   console.error(result.error.message);
@@ -104,12 +115,20 @@ export function reportSync(result: OperationResult<SyncResult>): void {
   console.log(`Graph: ${result.data.graphNodes} nodes, ${result.data.graphEdges} edges`);
 }
 
-export function reportCheck(result: OperationResult<CheckResult>): void {
-  if (reportOperationError(result)) {
+export function reportCheck(result: OperationResult<CheckResult>, json = false): void {
+  if (reportOperationError(result, json)) {
     return;
   }
 
   const { validation } = result.data;
+  if (json) {
+    console.log(JSON.stringify(validation, null, 2));
+    if (validation.hasErrors) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+
   for (const issue of validation.issues) {
     console.log(formatValidationIssue(issue));
   }
@@ -136,8 +155,13 @@ function isValidationResult(value: unknown): value is ValidationResult {
   );
 }
 
-export function reportListBlocks(result: OperationResult<ListBlocksResult>): void {
-  if (reportOperationError(result)) {
+export function reportListBlocks(result: OperationResult<ListBlocksResult>, json = false): void {
+  if (reportOperationError(result, json)) {
+    return;
+  }
+
+  if (json) {
+    console.log(JSON.stringify(result.data.blocks, null, 2));
     return;
   }
 
@@ -149,8 +173,13 @@ export function reportListBlocks(result: OperationResult<ListBlocksResult>): voi
   console.log(`${result.data.total} block${result.data.total === 1 ? '' : 's'}`);
 }
 
-export function reportListViews(result: OperationResult<ListViewsResult>): void {
-  if (reportOperationError(result)) {
+export function reportListViews(result: OperationResult<ListViewsResult>, json = false): void {
+  if (reportOperationError(result, json)) {
+    return;
+  }
+
+  if (json) {
+    console.log(JSON.stringify(result.data.views, null, 2));
     return;
   }
 

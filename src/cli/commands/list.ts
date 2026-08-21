@@ -7,13 +7,15 @@ export function registerListCommand(program: Command): void {
   list
     .command('blocks')
     .option('--tag <tag>')
-    .action(async (options: { tag?: string }) => {
-      reportListBlocks(await listBlocks(options.tag === undefined ? {} : { tag: options.tag }));
+    .option('--json', 'Output results in JSON format')
+    .action(async (options: { tag?: string; json?: boolean }) => {
+      reportListBlocks(await listBlocks(options.tag === undefined ? {} : { tag: options.tag }), options.json);
     });
   list
     .command('views')
     .option('--block <blockId>')
-    .action(async (options: { block?: string }) => {
-      reportListViews(await listViews(options.block === undefined ? {} : { blockId: options.block }));
+    .option('--json', 'Output results in JSON format')
+    .action(async (options: { block?: string; json?: boolean }) => {
+      reportListViews(await listViews(options.block === undefined ? {} : { blockId: options.block }), options.json);
     });
 }
