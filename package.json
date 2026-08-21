@@ -17,6 +17,7 @@
     "smoke:built-cli": "node tests/smoke/built-cli-smoke.mjs",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "docs:types": "pnpm build && api-extractor run --local",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@microsoft/api-extractor": "^7.58.13",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.9.1",
     "@vitest/coverage-v8": "^4.1.10",
