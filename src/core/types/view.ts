@@ -2,6 +2,7 @@ import type { BlockParameter, BlockRefSyntax } from './ast.js';
 import type { Position } from './position.js';
 
 export interface CachedBlockRef {
+  namespace: string | null;
   blockId: string;
   section: string | null;
   tag: string | null;

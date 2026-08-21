@@ -126,11 +126,25 @@ export function parseStemMacro(raw: string, position?: Position): StemSyntaxNode
     if (argumentSource.trim().length > 0 || !STEM_SCOPED_DEP_PATTERN.test(rest.trim())) {
       return invalid(raw, 'Dependency references do not accept arguments.', position);
     }
+    if (scopedIdentifier.includes(':')) {
+      return invalid(raw, 'Dependency references cannot target external namespaces.', position);
+    }
     return createDepNode(scopedIdentifier, raw, position);
   }
 
   const { identifier, argumentSource } = splitIdentifierAndArguments(rest);
-  if (!isValidIdentifier(identifier)) {
+  let blockNamespace: string | null = null;
+  let targetIdentifier = identifier;
+
+  if (type === 'block') {
+    const colonIndex = identifier.indexOf(':');
+    if (colonIndex > 0) {
+      blockNamespace = identifier.slice(0, colonIndex);
+      targetIdentifier = identifier.slice(colonIndex + 1);
+    }
+  }
+
+  if (!isValidIdentifier(targetIdentifier)) {
     return invalid(raw, `Invalid ${type} identifier.`, position);
   }
 
@@ -140,7 +154,7 @@ export function parseStemMacro(raw: string, position?: Position): StemSyntaxNode
   }
 
   if (type === 'block') {
-    return createBlockRefNode(identifier, args, raw, position);
+    return createBlockRefNode(blockNamespace, targetIdentifier, args, raw, position);
   }
 
   if (type === 'section') {
@@ -168,6 +182,7 @@ export function isDangerousParameterName(name: string): boolean {
 }
 
 function createBlockRefNode(
+  namespace: string | null,
   blockId: string,
   params: ParsedArguments,
   raw: string,
@@ -176,6 +191,7 @@ function createBlockRefNode(
   return withOptionalPosition<StemBlockRefNode>(
     {
       type: 'stemBlockRef',
+      namespace,
       blockId,
       section: params.section,
       tag: params.tag,

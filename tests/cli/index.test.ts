@@ -310,12 +310,72 @@ Endpoint summary.
     expect(result.stderr).toContain(`No Stem project root found from ${testRoot}.`);
   }, cliTestTimeoutMs);
 
-  async function runStem(args: string[]): Promise<CliResult> {
+  it('runs fetch-namespaces and skips network if localPath is present', async () => {
+    await createStemProject(testRoot);
+    const mockGraph = {
+      version: '1',
+      namespace: 'core',
+      publishedAt: '2026-08-15T00:00:00Z',
+      contentSha: 'sha256:123',
+      blocks: [],
+      renames: []
+    };
+    
+    await writeProjectFile('../core-dep/.stem/cache/stem-graph.json', JSON.stringify(mockGraph));
+    await writeProjectFile('.stem/config.json', JSON.stringify({
+      version: '1',
+      namespaces: {
+        core: {
+          graphUrl: 'https://example.com/graph',
+          localPath: '../core-dep'
+        }
+      }
+    }));
+
+    const result = await runStem(['fetch-namespaces'], { STEM_PUBLISH_KEY: 'mock' });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Skipped (localPath): 1');
+    expect(result.stdout).toContain('Failed: 0');
+  }, cliTestTimeoutMs);
+
+  it('reports missing publish configuration during publish-graph on stderr with non-zero exit code', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('.stem/config.json', JSON.stringify({ version: '1', namespace: 'core' }));
+
+    const result = await runStem(['publish-graph']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Publish destination is missing');
+  }, cliTestTimeoutMs);
+
+  it('reports strict external validation errors during check --strict-external on stderr with non-zero exit code', async () => {
+    await createStemProject(testRoot);
+    await writeProjectFile('.stem/config.json', JSON.stringify({
+      version: '1',
+      namespaces: {
+        core: { graphUrl: 'https://example.com/graph' }
+      }
+    }));
+    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:core:auth]\n');
+
+    const result = await runStem(['check', '--strict-external']);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('MISSING_SNAPSHOT');
+    expect(result.stdout).toContain('1 error, 0 warnings');
+  }, cliTestTimeoutMs);
+
+  async function runStem(args: string[], extraEnv?: Record<string, string>): Promise<CliResult> {
     try {
-      const { stdout, stderr } = await execFileAsync(process.execPath, [tsxCli, cliEntry, ...args], {
-        cwd: testRoot,
-        env: { ...process.env, NO_COLOR: '1' }
-      });
+      const { stdout, stderr } = await execFileAsync(
+        process.execPath, 
+        [tsxCli, '--tsconfig', path.join(repoRoot, 'tsconfig.json'), cliEntry, ...args], 
+        {
+          cwd: testRoot,
+          env: { ...process.env, NO_COLOR: '1', ...extraEnv }
+        }
+      );
       return { exitCode: 0, stdout, stderr };
     } catch (error) {
       if (isExecError(error)) {

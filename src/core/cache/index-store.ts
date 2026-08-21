@@ -128,6 +128,7 @@ export function toCachedView(parsed: ParsedView): CachedView {
     id: parsed.id,
     group: parsed.group,
     blockRefs: parsed.blockRefs.map((blockRef) => ({
+      namespace: blockRef.namespace,
       blockId: blockRef.blockId,
       section: blockRef.section,
       tag: blockRef.tag,
@@ -216,6 +217,7 @@ function isCachedBlockRefShape(value: unknown): value is CachedBlockRef {
   const syntax = value['syntax'];
   const parameters = value['parameters'];
   return (
+    (value['namespace'] === null || typeof value['namespace'] === 'string') &&
     typeof value['blockId'] === 'string' &&
     (value['section'] === null || typeof value['section'] === 'string') &&
     (value['tag'] === null || typeof value['tag'] === 'string') &&

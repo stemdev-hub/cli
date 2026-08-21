@@ -10,6 +10,8 @@ import { registerPreviewCommand } from './commands/preview.js';
 import { registerRenameCommand } from './commands/rename.js';
 import { registerRenderCommand } from './commands/render.js';
 import { registerSyncCommand } from './commands/sync.js';
+import { registerFetchNamespacesCommand } from './commands/fetch-namespaces.js';
+import { registerPublishGraphCommand } from './commands/publish-graph.js';
 
 export function createStemProgram(): Command {
   const program = new Command();
@@ -24,6 +26,8 @@ export function createStemProgram(): Command {
   registerSyncCommand(program);
   registerCheckCommand(program);
   registerListCommand(program);
+  registerFetchNamespacesCommand(program);
+  registerPublishGraphCommand(program);
   return program;
 }
 

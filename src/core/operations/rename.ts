@@ -1,3 +1,4 @@
+import path from 'node:path';
 import matter from 'gray-matter';
 import { dump } from 'js-yaml';
 
@@ -51,6 +52,11 @@ export async function renameBlock(
       continue;
     }
 
+    const hasDependency = candidate.dependsOn.some((dep) => dep.blockId === oldId);
+    if (!hasDependency) {
+      continue;
+    }
+
     const rewriteResult = await rewriteDependencyFile(candidate.filePath, oldId, idResult.data);
     if (!rewriteResult.success) {
       return rewriteResult;
@@ -65,11 +71,15 @@ export async function renameBlock(
   for (const view of projectResult.data.views) {
     const replacements = view.blockRefs
       .filter((blockRef) => blockRef.blockId === oldId)
-      .map((blockRef) => ({
-        startOffset: blockRef.position.start.offset,
-        endOffset: blockRef.position.end.offset,
-        replacement: blockRef.raw.replace(`block:${oldId}`, `block:${idResult.data}`)
-      }))
+      .map((blockRef) => {
+        const replacementStr = blockRef.raw.replace(`block:${oldId}`, `block:${idResult.data}`);
+
+        return {
+          startOffset: blockRef.position.start.offset,
+          endOffset: blockRef.position.end.offset,
+          replacement: replacementStr
+        };
+      })
       .filter((replacement): replacement is OffsetReplacement => (
         replacement.startOffset !== undefined && replacement.endOffset !== undefined
       ));
@@ -98,6 +108,40 @@ export async function renameBlock(
     updatedFiles.add(view.filePath);
     updatedRefCount += replacements.length;
   }
+
+  const renamesPath = path.join(projectResult.data.config.projectRoot, '.stem', 'renames.json');
+  const renamesLog: Array<{ from: string; to: string; since: string }> = [];
+  const renamesReadResult = await readFile(renamesPath);
+  if (renamesReadResult.success) {
+    try {
+      const parsedRenames: unknown = JSON.parse(renamesReadResult.data);
+      if (Array.isArray(parsedRenames)) {
+        for (const entry of parsedRenames) {
+          if (
+            typeof entry === 'object' &&
+            entry !== null &&
+            typeof (entry as { from?: unknown }).from === 'string' &&
+            typeof (entry as { to?: unknown }).to === 'string' &&
+            typeof (entry as { since?: unknown }).since === 'string'
+          ) {
+            renamesLog.push(entry as { from: string; to: string; since: string });
+          }
+        }
+      }
+    } catch {
+      // Ignore parse error and start fresh if corrupt
+    }
+  }
+  renamesLog.push({
+    from: oldId,
+    to: idResult.data,
+    since: new Date().toISOString()
+  });
+  const writeRenamesResult = await writeFile(renamesPath, JSON.stringify(renamesLog, null, 2), { overwrite: true });
+  if (!writeRenamesResult.success) {
+    return { success: false, error: fromFsError(writeRenamesResult.error) };
+  }
+  updatedFiles.add(renamesPath);
 
   return {
     success: true,
@@ -262,18 +306,25 @@ function rewriteBodyReferences(
   replacements: OffsetReplacement[]
 ): OperationResult<string> {
   let parsed: matter.GrayMatterFile<string>;
-
   try {
     parsed = matter(content);
   } catch (error) {
     return {
       success: false,
-      error: operationError('INVALID_OPERATION', 'View frontmatter could not be parsed.', { cause: error })
+      error: operationError('INVALID_OPERATION', 'Frontmatter could not be parsed.', { cause: error })
     };
   }
 
+  const frontmatterLength = content.length - parsed.content.length;
+
+  const globalReplacements = replacements.map((r) => ({
+    startOffset: r.startOffset + frontmatterLength,
+    endOffset: r.endOffset + frontmatterLength,
+    replacement: r.replacement
+  }));
+
   return {
     success: true,
-    data: `---\n${dump(parsed.data, { lineWidth: -1, noRefs: true })}---\n${applyOffsetReplacements(parsed.content, replacements)}`
+    data: applyOffsetReplacements(content, globalReplacements)
   };
 }

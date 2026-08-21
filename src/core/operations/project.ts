@@ -10,7 +10,8 @@ import type {
   StemGraph,
   TagSchema,
   ValidationIssue,
-  ValidationResult
+  ValidationResult,
+  ExternalSnapshotState
 } from '@stem/types';
 import { loadStemConfig } from '../config/index.js';
 import { findBlockFiles, findProjectRoot, findViewFiles } from '../fs/finder.js';
@@ -23,6 +24,7 @@ import { validateGraph } from '../validator/rules.js';
 import { validateSchemas } from '../validator/schema.js';
 import { fromConfigError, fromFsError } from './errors.js';
 import { loadSchemas } from './schemas.js';
+import { loadExternalGraphs } from './external.js';
 
 export interface LoadedProject {
   projectRoot: string;
@@ -37,6 +39,7 @@ export interface LoadedProject {
   cycles: string[][];
   orphanedBlocks: string[];
   schemas: Map<string, TagSchema>;
+  externalGraphs: Map<string, ExternalSnapshotState>;
 }
 
 export interface LoadedProjectGraph {
@@ -67,13 +70,16 @@ export async function loadProjectForCheck(
     return schemasResult;
   }
 
+  const externalGraphs = await loadExternalGraphs(project.config, options);
+
   return {
     success: true,
     data: {
       ...project,
       cycles,
       orphanedBlocks,
-      schemas: schemasResult.data
+      schemas: schemasResult.data,
+      externalGraphs
     }
   };
 }
@@ -129,7 +135,10 @@ export async function loadProjectGraph(
   };
 }
 
-export function validateLoadedProject(project: LoadedProject): ValidationResult {
+export function validateLoadedProject(
+  project: LoadedProject,
+  options: ProjectOperationOptions = {}
+): ValidationResult {
   const issues = [
     ...project.parserIssues,
     ...validateGraph({
@@ -139,7 +148,10 @@ export function validateLoadedProject(project: LoadedProject): ValidationResult 
       buildIssues: project.graphBuildIssues,
       schemas: project.schemas,
       cycles: project.cycles,
-      orphanedBlocks: project.orphanedBlocks
+      orphanedBlocks: project.orphanedBlocks,
+      configuredNamespaces: project.config.namespaces,
+      externalGraphs: project.externalGraphs,
+      ...(options.strictExternal !== undefined ? { strictExternal: options.strictExternal } : {})
     }),
     ...validateSchemas(project.blocks, project.schemas)
   ];

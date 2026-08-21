@@ -93,6 +93,13 @@ The validator is a pure in-memory layer. It receives a `StemGraph`, parsed block
 
 Validation errors are duplicate IDs, broken block references, broken section references, unresolved tags, and schema violations. Validation warnings are circular dependencies, orphaned blocks, and duplicate tags inside one section.
 
+Cross-project reference warnings:
+- `UNRESOLVED_NAMESPACE`: Namespace is not declared in `.stem/config.json`.
+- `MISSING_SNAPSHOT`: Namespace is declared with `graphUrl`, but no snapshot is cached locally.
+- `EXPIRED_SNAPSHOT`: Cached snapshot is older than the hardcoded snapshot TTL (7 days).
+
+These three warnings are kept distinct to ensure CI error messages are actionable. If a namespace specifies a `localPath` but the path does not exist, the validator emits a warning and falls back to the `graphUrl` cache. In CI environments, the `--strict-external` flag promotes all three to errors.
+
 Parser issues such as invalid frontmatter and external tags that target missing sections are produced before graph validation and flow through operations separately. Schema files are loaded by operations and passed into the validator as a `Map` so schema validation stays pure and testable.
 
 ### Cache Architecture
@@ -130,12 +137,13 @@ The spike recognized all supported reference forms, rejected empty, colonless, a
 ## Reference Grammar
 
 ```txt
-@stem[type:identifier params]
+@stem[type:namespace:identifier params]
 ```
 
 | Type             | Syntax                            | Purpose                     |
 | ---------------- | --------------------------------- | --------------------------- |
 | `block`          | `@stem[block:auth-flow-block]`    | Transclude a whole block    |
+| `block` external | `@stem[block:api:auth-block]`     | Transclude an external block|
 | `block` filtered | `@stem[block:id section=x tag=y]` | Transclude filtered content |
 | `dep`            | `@stem[dep:block-id]`             | Declare a block dependency  |
 | `dep` scoped     | `@stem[dep:block-id#section.tag]` | Declare a scoped dependency |
@@ -163,6 +171,7 @@ Parser rules:
 - `section=` on a tag must reference a section in the same block.
 - Duplicate tags inside one section are deterministic: concatenate in document order with a newline separator and warn.
 - Content embedding cycles are structurally impossible because views embed blocks, but blocks do not embed other blocks.
+- **Namespace Naming Rules:** Namespace aliases must be kebab-case (alphanumeric and hyphens only). The `stem-` prefix is reserved and forbidden for namespaces.
 
 ## ID Uniqueness Rules
 
@@ -236,11 +245,52 @@ group: by-audience/backend
   "blocksDir": "blocks",
   "viewsDir": "views",
   "schemasDir": "blocks/schemas",
-  "cacheDir": ".stem/cache"
+  "cacheDir": ".stem/cache",
+  "namespaces": {
+    "backend-api": {
+      "graphUrl": "https://storage.example.com/stem/backend-api/stem-graph.json",
+      "localPath": "../backend-api"
+    }
+  }
 }
 ```
 
-All fields are optional in the raw config. Missing `version` defaults to `"1"`, and missing directory fields default to the values shown above. Config paths must be project-relative, are normalized to POSIX forward-slash format, and cannot be absolute or contain `..`.
+All fields are optional in the raw config. Missing `version` defaults to `"1"`, and missing directory fields default to the values shown above. Config paths must be project-relative, are normalized to POSIX forward-slash format, and cannot be absolute. The `localPath` field in a namespace is an exception and may contain `..` to reference sibling repositories.
+
+## External Graph Schema
+
+The `ExternalStemGraph` JSON artifact is published by `stem publish-graph` and fetched by `stem fetch-namespaces`. It contains structural metadata only, explicitly omitting prose content, full dependency graphs, and internal file paths to minimize size and avoid exposing proprietary content.
+
+```json
+{
+  "version": "1",
+  "namespace": "backend-api",
+  "publishedAt": "2026-08-15T10:00:00Z",
+  "contentSha": "sha256:abc123...",
+  "blocks": [
+    {
+      "id": "auth-schema",
+      "tags": ["auth", "backend"],
+      "sections": [
+        {
+          "id": "overview",
+          "tags": ["summary", "details"]
+        }
+      ]
+    }
+  ],
+  "renames": [
+    {
+      "from": "auth-schema-v1",
+      "to": "auth-schema",
+      "since": "2026-08-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+- `contentSha`: The SHA of the full local StemGraph. Used by the deferred `stem diff-namespace` feature to detect drift.
+- `renames`: A deterministic array of block ID renames. Entries have a hardcoded Time-To-Live (TTL) of 90 days before pruning.
 
 ## Frontmatter Schema
 
@@ -280,17 +330,21 @@ View fields:
 | `stem add <block-id> to <view-id>`                         | Insert a block reference                                                       |
 | `stem add <block-id> to <view-id> --section <s> --tag <t>` | Insert a filtered block reference                                              |
 | `stem sync`                                                | Rebuild the dynamic graph cache                                                |
-| `stem check`                                               | Read-only validation                                                           |
+| `stem fetch-namespaces`                                    | Download external graph snapshots for all configured namespaces                |
+| `stem publish-graph`                                       | Publish structural snapshot (validates JSON namespace matches config)          |
+| `stem check [--strict-external] [--use-remote]`            | Read-only validation (strict promotes all three external reference warnings to errors, remote bypasses localPath) |
 | `stem list blocks`                                         | List blocks with usage counts                                                  |
 | `stem list blocks --tag <tag>`                             | Filter blocks by tag                                                           |
 | `stem list views`                                          | List views and referenced blocks                                               |
 | `stem list views --block <block-id>`                       | List views that reference a block                                              |
 
+**Auth Model**: Commands that interact with remote graphs (e.g., `stem publish-graph`, `stem fetch-namespaces`) expect Ambient OIDC credentials as the primary auth mechanism, with a per-repo service account token as a fallback.
+
 ## MVP Scope
 
-Included: block store, optional sections/tags, tag schemas, view files and groups, dynamic graph, hybrid stat plus SHA cache, two-pass parser, code-block isolation, Markdown rendering and terminal preview, `rename`, `check`, `sync`, list/create/add/delete/render/preview commands.
+Included: block store, optional sections/tags, tag schemas, view files and groups, dynamic graph, hybrid stat plus SHA cache, two-pass parser, code-block isolation, Markdown rendering and terminal preview, `rename`, `check`, `sync`, list/create/add/delete/render/preview commands, and **cross-project references** (Published Graph Snapshot model).
 
-Post-MVP: MCP server, UI, editor extensions, preview/build, HTML export, GitHub Action publishing, live code references, external sources, parameterized blocks, aliases, localization, cross-project references.
+Post-MVP: `stem diff-namespace` (drift detection via `contentSha`), MCP server, UI, editor extensions, preview/build, HTML export, GitHub Action publishing, live code references, external sources, parameterized blocks, aliases, localization.
 
 ## Success Criteria
 
@@ -306,6 +360,9 @@ Post-MVP: MCP server, UI, editor extensions, preview/build, HTML export, GitHub 
 - [x] `stem preview` prints resolved Markdown without writing generated files.
 - [x] The graph is never written to source files.
 - [x] `.stem/cache/` is gitignored by `stem init`.
+- [x] `stem fetch-namespaces` downloads and caches external snapshots.
+- [x] `stem check` emits distinct warning codes for unresolved, missing, and expired namespaces.
+- [x] `stem publish-graph` validates namespace and uploads structural snapshot.
 
 ## Tech Stack
 

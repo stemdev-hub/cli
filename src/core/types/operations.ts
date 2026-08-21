@@ -7,7 +7,9 @@ export type OperationErrorCode =
   | 'CACHE_ERROR'
   | 'SCHEMA_LOAD_ERROR'
   | 'INVALID_OPERATION'
-  | 'CONFLICT';
+  | 'CONFLICT'
+  | 'NETWORK_ERROR'
+  | 'AUTH_ERROR';
 
 export interface OperationError {
   code: OperationErrorCode;
@@ -22,6 +24,8 @@ export type OperationResult<T> =
 
 export interface ProjectOperationOptions {
   startDir?: string;
+  strictExternal?: boolean;
+  useRemote?: boolean;
 }
 
 export interface InitProjectOptions extends ProjectOperationOptions {
@@ -170,3 +174,14 @@ export interface RenderResult {
 }
 
 export type PreviewResult = RenderResult;
+
+export interface FetchNamespacesResult {
+  successes: string[];
+  skipped: string[];
+  warnings: string[];
+}
+
+export interface PublishGraphResult {
+  namespace: string;
+  uploadedTo: string;
+}

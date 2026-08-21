@@ -68,6 +68,7 @@ id: api-view
         newId: 'auth-v2',
         blockFilePath: path.join(testRoot, 'blocks/auth.md'),
         updatedFiles: [
+          path.join(testRoot, '.stem', 'renames.json'),
           path.join(testRoot, 'blocks/api.md'),
           path.join(testRoot, 'blocks/auth.md'),
           path.join(testRoot, 'views/api.md')

@@ -223,6 +223,7 @@ function createView(id: string, blockRefs: BlockRef[] = []): ParsedView {
 
 function createBlockRef(blockId: string): BlockRef {
   return {
+    namespace: null,
     blockId,
     section: null,
     tag: null,

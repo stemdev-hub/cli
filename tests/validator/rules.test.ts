@@ -7,7 +7,8 @@ import type {
   Position,
   StemGraph,
   StemSection,
-  StemTag
+  StemTag,
+  ExternalSnapshotState
 } from '../../src/core/types/index.js';
 import { buildGraph } from '../../src/core/graph/builder.js';
 import { validateGraph } from '../../src/core/validator/rules.js';
@@ -334,6 +335,103 @@ describe('validateGraph', () => {
       context: { targetId: 'missing-block', rawRef: '@stem[block:missing-block]' }
     });
   });
+  
+  describe('external references', () => {
+    it('emits UNRESOLVED_NAMESPACE when namespace is not configured', () => {
+      const view = createView('view1', [createBlockRef('auth', { namespace: 'core' })]);
+      const input = createInput({ views: [view] }); // no configuredNamespaces
+      
+      const issue = validateGraph(input)[0];
+      expect(issue).toMatchObject({
+        code: 'UNRESOLVED_NAMESPACE',
+        severity: 'warning',
+        context: { namespace: 'core' }
+      });
+    });
+
+    it('promotes UNRESOLVED_NAMESPACE to error when strictExternal is true', () => {
+      const view = createView('view1', [createBlockRef('auth', { namespace: 'core' })]);
+      const input = createInput({ views: [view], strictExternal: true });
+      
+      const issue = validateGraph(input)[0];
+      expect(issue).toBeDefined();
+      expect(issue!.severity).toBe('error');
+    });
+
+    it('emits MISSING_SNAPSHOT when namespace is configured but graph is not loaded', () => {
+      const view = createView('view1', [createBlockRef('auth', { namespace: 'core' })]);
+      const input = createInput({ 
+        views: [view], 
+        configuredNamespaces: { 'core': { graphUrl: 'https://example.com' } }
+      });
+      
+      const issue = validateGraph(input)[0];
+      expect(issue).toMatchObject({
+        code: 'MISSING_SNAPSHOT',
+        severity: 'warning'
+      });
+    });
+
+    it('emits EXPIRED_SNAPSHOT when snapshot is older than 7 days (remote only)', () => {
+      const view = createView('view1', [createBlockRef('auth', { namespace: 'core' })]);
+      const externalGraphs = new Map<string, ExternalSnapshotState>();
+      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+      externalGraphs.set('core', {
+        graph: {
+          version: '1',
+          namespace: 'core',
+          publishedAt: new Date().toISOString(),
+          contentSha: 'sha',
+          blocks: [],
+          renames: []
+        },
+        fetchedAt: eightDaysAgo,
+        isLocalFallback: false
+      });
+      
+      const input = createInput({ 
+        views: [view], 
+        configuredNamespaces: { 'core': { graphUrl: 'https://example.com' } },
+        externalGraphs,
+        strictExternal: true
+      });
+      
+      const issue = validateGraph(input)[0];
+      expect(issue).toMatchObject({
+        code: 'EXPIRED_SNAPSHOT',
+        severity: 'error'
+      });
+    });
+
+    it('returns no issues when external reference is perfectly resolved', () => {
+      const view = createView('view1', [createBlockRef('auth', { namespace: 'core' })]);
+      const externalGraphs = new Map<string, ExternalSnapshotState>();
+      externalGraphs.set('core', {
+        graph: {
+          version: '1',
+          namespace: 'core',
+          publishedAt: new Date().toISOString(),
+          contentSha: 'sha',
+          blocks: [{ id: 'auth', tags: [], sections: [] }],
+          renames: []
+        },
+        fetchedAt: new Date().toISOString(),
+        isLocalFallback: false
+      });
+      
+      const input = createInput({ 
+        views: [view], 
+        configuredNamespaces: { 'core': { graphUrl: 'https://example.com' } },
+        externalGraphs
+      });
+      
+      const issues = validateGraph(input);
+      // It might emit BROKEN_BLOCK_REF if the view expects 'auth' in the *local* graph...
+      // Wait, does validateGraph ignore cross-project refs for local BROKEN_BLOCK_REF checks?
+      // Yes, checkBrokenBlockRefs ignores blockRefs with namespace !== null.
+      expect(issues).toHaveLength(0);
+    });
+  });
 });
 
 const POSITION: Position = {
@@ -352,6 +450,8 @@ function createInput(overrides: Partial<Parameters<typeof validateGraph>[0]> = {
     schemas: new Map(),
     cycles: [],
     orphanedBlocks: [],
+    configuredNamespaces: {},
+    externalGraphs: new Map(),
     ...overrides
   };
 }
@@ -393,16 +493,19 @@ function createBlockRef(
 ): BlockRef {
   const section = overrides.section ?? null;
   const tag = overrides.tag ?? null;
+  const namespace = overrides.namespace ?? null;
   const sectionParam = section === null ? '' : ` section=${section}`;
   const tagParam = tag === null ? '' : ` tag=${tag}`;
+  const namespacePrefix = namespace === null ? '' : `${namespace}:`;
 
   return {
     blockId,
+    namespace,
     section,
     tag,
     parameters: overrides.parameters ?? [],
     syntax: overrides.syntax ?? 'legacy',
-    raw: `@stem[block:${blockId}${sectionParam}${tagParam}]`,
+    raw: `@stem[block:${namespacePrefix}${blockId}${sectionParam}${tagParam}]`,
     position: POSITION
   };
 }

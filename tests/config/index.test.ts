@@ -42,7 +42,8 @@ describe('config', () => {
         blocksDir: 'docs/blocks',
         viewsDir: 'docs/views',
         schemasDir: 'docs/schemas',
-        cacheDir: '.stem/custom-cache'
+        cacheDir: '.stem/custom-cache',
+        namespaces: {}
       });
     }
   });
@@ -64,7 +65,8 @@ describe('config', () => {
         blocksDir: 'content/blocks',
         viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
         schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
-        cacheDir: STEM_CONFIG_DEFAULTS.cacheDir
+        cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
+        namespaces: {}
       });
     }
   });
@@ -119,6 +121,55 @@ describe('config', () => {
     if (!result.success) {
       expect(result.error.code).toBe('CONFIG_UNSUPPORTED_VERSION');
     }
+  });
+
+  describe('root namespace configuration', () => {
+    it('rejects root namespace that is not kebab-case', () => {
+      const result = resolveStemConfig({ namespace: 'NotKebabCase' }, testRoot);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
+        expect(result.error.message).toMatch(/Stem config field "namespace" must be strictly kebab-case/);
+      }
+    });
+
+    it('rejects root namespace that starts with stem-', () => {
+      const result = resolveStemConfig({ namespace: 'stem-core' }, testRoot);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
+        expect(result.error.message).toMatch(/Stem config field "namespace" cannot start with the reserved prefix/);
+      }
+    });
+  });
+
+  describe('namespaces configuration', () => {
+    it('rejects namespaces that are not kebab-case', () => {
+      const result = resolveStemConfig({ namespaces: { 'NotKebabCase': { graphUrl: 'https://a.com' } } }, testRoot);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
+        expect(result.error.message).toMatch(/Namespace key "NotKebabCase" must be strictly kebab-case/);
+      }
+    });
+
+    it('rejects namespaces that start with stem-', () => {
+      const result = resolveStemConfig({ namespaces: { 'stem-core': { graphUrl: 'https://a.com' } } }, testRoot);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
+        expect(result.error.message).toMatch(/Namespace key "stem-core" cannot start with the reserved prefix/);
+      }
+    });
+
+    it('rejects namespaces without graphUrl or localPath', () => {
+      const result = resolveStemConfig({ namespaces: { 'core': {} } }, testRoot);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
+        expect(result.error.message).toMatch(/must specify at least one of graphUrl or localPath/);
+      }
+    });
   });
 
   it('rejects absolute config paths', () => {
@@ -202,7 +253,8 @@ describe('config', () => {
       blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
       viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
       schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
-      cacheDir: STEM_CONFIG_DEFAULTS.cacheDir
+      cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
+      namespaces: {}
     });
   });
 });

@@ -26,6 +26,9 @@ export interface IssueContextMap {
   };
   INLINE_BLOCK_REFERENCE: { blockId: string; rawRef: string };
   BLOCK_REFERENCE_IN_TABLE_CELL: { blockId: string; rawRef: string };
+  UNRESOLVED_NAMESPACE: { namespace: string; rawRef: string };
+  MISSING_SNAPSHOT: { namespace: string; rawRef: string };
+  EXPIRED_SNAPSHOT: { namespace: string; rawRef: string; fetchedAt: string };
 }
 
 export type ValidationIssue = {

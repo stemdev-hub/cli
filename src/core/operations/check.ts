@@ -17,7 +17,7 @@ export async function checkProject(
   return {
     success: true,
     data: {
-      validation: validateLoadedProject(projectResult.data),
+      validation: validateLoadedProject(projectResult.data, options),
       scannedFiles: projectResult.data.blockFiles.length + projectResult.data.viewFiles.length,
       durationMs
     }

@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { ResolvedStemConfig, StemConfig } from '@stem/types';
+import type { NamespaceConfig, ResolvedStemConfig, StemConfig } from '@stem/types';
 import { readFile } from '../fs/reader.js';
 
 export type ConfigErrorCode =
@@ -107,15 +107,47 @@ export function resolveStemConfig(
     return cacheDirResult;
   }
 
+  const namespacesResult = validateAndNormalizeNamespaces(raw.namespaces, configPath);
+  if (!namespacesResult.success) {
+    return namespacesResult;
+  }
+
+  if (raw.namespace !== undefined) {
+    const kebabCaseRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    if (!kebabCaseRegex.test(raw.namespace)) {
+      return {
+        success: false,
+        error: {
+          code: 'CONFIG_INVALID_SCHEMA',
+          message: `Stem config field "namespace" must be strictly kebab-case (e.g., "my-namespace").`,
+          path: configPath
+        }
+      };
+    }
+    if (raw.namespace.startsWith('stem-')) {
+      return {
+        success: false,
+        error: {
+          code: 'CONFIG_INVALID_SCHEMA',
+          message: `Stem config field "namespace" cannot start with the reserved prefix "stem-".`,
+          path: configPath
+        }
+      };
+    }
+  }
+
   return {
     success: true,
     data: {
       version,
+      ...(raw.namespace !== undefined ? { namespace: raw.namespace } : {}),
+      ...(raw.publishUrl !== undefined ? { publishUrl: raw.publishUrl } : {}),
       projectRoot: path.resolve(projectRoot),
       blocksDir: blocksDirResult.data,
       viewsDir: viewsDirResult.data,
       schemasDir: schemasDirResult.data,
-      cacheDir: cacheDirResult.data
+      cacheDir: cacheDirResult.data,
+      namespaces: namespacesResult.data
     }
   };
 }
@@ -127,7 +159,8 @@ export function getDefaultStemConfig(projectRoot: string): ResolvedStemConfig {
     blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
     viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
     schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
-    cacheDir: STEM_CONFIG_DEFAULTS.cacheDir
+    cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
+    namespaces: {}
   };
 }
 
@@ -162,6 +195,14 @@ function parseConfigJson(content: string, configPath: string): ConfigResult<Part
 function validateRawConfig(raw: Partial<StemConfig>, configPath: string): ConfigResult<Partial<StemConfig>> {
   if (!isOptionalString(raw.version)) {
     return invalidSchema('version', configPath);
+  }
+
+  if (!isOptionalString(raw.namespace)) {
+    return invalidSchema('namespace', configPath);
+  }
+
+  if (!isOptionalString(raw.publishUrl)) {
+    return invalidSchema('publishUrl', configPath);
   }
 
   for (const field of CONFIG_PATH_FIELDS) {
@@ -249,4 +290,146 @@ function isOptionalString(value: unknown): value is string | undefined {
 
 function isPlainObject(value: unknown): value is Partial<StemConfig> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function validateAndNormalizeNamespaces(
+  rawNamespaces: unknown,
+  configPath: string
+): ConfigResult<Record<string, NamespaceConfig>> {
+  if (rawNamespaces === undefined) {
+    return { success: true, data: {} };
+  }
+
+  if (!isPlainObject(rawNamespaces)) {
+    return {
+      success: false,
+      error: {
+        code: 'CONFIG_INVALID_SCHEMA',
+        message: `Stem config field "namespaces" must be an object when provided.`,
+        path: configPath
+      }
+    };
+  }
+
+  const result: Record<string, NamespaceConfig> = {};
+  const kebabCaseRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+  for (const [key, value] of Object.entries(rawNamespaces)) {
+    if (!kebabCaseRegex.test(key)) {
+      return {
+        success: false,
+        error: {
+          code: 'CONFIG_INVALID_SCHEMA',
+          message: `Namespace key "${key}" must be strictly kebab-case (e.g., "my-namespace").`,
+          path: configPath
+        }
+      };
+    }
+    
+    if (key.startsWith('stem-')) {
+      return {
+        success: false,
+        error: {
+          code: 'CONFIG_INVALID_SCHEMA',
+          message: `Namespace key "${key}" cannot start with the reserved prefix "stem-".`,
+          path: configPath
+        }
+      };
+    }
+
+    if (!isPlainObject(value)) {
+      return {
+        success: false,
+        error: {
+          code: 'CONFIG_INVALID_SCHEMA',
+          message: `Namespace entry "${key}" must be an object.`,
+          path: configPath
+        }
+      };
+    }
+
+    const { graphUrl, localPath } = value as Record<string, unknown>;
+
+    if (graphUrl === undefined && localPath === undefined) {
+      return {
+        success: false,
+        error: {
+          code: 'CONFIG_INVALID_SCHEMA',
+          message: `Namespace '${key}' must specify at least one of graphUrl or localPath.`,
+          path: configPath
+        }
+      };
+    }
+
+    if (graphUrl !== undefined && typeof graphUrl !== 'string') {
+      return {
+        success: false,
+        error: {
+          code: 'CONFIG_INVALID_SCHEMA',
+          message: `Namespace '${key}' graphUrl must be a string.`,
+          path: configPath
+        }
+      };
+    }
+
+    let normalizedLocalPath: string | undefined;
+
+    if (localPath !== undefined) {
+      if (typeof localPath !== 'string') {
+        return {
+          success: false,
+          error: {
+            code: 'CONFIG_INVALID_SCHEMA',
+            message: `Namespace '${key}' localPath must be a string.`,
+            path: configPath
+          }
+        };
+      }
+      
+      const localPathResult = normalizeNamespaceLocalPath(localPath, key, configPath);
+      if (!localPathResult.success) {
+        return { success: false, error: localPathResult.error };
+      }
+      normalizedLocalPath = localPathResult.data;
+    }
+
+    result[key] = {
+      ...(graphUrl ? { graphUrl } : {}),
+      ...(normalizedLocalPath ? { localPath: normalizedLocalPath } : {})
+    };
+  }
+
+  return { success: true, data: result };
+}
+
+function normalizeNamespaceLocalPath(
+  localPathValue: string,
+  namespace: string,
+  configFilePath: string
+): ConfigResult<string> {
+  if (path.isAbsolute(localPathValue) || path.win32.isAbsolute(localPathValue) || path.posix.isAbsolute(localPathValue)) {
+    return {
+      success: false,
+      error: {
+        code: 'CONFIG_INVALID_PATH',
+        message: `Namespace '${namespace}' localPath has invalid path "${localPathValue}": must be project-relative.`,
+        path: configFilePath
+      }
+    };
+  }
+
+  const withPosixSeparators = localPathValue.replaceAll('\\', '/');
+  const normalized = stripTrailingSlashes(stripLeadingDotSlash(withPosixSeparators));
+  if (normalized.length === 0 || normalized === '.') {
+     return {
+      success: false,
+      error: {
+        code: 'CONFIG_INVALID_PATH',
+        message: `Namespace '${namespace}' localPath has invalid path "${localPathValue}": must not be empty.`,
+        path: configFilePath
+      }
+    };
+  }
+
+  return { success: true, data: normalized };
 }

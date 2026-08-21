@@ -28,6 +28,7 @@ export interface StemSectionNode extends StemASTNode {
 
 export interface StemBlockRefNode extends StemASTNode {
   type: 'stemBlockRef';
+  namespace: string | null;
   blockId: string;
   section: string | null;
   tag: string | null;

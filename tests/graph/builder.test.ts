@@ -284,6 +284,7 @@ function createBlockRef(
   overrides: Partial<Omit<BlockRef, 'blockId' | 'raw' | 'position'>> = {}
 ): BlockRef {
   return {
+    namespace: null,
     blockId,
     section: overrides.section ?? null,
     tag: overrides.tag ?? null,

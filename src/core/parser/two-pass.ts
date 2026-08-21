@@ -105,6 +105,7 @@ function collectNode(
 
 function toBlockRef(node: Extract<StemSyntaxNode, { type: 'stemBlockRef' }>): BlockRef {
   return {
+    namespace: node.namespace,
     blockId: node.blockId,
     section: node.section,
     tag: node.tag,

@@ -207,7 +207,8 @@ function createConfig(projectRoot: string): ResolvedStemConfig {
     blocksDir: 'blocks',
     viewsDir: 'views',
     schemasDir: 'blocks/schemas',
-    cacheDir: '.stem/cache'
+    cacheDir: '.stem/cache',
+    namespaces: {}
   };
 }
 

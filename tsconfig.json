@@ -23,6 +23,7 @@
       "@stem/types": ["./src/core/types/index.ts"],
       "@stem/types/*": ["./src/core/types/*"]
     },
+    "outDir": "dist",
     "types": ["node", "vitest"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "spike/**/*.ts", "docs/types.ts"],

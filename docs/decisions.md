@@ -150,6 +150,33 @@ The spike validated syntax-node transformation before production implementation.
 
 The production regular expression prohibits `@stem[...]` matches that cross line boundaries. Parameter values stay intentionally compact for MVP; they cannot contain spaces or `]`. A later micromark extension remains the path for substantially richer syntax.
 
+## Rejection of Block Aliases for Reference Resolution
+
+**Context:** As documentation grows, blocks are often renamed. Systems like Obsidian use frontmatter `aliases: []` to map old names to the new note, preventing broken links. We considered adding this to Stem to ensure `core/graph` resolution doesn't break when a block is renamed.
+
+**Decision:** We will **not** use `aliases` for internal reference resolution.
+
+**Rationale:**
+Stem is a Git-native, "Documentation as Code" tool. In software engineering, when a variable or file is renamed, developers rely on refactoring tools to update all usages, rather than leaving the old name as a permanent alias. Stem already provides the `stem rename <old> <new>` CLI command to safely update all references in the graph. Introducing aliases for backwards compatibility would encourage "reference rot," where documentation is littered with deprecated links instead of being actively refactored.
+
+_(Note: Aliases may eventually be introduced strictly as a "Search Keyword" index for AI agents via the MCP Server, but they will never be used by the core graph builder to resolve internal `@stem[...]` references)._
+
+## Cross-Project Reference Architecture (August 2026)
+
+**Publish and Cache:** Stem uses a "Publish and Cache" model (`stem publish-graph` and `stem fetch-namespaces`) for cross-project references. We rejected Approach A (Lazy Warn) because it provides no path to structural validation (section/tag checks fail silently locally). We rejected Approach C (Registry Service) because it requires a running service, violates the Git-native principle, and breaks offline/air-gapped environments. The published artifact is a lightweight `ExternalStemGraph` JSON file.
+
+**Local Validation Strictness:** Cross-namespace references produce warnings locally and errors in CI (via `--strict-external`). Network I/O is excluded from `stem check` because it must remain a pure, fast, deterministic local operation. We split the generic `UNRESOLVED_EXTERNAL_REF` warning into three distinct codes (`UNRESOLVED_NAMESPACE`, `MISSING_SNAPSHOT`, `EXPIRED_SNAPSHOT`) to preserve diagnostic signal and ensure CI error messages are actionable (e.g., distinguishing a typo from a missing `stem fetch-namespaces` step).
+
+**Snapshot Content:** The `ExternalStemGraph` snapshot explicitly excludes block prose content, full dependency graphs, and internal file paths. This keeps the artifact extremely small (<50KB) for fast fetching, and avoids exposing proprietary content or triggering licensing concerns across boundaries. A `contentSha` field is included as the mechanism for the deferred `stem diff-namespace` feature to detect local drift without comparing individual block lists.
+
+**Resolution Priority:** When both `localPath` and `graphUrl` are configured for a namespace, `localPath` takes priority to support sibling-repo/monorepo local development. However, `graphUrl` is always fetched during `stem fetch-namespaces`. The `--use-remote` flag can force fallback to the remote snapshot.
+
+**Stale Renames:** When a remote block is renamed, we explicitly reject "fuzzy matching" to hint at the new name. Fuzzy matching introduces non-determinism. Instead, the snapshot includes a `renames` array. A renamed remote block is treated as a breaking API change that consuming projects must adopt based on this explicit metadata.
+
+**Namespace Naming Rules:** Namespace aliases must be kebab-case (alphanumeric and hyphens). We explicitly rejected dots (reverse-domain style like `com.example.api`) because dots require escaping in `grep` patterns and introduce parser ambiguity risk for future grammar extensions.
+
+**Auth Model:** `stem publish-graph` relies on Ambient CI credentials (OIDC) to authenticate with object storage (S3/GCS). We chose this as the primary model to avoid secret management. Per-repo service account keys (via environment variables) serve as a fallback for CI environments without OIDC support.
+
 ## Post-MVP Ideas
 
-Post-MVP work includes MCP support, UI composition, VS Code integration, rendered previews, CI rendering, live code references, external source references, parameterized blocks, aliases, cross-project blocks, and localization.
+Post-MVP work includes `stem diff-namespace`, MCP support, UI composition, VS Code integration, rendered previews, CI rendering, live code references, external source references, parameterized blocks, aliases, and localization.

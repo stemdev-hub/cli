@@ -157,6 +157,136 @@ Plain block.
       }
     });
   });
+
+  describe('external references (Phase 1+2 features)', () => {
+    it('detects MISSING_SNAPSHOT for missing cache payloads', async () => {
+      await createStemProject(testRoot);
+      await writeProjectFile(
+        testRoot,
+        '.stem/config.json',
+        JSON.stringify({
+          version: '1',
+          namespaces: { core: { graphUrl: 'https://example.com/graph.json' } }
+        })
+      );
+      await writeProjectFile(
+        testRoot,
+        'views/api.md',
+        '---\nid: test-view\n---\n@stem[block:core:auth]'
+      );
+
+      const result = await checkProject({ startDir: testRoot });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.validation.issues[0]).toMatchObject({
+          code: 'MISSING_SNAPSHOT',
+          severity: 'warning'
+        });
+      }
+    });
+
+    it('emits EXPIRED_SNAPSHOT if cache payload is too old', async () => {
+      await createStemProject(testRoot);
+      await writeProjectFile(
+        testRoot,
+        '.stem/config.json',
+        JSON.stringify({ version: '1', namespaces: { core: { graphUrl: 'https://example.com' } } })
+      );
+      await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:auth]');
+
+      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+      await writeProjectFile(
+        testRoot,
+        '.stem/cache/namespaces/core.json',
+        JSON.stringify({
+          fetchedAt: eightDaysAgo,
+          graph: {
+            version: '1',
+            namespace: 'core',
+            publishedAt: new Date().toISOString(),
+            contentSha: 'sha256:mock',
+            blocks: [{ id: 'auth', tags: [], sections: [] }],
+            renames: []
+          }
+        })
+      );
+
+      const result = await checkProject({ startDir: testRoot, strictExternal: true });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.validation.issues[0]).toMatchObject({
+          code: 'EXPIRED_SNAPSHOT',
+          severity: 'error'
+        });
+      }
+    });
+
+    it('emits BROKEN_BLOCK_REF with rename hint when referenced block was renamed', async () => {
+      await createStemProject(testRoot);
+      await writeProjectFile(
+        testRoot,
+        '.stem/config.json',
+        JSON.stringify({ version: '1', namespaces: { core: { graphUrl: 'https://example.com' } } })
+      );
+      await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:old-auth]');
+
+      await writeProjectFile(
+        testRoot,
+        '.stem/cache/namespaces/core.json',
+        JSON.stringify({
+          fetchedAt: new Date().toISOString(),
+          graph: {
+            version: '1',
+            namespace: 'core',
+            publishedAt: new Date().toISOString(),
+            contentSha: 'sha256:mock',
+            blocks: [{ id: 'new-auth', tags: [], sections: [] }],
+            renames: [{ from: 'old-auth', to: 'new-auth', since: new Date().toISOString() }]
+          }
+        })
+      );
+
+      const result = await checkProject({ startDir: testRoot });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const issue = result.data.validation.issues[0];
+        expect(issue?.code).toBe('BROKEN_BLOCK_REF');
+        expect(issue?.message).toContain('It was renamed to "new-auth"');
+      }
+    });
+
+    it('passes clean validation for valid external references', async () => {
+      await createStemProject(testRoot);
+      await writeProjectFile(
+        testRoot,
+        '.stem/config.json',
+        JSON.stringify({ version: '1', namespaces: { core: { graphUrl: 'https://example.com' } } })
+      );
+      await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:auth]');
+
+      await writeProjectFile(
+        testRoot,
+        '.stem/cache/namespaces/core.json',
+        JSON.stringify({
+          fetchedAt: new Date().toISOString(),
+          graph: {
+            version: '1',
+            namespace: 'core',
+            publishedAt: new Date().toISOString(),
+            contentSha: 'sha256:mock',
+            blocks: [{ id: 'auth', tags: [], sections: [] }],
+            renames: []
+          }
+        })
+      );
+
+      const result = await checkProject({ startDir: testRoot });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.validation.hasErrors).toBe(false);
+      }
+    });
+  });
 });
 
 async function createStemProject(projectRoot: string): Promise<void> {

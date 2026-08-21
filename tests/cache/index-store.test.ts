@@ -189,6 +189,7 @@ describe('index-store', () => {
       group: 'backend',
       blockRefs: [
         {
+          namespace: null,
           blockId: 'auth-block',
           section: 'auth-flow',
           tag: 'summary',
@@ -205,6 +206,7 @@ describe('index-store', () => {
       ...createParsedView(),
       blockRefs: [
         {
+          namespace: null,
           blockId: 'db-setup',
           section: 'setup',
           tag: null,
@@ -220,6 +222,7 @@ describe('index-store', () => {
     });
 
     expect(cached.blockRefs[0]).toEqual({
+      namespace: null,
       blockId: 'db-setup',
       section: 'setup',
       tag: null,
@@ -238,6 +241,7 @@ describe('index-store', () => {
         group: null,
         blockRefs: [
           {
+            namespace: null,
             blockId: 'auth-block',
             section: null,
             tag: null,
@@ -266,7 +270,8 @@ function createConfig(projectRoot: string): ResolvedStemConfig {
     blocksDir: 'blocks',
     viewsDir: 'views',
     schemasDir: 'blocks/schemas',
-    cacheDir: '.stem/cache'
+    cacheDir: '.stem/cache',
+    namespaces: {}
   };
 }
 
@@ -343,6 +348,7 @@ function createParsedView(): ParsedView {
     group: 'backend',
     blockRefs: [
       {
+        namespace: null,
         blockId: 'auth-block',
         section: 'auth-flow',
         tag: 'summary',

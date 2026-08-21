@@ -1,4 +1,4 @@
-import type { ParsedBlock, ParsedView, StemGraph, TagSchema, ValidationIssue } from '@stem/types';
+import type { ExternalSnapshotState, NamespaceConfig, ParsedBlock, ParsedView, StemGraph, TagSchema, ValidationIssue } from '@stem/types';
 
 interface ValidatorBuildIssue {
   code: 'DUPLICATE_BLOCK_ID' | 'DUPLICATE_VIEW_ID';
@@ -14,6 +14,9 @@ export interface ValidatorInput {
   schemas: Map<string, TagSchema>;
   cycles: string[][];
   orphanedBlocks: string[];
+  configuredNamespaces: Record<string, NamespaceConfig>;
+  externalGraphs: Map<string, ExternalSnapshotState>;
+  strictExternal?: boolean;
 }
 
 export function validateGraph(input: ValidatorInput): ValidationIssue[] {
@@ -21,6 +24,7 @@ export function validateGraph(input: ValidatorInput): ValidationIssue[] {
 
   return [
     ...checkDuplicateIds(input.buildIssues),
+    ...checkExternalRefs(input.views, input.configuredNamespaces, input.externalGraphs, input.strictExternal),
     ...checkBrokenBlockRefs(input.views, input.graph),
     ...checkInvalidBlockRefFilters(input.views),
     ...checkBrokenSectionRefs(input.views, blockLookup),
@@ -79,7 +83,7 @@ function checkInvalidBlockRefFilters(views: ParsedView[]): ValidationIssue[] {
 function checkBrokenBlockRefs(views: ParsedView[], graph: StemGraph): ValidationIssue[] {
   return views.flatMap((view) =>
     view.blockRefs
-      .filter((blockRef) => !graph.nodes.has(blockRef.blockId))
+      .filter((blockRef) => blockRef.namespace === null && !graph.nodes.has(blockRef.blockId))
       .map(
         (blockRef): ValidationIssue => ({
           code: 'BROKEN_BLOCK_REF',
@@ -100,7 +104,7 @@ function checkBrokenBlockRefs(views: ParsedView[], graph: StemGraph): Validation
 function checkBrokenSectionRefs(views: ParsedView[], blockLookup: Map<string, ParsedBlock>): ValidationIssue[] {
   return views.flatMap((view) =>
     view.blockRefs.flatMap((blockRef) => {
-      if (blockRef.section === null) {
+      if (blockRef.namespace !== null || blockRef.section === null) {
         return [];
       }
 
@@ -130,7 +134,7 @@ function checkBrokenSectionRefs(views: ParsedView[], blockLookup: Map<string, Pa
 function checkUnresolvedTags(views: ParsedView[], blockLookup: Map<string, ParsedBlock>): ValidationIssue[] {
   return views.flatMap((view) =>
     view.blockRefs.flatMap((blockRef) => {
-      if (blockRef.section === null || blockRef.tag === null) {
+      if (blockRef.namespace !== null || blockRef.section === null || blockRef.tag === null) {
         return [];
       }
 
@@ -155,6 +159,146 @@ function checkUnresolvedTags(views: ParsedView[], blockLookup: Map<string, Parse
           }
         } satisfies ValidationIssue
       ];
+    })
+  );
+}
+
+function checkExternalRefs(
+  views: ParsedView[],
+  configuredNamespaces: Record<string, NamespaceConfig>,
+  externalGraphs: Map<string, ExternalSnapshotState>,
+  strictExternal: boolean = false
+): ValidationIssue[] {
+  return views.flatMap((view) =>
+    view.blockRefs.flatMap((blockRef): ValidationIssue[] => {
+      if (blockRef.namespace === null) {
+        return [];
+      }
+
+      if (!(blockRef.namespace in configuredNamespaces)) {
+        return [
+          {
+            code: 'UNRESOLVED_NAMESPACE',
+            severity: strictExternal ? 'error' : 'warning',
+            message: `Namespace "${blockRef.namespace}" is not declared in configuration.`,
+            filePath: view.filePath,
+            relativePath: view.relativePath,
+            position: shiftBodyPosition(blockRef.position, view),
+            context: {
+              namespace: blockRef.namespace,
+              rawRef: blockRef.raw
+            }
+          }
+        ];
+      }
+
+      const snapshot = externalGraphs.get(blockRef.namespace);
+      if (snapshot === undefined) {
+        return [
+          {
+            code: 'MISSING_SNAPSHOT',
+            severity: strictExternal ? 'error' : 'warning',
+            message: `No snapshot available for namespace "${blockRef.namespace}".`,
+            filePath: view.filePath,
+            relativePath: view.relativePath,
+            position: shiftBodyPosition(blockRef.position, view),
+            context: {
+              namespace: blockRef.namespace,
+              rawRef: blockRef.raw
+            }
+          }
+        ];
+      }
+
+      if (!snapshot.isLocalFallback) {
+        const ageMs = Date.now() - new Date(snapshot.fetchedAt).getTime();
+        if (ageMs > 7 * 24 * 60 * 60 * 1000) {
+          return [
+            {
+              code: 'EXPIRED_SNAPSHOT',
+              severity: strictExternal ? 'error' : 'warning',
+              message: `Snapshot for namespace "${blockRef.namespace}" has expired (fetched ${snapshot.fetchedAt}, TTL 7 days).`,
+              filePath: view.filePath,
+              relativePath: view.relativePath,
+              position: shiftBodyPosition(blockRef.position, view),
+              context: {
+                namespace: blockRef.namespace,
+                rawRef: blockRef.raw,
+                fetchedAt: snapshot.fetchedAt
+              }
+            }
+          ];
+        }
+      }
+
+      const block = snapshot.graph.blocks.find((b) => b.id === blockRef.blockId);
+      if (block === undefined) {
+        const renameHint = snapshot.graph.renames.find((r) => r.from === blockRef.blockId);
+        
+        // TODO: BROKEN_BLOCK_REF context doesn't carry rename metadata structurally.
+        // If stem fix or editor tooling needs the rename target, add renameTarget and renamedSince
+        // to the BROKEN_BLOCK_REF context type.
+        const message = renameHint
+          ? `View references missing external block "${blockRef.blockId}". It was renamed to "${renameHint.to}" (since ${renameHint.since}).`
+          : `View references missing external block "${blockRef.blockId}" in namespace "${blockRef.namespace}".`;
+
+        return [
+          {
+            code: 'BROKEN_BLOCK_REF',
+            severity: 'error',
+            message,
+            filePath: view.filePath,
+            relativePath: view.relativePath,
+            position: shiftBodyPosition(blockRef.position, view),
+            context: {
+              targetId: blockRef.blockId,
+              rawRef: blockRef.raw
+            }
+          } satisfies ValidationIssue
+        ];
+      }
+
+      if (blockRef.section !== null) {
+        const section = block.sections.find((s) => s.id === blockRef.section);
+        if (section === undefined) {
+          return [
+            {
+              code: 'BROKEN_SECTION_REF',
+              severity: 'error',
+              message: `View references missing section "${blockRef.section}" in external block "${blockRef.blockId}".`,
+              filePath: view.filePath,
+              relativePath: view.relativePath,
+              position: shiftBodyPosition(blockRef.position, view),
+              context: {
+                targetId: blockRef.blockId,
+                targetSection: blockRef.section
+              }
+            } satisfies ValidationIssue
+          ];
+        }
+
+        if (blockRef.tag !== null) {
+          if (!section.tags.includes(blockRef.tag)) {
+            return [
+              {
+                code: 'UNRESOLVED_TAG',
+                severity: 'error',
+                message: `View references missing tag "${blockRef.tag}" in section "${blockRef.section}" of external block "${blockRef.blockId}".`,
+                filePath: view.filePath,
+                relativePath: view.relativePath,
+                position: shiftBodyPosition(blockRef.position, view),
+                context: {
+                  targetId: blockRef.blockId,
+                  targetSection: blockRef.section,
+                  missingTag: blockRef.tag
+                }
+              } satisfies ValidationIssue
+            ];
+          }
+        }
+      }
+
+      return [];
     })
   );
 }
