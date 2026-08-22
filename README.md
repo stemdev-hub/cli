@@ -18,7 +18,7 @@ pnpm build
 After publishing, the CLI target is:
 
 ```sh
-npm install -g stem-docs
+npm install -g @stemdev/cli
 stem init
 ```
 

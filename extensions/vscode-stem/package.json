@@ -3,15 +3,16 @@
   "displayName": "Stem",
   "description": "Preview Stem rendered Markdown views inside VS Code.",
   "version": "0.0.0",
-  "publisher": "stem",
+  "publisher": "stemdev",
+  "author": "stemdev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stemdev-hub/cli.git"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": ["Other"],
-  "activationEvents": [
-    "onCommand:stem.previewToSide",
-    "onCommand:stem.refreshPreview"
-  ],
   "main": "./extension.js",
   "capabilities": {
     "untrustedWorkspaces": {

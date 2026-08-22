@@ -1,0 +1,50 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write # Required for NPM OIDC Trusted Publishing
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+
+      # The following steps ONLY run if a Release PR was merged
+      - name: Checkout repository
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/checkout@v7
+        with:
+          # Ensure we pull the newly created tag
+          ref: ${{ steps.release.outputs.tag_name }}
+
+      - name: Install pnpm
+        if: ${{ steps.release.outputs.release_created }}
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: ${{ steps.release.outputs.release_created }}
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project
+        if: ${{ steps.release.outputs.release_created }}
+        run: pnpm build
+
+      - name: Publish to NPM
+        if: ${{ steps.release.outputs.release_created }}
+        run: npm publish --access public --provenance

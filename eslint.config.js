@@ -26,6 +26,7 @@ export default tseslint.config(
       'node_modules/**',
       'coverage/**',
       '.stem/cache/**',
+      '.temp/**',
       'eslint.config.js',
       'tests/smoke/*.mjs',
       'extensions/vscode-stem/extension.js'

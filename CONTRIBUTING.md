@@ -254,3 +254,11 @@ cli/commands/sync.ts
 - **Future consumers** - the future MCP server and UI tool import `src/index.ts` only; they never need to know about CLI code or internals.
 - **Replaceability** - the cache module can move from JSON files to SQLite post-MVP without changes to the parser, graph, or CLI.
 - **Fewer conflicts** - contributors working on parser behavior can stay focused on parser files while contributors working on graph behavior work independently.
+
+## Release Process
+
+Stem uses Google's `release-please-action` combined with OIDC Trusted Publishing to fully automate NPM releases.
+
+1. **Merge PRs Normally:** Ensure your PR titles follow Conventional Commits (e.g., `feat:`, `fix:`).
+2. **Review the Release PR:** A bot will automatically maintain an open "Release PR" (e.g., `chore: release v0.1.1`). It calculates the next version and compiles a `CHANGELOG.md` based on your merged PRs.
+3. **Merge to Publish:** When you are ready to publish, simply merge the bot's "Release PR". The `.github/workflows/release-please.yml` pipeline will automatically tag the release, build the project, and publish it to NPM securely via OIDC.
