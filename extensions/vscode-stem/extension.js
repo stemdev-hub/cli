@@ -407,7 +407,7 @@ function isElectronBackedNodePath(nodePath, runtimeVersions) {
     return true;
   }
 
-  const executableName = path.basename(nodePath).toLowerCase();
+  const executableName = path.win32.basename(nodePath).toLowerCase();
   return [
     'code.exe',
     'code - insiders.exe',

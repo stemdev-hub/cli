@@ -5,3 +5,18 @@ dist/
 rendered/
 .temp/
 coverage/
+
+# Environment Variables (CRITICAL SECURITY)
+.env
+.env.*
+!.env.example
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Debug Logs
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
