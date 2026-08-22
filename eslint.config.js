@@ -22,14 +22,14 @@ export default tseslint.config(
   },
   {
     ignores: [
-      'dist/**',
-      'node_modules/**',
-      'coverage/**',
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/coverage/**',
       '.stem/cache/**',
       '.temp/**',
       'eslint.config.js',
-      'tests/smoke/*.mjs',
-      'extensions/vscode-stem/extension.js'
+      'packages/cli/tests/smoke/*.mjs',
+      'packages/vscode-stem/extension.js'
     ]
   }
 );

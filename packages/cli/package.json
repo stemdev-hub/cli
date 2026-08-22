@@ -1,0 +1,64 @@
+{
+  "name": "@stemdev/cli",
+  "version": "0.1.0",
+  "license": "MIT",
+  "author": "stemdev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stemdev-hub/cli.git"
+  },
+  "description": "Git-native, file-based documentation graphs for software teams.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "stem": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "documentation",
+    "markdown",
+    "docs-as-code",
+    "cli",
+    "stem"
+  ],
+  "homepage": "https://github.com/stemdev-hub/cli#readme",
+  "bugs": {
+    "url": "https://github.com/stemdev-hub/cli/issues"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run --passWithNoTests",
+    "smoke:built-cli": "node tests/smoke/built-cli-smoke.mjs",
+    "docs:types": "pnpm build && api-extractor run --local",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "fast-glob": "^3.3.3",
+    "gray-matter": "^4.0.3",
+    "js-yaml": "5.3.0",
+    "remark": "^15.0.1",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.58.13",
+    "@types/js-yaml": "^4.0.9",
+    "@vitest/coverage-v8": "^4.1.11",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.12"
+  }
+}

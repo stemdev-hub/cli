@@ -1,72 +1,20 @@
 {
-  "name": "@stemdev/cli",
-  "version": "0.1.0",
-  "packageManager": "pnpm@11.2.2",
-  "license": "MIT",
-  "author": "stemdev",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/stemdev-hub/cli.git"
-  },
-  "description": "Git-native, file-based documentation graphs for software teams.",
+  "name": "stemdev-hub",
+  "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "bin": {
-    "stem": "./dist/cli/index.js"
-  },
-  "files": [
-    "dist"
-  ],
-  "keywords": [
-    "documentation",
-    "markdown",
-    "docs-as-code",
-    "cli",
-    "stem"
-  ],
-  "homepage": "https://github.com/stemdev-hub/cli#readme",
-  "bugs": {
-    "url": "https://github.com/stemdev-hub/cli/issues"
-  },
+  "packageManager": "pnpm@11.2.2",
   "scripts": {
-    "build": "tsup",
-    "dev": "tsx src/cli/index.ts",
-    "test": "vitest run --passWithNoTests",
-    "smoke:built-cli": "node tests/smoke/built-cli-smoke.mjs",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "docs:types": "pnpm build && api-extractor run --local",
-    "typecheck": "tsc --noEmit"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "commander": "^15.0.0",
-    "fast-glob": "^3.3.3",
-    "gray-matter": "^4.0.3",
-    "js-yaml": "5.3.0",
-    "remark": "^15.0.1",
-    "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0"
+    "format": "prettier --write ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@microsoft/api-extractor": "^7.58.13",
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.11",
     "eslint": "^10.8.1",
     "prettier": "^3.9.6",
-    "tsup": "^8.5.1",
-    "tsx": "^4.23.12",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.67.0",
     "vitest": "^4.1.11"

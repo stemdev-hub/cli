@@ -1,8 +1,12 @@
 {
   "packages": {
-    ".": {
+    "packages/cli": {
       "release-type": "node",
-      "include-v-in-tag": true
+      "package-name": "@stemdev/cli"
+    },
+    "packages/vscode-stem": {
+      "release-type": "node",
+      "package-name": "vscode-stem"
     }
   }
 }

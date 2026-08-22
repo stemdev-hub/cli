@@ -6,7 +6,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const extensionModule = require('../../extensions/vscode-stem/extension.js') as StemExtensionModule;
+const extensionModule = require('../../../vscode-stem/extension.js') as StemExtensionModule;
 const stem = extensionModule._private;
 
 interface StemExtensionModule {

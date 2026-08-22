@@ -21,9 +21,6 @@ jobs:
       - name: Checkout repository
         if: ${{ steps.release.outputs.release_created }}
         uses: actions/checkout@v7
-        with:
-          # Ensure we pull the newly created tag
-          ref: ${{ steps.release.outputs.tag_name }}
 
       - name: Install pnpm
         if: ${{ steps.release.outputs.release_created }}
@@ -45,6 +42,20 @@ jobs:
         if: ${{ steps.release.outputs.release_created }}
         run: pnpm build
 
-      - name: Publish to NPM
-        if: ${{ steps.release.outputs.release_created }}
-        run: npm publish --access public --provenance
+      - name: Publish CLI to NPM
+        if: ${{ steps.release.outputs['packages/cli--release_created'] }}
+        run: pnpm --filter @stemdev/cli publish --access public --provenance
+
+      - name: Install vsce
+        if: ${{ steps.release.outputs['packages/vscode-stem--release_created'] }}
+        run: npm install -g @vscode/vsce
+
+      - name: Package VS Code Extension
+        if: ${{ steps.release.outputs['packages/vscode-stem--release_created'] }}
+        run: pnpm --filter vscode-stem exec vsce package
+
+      - name: Upload VSIX to GitHub Release
+        if: ${{ steps.release.outputs['packages/vscode-stem--release_created'] }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ steps.release.outputs['packages/vscode-stem--tag_name'] }} packages/vscode-stem/*.vsix
