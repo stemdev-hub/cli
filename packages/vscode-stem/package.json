@@ -2,7 +2,7 @@
   "name": "vscode-stem",
   "displayName": "Stem",
   "description": "Preview Stem rendered Markdown views inside VS Code.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "stemdev",
   "author": "stemdev",
   "repository": {
@@ -12,7 +12,9 @@
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "main": "./extension.js",
   "capabilities": {
     "untrustedWorkspaces": {
