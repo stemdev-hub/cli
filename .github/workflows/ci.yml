@@ -43,3 +43,12 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Dry-run Publish CLI
+        run: pnpm --filter @stemdev/cli publish --dry-run
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Dry-run Package VS Code Extension
+        run: pnpm --filter vscode-stem exec vsce package
