@@ -1,68 +1,60 @@
-# Stem VS Code Extension
+<div align="center">
+  <h1>Stem for VS Code</h1>
+  <p>Preview Stem views natively in VS Code using the Stem CLI renderer.</p>
 
-Preview Stem views in VS Code using Stem's CLI renderer and VS Code's built-in Markdown preview.
+[![Version](https://img.shields.io/visual-studio-marketplace/v/stemdev.vscode-stem.svg?color=blue&label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/stemdev.vscode-stem.svg)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
+[![Rating](https://img.shields.io/visual-studio-marketplace/r/stemdev.vscode-stem.svg)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+</div>
 
-## Commands
+---
 
-- `Stem: Open Preview to Side`
-- `Stem: Refresh Preview`
+Stem is a Git-native, file-based documentation system for software developers. This extension provides a seamless, side-by-side live preview of your composed Stem Markdown views directly inside your editor.
 
-## How Preview Works
+> **Note:** A placeholder for an animated GIF demonstrating the preview functionality goes here.
 
-Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`. The extension:
+## ✨ Features
 
-1. Reads the active file's frontmatter `id`.
-2. Finds the nearest Stem project root by walking up to `.stem`.
-3. Runs `stem preview view <view-id>` from that project.
-4. Serves the rendered Markdown body through a readonly `stem-preview:` virtual document.
-5. Opens that virtual document in VS Code's native Markdown preview.
+- **Live Preview:** See your rendered Stem views side-by-side as you type.
+- **Auto-Refresh:** Previews automatically update whenever you save a referenced block, view, schema, or configuration file.
+- **Native Rendering:** Uses VS Code's built-in Markdown preview window so your themes and styling match perfectly.
+- **Error Reporting:** Instantly displays markdown-formatted error logs if you have broken block references or syntax errors.
 
-The extension does not duplicate Stem parser or renderer logic, and it does not use a custom webview.
-The CLI remains the source of truth; the preview only hides leading YAML frontmatter so the rendered document reads cleanly in VS Code.
-Because preview runs the Stem CLI from the project root, it is available only in trusted VS Code workspaces.
+## 🚀 Prerequisites
 
-Open previews refresh automatically when project files change:
+This extension is a UI wrapper around the Stem CLI. You must have the CLI installed on your machine for the extension to render your views.
 
-- `views/**/*.md`
-- `blocks/**/*.md`
-- `blocks/schemas/**/*.{yaml,yml}`
-- `.stem/config.json`
+```sh
+npm install -g @stemdev/cli
+```
 
-Refreshes are scoped to open Stem preview documents for the changed project. Use `Stem: Refresh Preview` to refresh all open Stem previews manually.
+## 📖 Usage
 
-## Settings
+1. Open a Markdown view from a Stem project.
+2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
+3. Run **`Stem: Open Preview to Side`**.
+4. A preview window will open. As you edit and save the view or its referenced blocks, the preview will automatically refresh!
 
-- `stem.cliPath`: explicit Stem CLI executable path. Leave empty to use the workspace `dist/cli/index.js` when present, then the bundled repo CLI, then `stem` on `PATH`.
-- `stem.preview.autoRefresh`: refresh open Stem previews when project files change. Defaults to `true`.
-- `stem.preview.refreshDebounceMs`: debounce delay for file-change refreshes. Defaults to `250`.
+You can also manually refresh all open previews by running **`Stem: Refresh Preview`**.
 
-## CLI Resolution
+## ⚙️ Extension Settings
 
-The extension resolves the CLI in this order:
+This extension contributes the following settings:
 
-1. `stem.cliPath` setting
-2. `<workspace>/dist/cli/index.js`
-3. bundled repo `dist/cli/index.js`
-4. `stem` on `PATH`
+| Setting                          | Default | Description                                                                                                                                 |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stem.cliPath`                   | `""`    | Explicit path to the Stem CLI executable. If left empty, it will use your local workspace install, and then fallback to your global `PATH`. |
+| `stem.preview.autoRefresh`       | `true`  | Automatically refresh open previews when project files (`views/**/*.md`, `blocks/**/*.md`, etc.) are saved.                                 |
+| `stem.preview.refreshDebounceMs` | `250`   | Debounce delay in milliseconds before refreshing open previews after a file change.                                                         |
 
-Run `pnpm build` in this repo before testing the extension against the workspace CLI.
+## 🛠 Troubleshooting
 
-## Troubleshooting
+- **Preview doesn't open?** Ensure the active editor is a Markdown file saved on disk inside a valid Stem project (must have a `.stem` folder) and contains a frontmatter `id`.
+- **"CLI not found" error?** Make sure you ran `npm install -g @stemdev/cli`. If it still fails, explicitly set the `stem.cliPath` setting to your global executable.
+- **Workspace Untrusted?** Because the preview runs the Stem CLI from the project root, VS Code must trust the workspace. Trust the workspace in VS Code before opening a Stem preview.
+- **Preview refreshes too slow/fast?** Adjust the `stem.preview.refreshDebounceMs` setting in your VS Code preferences.
 
-- If preview cannot open, make sure the active editor is a Markdown file on disk inside a Stem project and has top-level frontmatter like `id: api-view`.
-- If rendering fails, the preview shows Markdown with the failed command, project root, exit code when available, stdout/stderr, and a suggested next action.
-- If the CLI cannot be found, set `stem.cliPath` to a `stem` executable or JavaScript CLI entrypoint. JavaScript entrypoints are run with VS Code's Node runtime.
-- If VS Code says the workspace is untrusted, trust the workspace before opening a Stem preview.
-- If auto-refresh feels too eager or too slow, adjust `stem.preview.refreshDebounceMs`.
-- If auto-refresh is disabled, run `Stem: Refresh Preview` from the Command Palette or from a Stem preview editor title.
+## 🤝 Contributing
 
-## Manual Test Checklist
-
-1. Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`.
-2. Edit and save a referenced block; the preview should refresh.
-3. Edit and save the source view; the preview should refresh.
-4. Introduce a broken block reference; the preview should show a Markdown-formatted Stem error.
-5. Set `stem.cliPath` to a specific CLI executable and confirm it takes precedence.
-6. Disable `stem.preview.autoRefresh`, edit a referenced file, and confirm manual refresh still works.
-7. Re-enable `stem.preview.autoRefresh` without reloading VS Code and confirm changes refresh again.
-8. In a multi-root workspace, open previews from two Stem projects and confirm edits refresh only the matching project's previews.
+Are you a developer looking to contribute to the extension? Please see our [Contributing Guide](CONTRIBUTING.md) for architecture details, manual test checklists, and CLI resolution logic.

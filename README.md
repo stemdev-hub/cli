@@ -1,6 +1,7 @@
 # Stem
 
 [![NPM Version](https://img.shields.io/npm/v/@stemdev/cli)](https://www.npmjs.com/package/@stemdev/cli)
+[![VS Code Extension](https://img.shields.io/visual-studio-marketplace/v/stemdev.vscode-stem?label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
 [![Node version](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![CI Status](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml)
@@ -19,31 +20,40 @@ Software documentation gets stale, duplicated, bloated, and locked into a single
 
 ## Installation
 
-You can install Stem globally via NPM:
+You can install the Stem CLI globally via NPM:
 
 ```sh
 npm install -g @stemdev/cli
 ```
 
-*For local development of the CLI itself, see [Contributing](#contributing).*
+### Editor Support
+
+We highly recommend installing the **[Stem VS Code Extension](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)**. It provides a live, side-by-side preview of your composed Markdown views as you edit them, directly inside your editor!
+
+_For local development of the CLI itself, see [Contributing](#contributing)._
 
 ## Getting Started
 
 Stem breaks down documentation into reusable **Blocks** and composed **Views**.
 
 ### 1. Initialize a Project
+
 Run this in the root of your repository to scaffold the `.stem/` directory:
+
 ```sh
 stem init
 ```
 
 ### 2. Write Reusable Blocks
+
 Blocks are single-source-of-truth markdown files that contain frontmatter metadata.
+
 ```sh
 stem create block auth-flow
 ```
 
 **What does a block look like?**
+
 ```markdown
 ---
 id: auth-flow
@@ -51,11 +61,14 @@ tags: [backend, security]
 ---
 
 # Authentication Flow
+
 We use JWT tokens for authentication. The token expires every 15 minutes and is refreshed automatically via the `/refresh` endpoint.
 ```
 
 ### 3. Compose Views
+
 Views are constructed by referencing your blocks. Create a view and inject your block into it:
+
 ```sh
 stem create group by-audience/backend
 stem create view auth-service --group by-audience/backend
@@ -63,7 +76,9 @@ stem add auth-flow to auth-service
 ```
 
 ### 4. Render & Preview
+
 Validate your references and render the final composed Markdown files:
+
 ```sh
 stem check
 stem sync
@@ -71,6 +86,7 @@ stem render view auth-service
 ```
 
 To quickly view the result in your terminal without writing files to disk:
+
 ```sh
 stem preview view auth-service
 ```
