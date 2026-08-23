@@ -44,8 +44,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Dry-run Publish CLI
-        run: pnpm --filter @stemdev/cli publish --dry-run
+      - name: Verify CLI Publish (Dry Run)
+        run: pnpm --filter @stemdev/cli publish --dry-run --no-git-checks
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
