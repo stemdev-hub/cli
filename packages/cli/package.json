@@ -43,7 +43,7 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "dependencies": {
     "commander": "^15.0.0",

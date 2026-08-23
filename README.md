@@ -1,5 +1,10 @@
 # Stem
 
+[![NPM Version](https://img.shields.io/npm/v/@stemdev/cli)](https://www.npmjs.com/package/@stemdev/cli)
+[![Node version](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![CI Status](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml)
+
 Stem is a Git-native, file-based documentation system for software developers. It keeps reusable knowledge in Markdown blocks and lets teams compose those blocks into multiple view files without duplicating content.
 
 Stem is designed for teams working with AI coding agents and LLM workflows: the block store and dynamic connection graph provide structured, queryable context while keeping every source file plain Markdown in Git.
@@ -8,32 +13,66 @@ Stem is designed for teams working with AI coding agents and LLM workflows: the 
 
 Software documentation gets stale, duplicated, bloated, and locked into a single perspective. Stem separates canonical content from the views people read, so one block can power onboarding, backend, frontend, architecture, and AI-agent context views.
 
+## Prerequisites
+
+- **Node.js**: `>=22`
+
 ## Installation
 
-```sh
-pnpm install
-pnpm build
-```
-
-After publishing, the CLI target is:
+You can install Stem globally via NPM:
 
 ```sh
 npm install -g @stemdev/cli
+```
+
+*For local development of the CLI itself, see [Contributing](#contributing).*
+
+## Getting Started
+
+Stem breaks down documentation into reusable **Blocks** and composed **Views**.
+
+### 1. Initialize a Project
+Run this in the root of your repository to scaffold the `.stem/` directory:
+```sh
 stem init
 ```
 
-## Basic Usage
-
+### 2. Write Reusable Blocks
+Blocks are single-source-of-truth markdown files that contain frontmatter metadata.
 ```sh
-stem init
 stem create block auth-flow
+```
+
+**What does a block look like?**
+```markdown
+---
+id: auth-flow
+tags: [backend, security]
+---
+
+# Authentication Flow
+We use JWT tokens for authentication. The token expires every 15 minutes and is refreshed automatically via the `/refresh` endpoint.
+```
+
+### 3. Compose Views
+Views are constructed by referencing your blocks. Create a view and inject your block into it:
+```sh
 stem create group by-audience/backend
 stem create view auth-service --group by-audience/backend
-stem add auth-flow-block to auth-service-view
+stem add auth-flow to auth-service
+```
+
+### 4. Render & Preview
+Validate your references and render the final composed Markdown files:
+```sh
 stem check
 stem sync
-stem render view auth-service-view
-stem preview view auth-service-view
+stem render view auth-service
+```
+
+To quickly view the result in your terminal without writing files to disk:
+```sh
+stem preview view auth-service
 ```
 
 ## Configuration
@@ -52,7 +91,7 @@ Stem projects are rooted by a `.stem/` directory. Project settings live in `.ste
 
 All directory fields are project-relative and optional. Paths are normalized to POSIX `/` separators so cache keys stay stable across operating systems.
 
-## Commands
+## Commands Reference
 
 | Command                                                        | Purpose                                                                           |
 | -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -77,3 +116,19 @@ All directory fields are project-relative and optional. Paths are normalized to 
 The CLI is intentionally thin. All business logic belongs in `src/core/`, and the public core API is exported from `src/index.ts` so future MCP servers, editor tools, and UI clients can import Stem without depending on CLI code.
 
 Rendered Markdown is generated under `rendered/` by default and should not be committed unless a project intentionally publishes generated output.
+
+## Contributing
+
+We welcome contributions! To build the CLI locally:
+
+```sh
+pnpm install
+pnpm build
+pnpm link
+```
+
+Please feel free to open issues or submit pull requests on our [GitHub Repository](https://github.com/stemdev-hub/cli).
+
+## License
+
+[MIT](LICENSE)
