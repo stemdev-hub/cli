@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.2.0...vscode-stem-v0.2.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **vscode-stem:** resolve ENOENT on Windows by enabling shell execution for CLI and ignore .vsix binaries ([36b63c1](https://github.com/stemdev-hub/cli/commit/36b63c1f4f70137fe1dcf82fdf8801cf013a0bf2))
+
 ## [0.2.0](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.1.0...vscode-stem-v0.2.0) (2026-08-23)
 
 
