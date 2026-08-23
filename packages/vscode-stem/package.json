@@ -2,7 +2,7 @@
   "name": "vscode-stem",
   "displayName": "Stem",
   "description": "Preview Stem rendered Markdown views inside VS Code.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "stemdev",
   "author": "stemdev",
   "repository": {
