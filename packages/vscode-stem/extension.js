@@ -390,6 +390,11 @@ function getPreviewExecOptions({ command, args, cwd, nodePath, env, runtimeVersi
     options.env = { ...env, ELECTRON_RUN_AS_NODE: '1' };
   }
 
+  // Windows npm global installs create `.cmd` wrappers which require a shell.
+  if (process.platform === 'win32' && (command === 'stem' || command.toLowerCase().endsWith('.cmd') || command.toLowerCase().endsWith('.bat'))) {
+    options.shell = true;
+  }
+
   return options;
 }
 
