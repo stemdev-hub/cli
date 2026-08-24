@@ -17,8 +17,9 @@ export function registerMcpCommand(program: Command): void {
   mcpCmd
     .command('setup')
     .description('Configure an AI assistant to use Stem MCP in this workspace')
-    .action(async () => {
+    .option('-y, --yes', 'Non-interactive: skip all prompts and apply recommended defaults (local scope)')
+    .action(async (opts: { yes?: boolean }) => {
       const { runMcpSetup } = await import('./mcp-setup.js');
-      await runMcpSetup();
+      await runMcpSetup({ yes: opts.yes ?? false });
     });
 }

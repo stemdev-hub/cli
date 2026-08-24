@@ -1,19 +1,87 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as readline from 'node:readline';
 
-interface ClaudeConfig {
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface McpConfig {
   mcpServers?: Record<string, Record<string, unknown>>;
   [key: string]: unknown;
 }
 
-function getAntigravityConfigPath(): string {
-  return path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json');
+export interface McpSetupOptions {
+  /** Skip all interactive prompts and apply recommended defaults. */
+  yes: boolean;
 }
 
-function askQuestion(query: string): Promise<boolean> {
+type AntigravityScope = 'local' | 'global' | 'skip';
+type ClaudeCliScope = 'local' | 'project' | 'global' | 'skip';
+
+interface Choice<T extends string> {
+  label: string;
+  hint: string;
+  value: T;
+}
+
+// ---------------------------------------------------------------------------
+// Prompt helpers (zero external dependencies — plain readline)
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders a numbered list and returns the value of the chosen option.
+ * Pressing Enter with no input selects the first option (default).
+ */
+function askSelect<T extends string>(
+  question: string,
+  choices: Choice<T>[],
+): Promise<T> {
+  const rl = readline.createInterface({
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    input: process.stdin as unknown as NodeJS.ReadableStream,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    output: process.stdout as unknown as NodeJS.WritableStream,
+  });
+
+  const lines = [
+    `\n  ${question}`,
+    ...choices.map((c, i) => `    ${i + 1}. ${c.label}  – ${c.hint}`),
+    '',
+  ];
+  process.stdout.write(lines.join('\n'));
+
+  return new Promise((resolve) => {
+    const ask = () => {
+      rl.question(`  Enter number [1-${choices.length}] (default 1): `, (answer) => {
+        const trimmed = answer.trim();
+        if (trimmed === '') {
+          rl.close();
+          resolve(choices[0]!.value);
+          return;
+        }
+        const num = Number(trimmed);
+        const idx = num - 1;
+        if (Number.isInteger(num) && idx >= 0 && idx < choices.length) {
+          rl.close();
+          resolve(choices[idx]!.value);
+        } else {
+          process.stdout.write(`  Invalid choice. Please enter a number between 1 and ${choices.length}.\n`);
+          ask();
+        }
+      });
+    };
+    ask();
+  });
+}
+
+/**
+ * Simple Y/N confirmation.
+ * Returns true for 'y'/'yes'/empty Enter (default yes).
+ */
+function askConfirm(question: string): Promise<boolean> {
   const rl = readline.createInterface({
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     input: process.stdin as unknown as NodeJS.ReadableStream,
@@ -22,19 +90,28 @@ function askQuestion(query: string): Promise<boolean> {
   });
 
   return new Promise((resolve) => {
-    rl.question(query, (answer) => {
+    rl.question(question, (answer) => {
       rl.close();
-      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+      const trimmed = answer.trim().toLowerCase();
+      resolve(trimmed === '' || trimmed === 'y' || trimmed === 'yes');
     });
   });
 }
 
-function getClaudeConfigPath(): string | null {
+// ---------------------------------------------------------------------------
+// Config helpers
+// ---------------------------------------------------------------------------
+
+function getAntigravityGlobalConfigPath(): string {
+  return path.join(os.homedir(), '.gemini', 'config', 'mcp_config.json');
+}
+
+function getClaudeDesktopConfigPath(): string | null {
   const platform = os.platform();
   const home = os.homedir();
 
   if (platform === 'win32') {
-    const appData = process.env['APPDATA'] || path.join(home, 'AppData', 'Roaming');
+    const appData = process.env['APPDATA'] ?? path.join(home, 'AppData', 'Roaming');
     return path.join(appData, 'Claude', 'claude_desktop_config.json');
   } else if (platform === 'darwin') {
     return path.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
@@ -44,11 +121,19 @@ function getClaudeConfigPath(): string | null {
 
 function patchJsonConfig(configPath: string): boolean {
   try {
-    const content = readFileSync(configPath, 'utf8');
-    
-    let config: ClaudeConfig = {};
+    const dir = path.dirname(configPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+
+    let content = '{}';
+    if (existsSync(configPath)) {
+      content = readFileSync(configPath, 'utf8');
+    }
+
+    let config: McpConfig = {};
     if (content.trim()) {
-      config = JSON.parse(content) as ClaudeConfig;
+      config = JSON.parse(content) as McpConfig;
     }
 
     if (!config['mcpServers']) {
@@ -56,43 +141,72 @@ function patchJsonConfig(configPath: string): boolean {
     }
 
     if (config['mcpServers']['stem']) {
-      console.log('Stem MCP is already configured in this file. Updating...');
+      console.log('  Stem MCP is already configured in this file. Updating...');
     }
 
     config['mcpServers']['stem'] = {
-      command: "npx",
-      args: ["-y", "@stemdev/cli@latest", "mcp"],
-      cwd: process.cwd()
+      command: 'npx',
+      args: ['-y', '@stemdev/cli@latest', 'mcp'],
+      cwd: process.cwd(),
     };
 
     writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
     return true;
   } catch (e) {
-    console.error(`Failed to update ${configPath}:`, e instanceof Error ? e.message : String(e));
+    console.error(`  Failed to update ${configPath}:`, e instanceof Error ? e.message : String(e));
     return false;
   }
 }
 
-export async function runMcpSetup(): Promise<void> {
+// ---------------------------------------------------------------------------
+// Main setup flow
+// ---------------------------------------------------------------------------
+
+export async function runMcpSetup(options: McpSetupOptions = { yes: false }): Promise<void> {
+  const { yes } = options;
   let configuredAny = false;
 
-  // 1. Antigravity Configuration
-  const antigravityPath = getAntigravityConfigPath();
-  if (existsSync(antigravityPath)) {
-    const confirm = await askQuestion(
-      'Found Antigravity IDE configuration. Do you want to configure it globally to use the Stem MCP server for this project? [Y/n] '
-    );
-    if (confirm) {
-      if (patchJsonConfig(antigravityPath)) {
-        console.log(`Successfully updated Antigravity config. Please restart Antigravity.`);
-        configuredAny = true;
-      }
-    } else {
-      console.log('Skipped Antigravity.');
+  // ── 1. Antigravity ────────────────────────────────────────────────────────
+  console.log('\n  Configuring Antigravity IDE...');
+
+  const localAntigravityPath = path.join(process.cwd(), '.agents', 'mcp_config.json');
+  const globalAntigravityPath = getAntigravityGlobalConfigPath();
+
+  const antigravityScope: AntigravityScope = yes
+    ? 'local'
+    : await askSelect<AntigravityScope>(
+        'How do you want to configure Stem MCP for Antigravity?',
+        [
+          {
+            value: 'local',
+            label: 'Local ',
+            hint: '.agents/mcp_config.json in this project (commit to share with team)',
+          },
+          {
+            value: 'global',
+            label: 'Global',
+            hint: `${globalAntigravityPath} (this machine only)`,
+          },
+          { value: 'skip', label: 'Skip  ', hint: 'do nothing' },
+        ],
+      );
+
+  if (antigravityScope === 'local') {
+    if (patchJsonConfig(localAntigravityPath)) {
+      console.log('  ✓ Updated local Antigravity config. Please restart Antigravity.');
+      console.log('  Tip: commit .agents/mcp_config.json so teammates get this config automatically.');
+      configuredAny = true;
     }
+  } else if (antigravityScope === 'global') {
+    if (patchJsonConfig(globalAntigravityPath)) {
+      console.log('  ✓ Updated global Antigravity config. Please restart Antigravity.');
+      configuredAny = true;
+    }
+  } else {
+    console.log('  Skipped Antigravity.');
   }
 
-  // 2. Claude CLI / Desktop
+  // ── 2. Claude Code CLI / Desktop ──────────────────────────────────────────
   let hasClaudeCli = false;
   try {
     execFileSync('claude', ['--version'], { stdio: 'ignore' });
@@ -102,42 +216,82 @@ export async function runMcpSetup(): Promise<void> {
   }
 
   if (hasClaudeCli) {
-    const confirm = await askQuestion(
-      'Found Claude CLI. Do you want to configure Claude globally to use the Stem MCP server for this project? [Y/n] '
-    );
-    if (confirm) {
+    // ── 2a. Claude Code CLI (three real scopes + skip) ───────────────────────
+    console.log('\n  Found Claude Code CLI...');
+
+    const claudeCliScope: ClaudeCliScope = yes
+      ? 'local'
+      : await askSelect<ClaudeCliScope>(
+          'How do you want to configure Stem MCP for Claude Code?',
+          [
+            {
+              value: 'local',
+              label: 'Local  ',
+              hint: 'private to you, this project only (.claude/settings.local.json)',
+            },
+            {
+              value: 'project',
+              label: 'Project',
+              hint: 'shared with your team (.mcp.json at project root)',
+            },
+            {
+              value: 'global',
+              label: 'Global ',
+              hint: 'all your projects (~/.claude.json)',
+            },
+            { value: 'skip', label: 'Skip   ', hint: 'do nothing' },
+          ],
+        );
+
+    if (claudeCliScope !== 'skip') {
       try {
-        execFileSync('claude', ['mcp', 'add', 'stem', '--', 'stem', 'mcp'], { stdio: 'inherit' });
-        console.log('Successfully configured Stem MCP via Claude CLI.');
+        const scopeArgs: string[] =
+          claudeCliScope === 'project'
+            ? ['--scope', 'project']
+            : claudeCliScope === 'global'
+              ? ['--scope', 'user']
+              : []; // 'local' is the default — no flag needed
+
+        execFileSync(
+          'claude',
+          ['mcp', 'add', ...scopeArgs, 'stem', '--', 'npx', '-y', '@stemdev/cli@latest', 'mcp'],
+          { stdio: 'inherit' },
+        );
+        console.log('  ✓ Configured Stem MCP via Claude Code CLI.');
         configuredAny = true;
       } catch (e) {
-        console.error('Failed to configure via Claude CLI:', e instanceof Error ? e.message : String(e));
+        console.error('  Failed to configure via Claude Code CLI:', e instanceof Error ? e.message : String(e));
       }
     } else {
-      console.log('Skipped Claude.');
+      console.log('  Skipped Claude Code CLI.');
     }
   } else {
+    // ── 2b. Claude Desktop fallback (global-only — auto-announce + Y/N) ──────
     if (os.platform() === 'linux') {
-      console.log('Claude Desktop is not supported on Linux. Install the Claude CLI and try again.');
+      console.log('\n  Claude Desktop is not supported on Linux. Install the Claude CLI and try again.');
     } else {
-      const configPath = getClaudeConfigPath();
-      if (configPath && existsSync(configPath)) {
-        const confirm = await askQuestion(
-          'Found Claude Desktop configuration. Do you want to configure it globally to use the Stem MCP server for this project? [Y/n] '
-        );
-        if (confirm) {
-          if (patchJsonConfig(configPath)) {
-            console.log(`Successfully updated Claude Desktop config. Please restart Claude Desktop.`);
+      const desktopConfigPath = getClaudeDesktopConfigPath();
+      if (desktopConfigPath && existsSync(desktopConfigPath)) {
+        console.log(`\n  Found Claude Desktop (${desktopConfigPath})`);
+        console.log('  Note: Claude Desktop only supports a single global configuration.\n');
+
+        const configure = yes || (await askConfirm('  Configure it to use Stem MCP? [Y/n] '));
+
+        if (configure) {
+          if (patchJsonConfig(desktopConfigPath)) {
+            console.log('  ✓ Updated Claude Desktop config. Please restart Claude Desktop.');
             configuredAny = true;
           }
         } else {
-          console.log('Skipped Claude Desktop.');
+          console.log('  Skipped Claude Desktop.');
         }
       }
     }
   }
 
+  // ── Summary ───────────────────────────────────────────────────────────────
+  console.log('');
   if (!configuredAny) {
-    console.log('No AI assistants were configured.');
+    console.log('  No AI assistants were configured.');
   }
 }
