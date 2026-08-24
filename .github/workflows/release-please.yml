@@ -60,8 +60,12 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
-      - name: Package VS Code Extension
-        run: pnpm --filter vscode-stem exec vsce package
+      - name: Version VS Code Extension (Canary)
+        run: npm version 0.0.0-canary.${{ steps.short_sha.outputs.sha }} --no-git-tag-version
+        working-directory: packages/vscode-stem
+
+      - name: Package VS Code Extension (Canary)
+        run: pnpm --filter vscode-stem exec vsce package --no-git-tag-version
 
       - name: Upload VSIX to Artifacts
         uses: actions/upload-artifact@v4
