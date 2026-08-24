@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.2.1...vscode-stem-v0.3.0) (2026-08-24)
+
+
+### Features
+
+* **vscode:** prompt for MCP server configuration on Stem project load ([faa7463](https://github.com/stemdev-hub/cli/commit/faa7463ec76927abb65722c299ed79142a5d4836))
+
 ## [0.2.1](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.2.0...vscode-stem-v0.2.1) (2026-08-23)
 
 
