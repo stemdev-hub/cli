@@ -12,6 +12,7 @@ import { registerRenderCommand } from './commands/render.js';
 import { registerSyncCommand } from './commands/sync.js';
 import { registerFetchNamespacesCommand } from './commands/fetch-namespaces.js';
 import { registerPublishGraphCommand } from './commands/publish-graph.js';
+import { registerMcpCommand } from './commands/mcp.js';
 
 export function createStemProgram(): Command {
   const program = new Command();
@@ -28,6 +29,7 @@ export function createStemProgram(): Command {
   registerListCommand(program);
   registerFetchNamespacesCommand(program);
   registerPublishGraphCommand(program);
+  registerMcpCommand(program);
   return program;
 }
 
