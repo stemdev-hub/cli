@@ -35,6 +35,9 @@ function activate(context) {
     vscode.commands.registerCommand('stem.refreshPreview', () => {
       provider.refresh();
     }),
+    vscode.commands.registerCommand('stem.enableMcp', async () => {
+      await enableMcpForWorkspace(context);
+    }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       if (document.uri.scheme !== PREVIEW_SCHEME) {
         return;
@@ -55,6 +58,80 @@ function activate(context) {
     }),
     watchers
   );
+
+  // First-load notification for MCP
+  (async () => {
+    if (!vscode.workspace.workspaceFolders) return;
+    const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+    
+    if (existsSync(path.join(root, '.stem', 'config.json'))) {
+      const dismissed = context.globalState.get('stem.mcp.dismissed');
+      const notNow = context.workspaceState.get('stem.mcp.notNow');
+      const hasMcp = existsSync(path.join(root, '.cursor', 'mcp.json')) || existsSync(path.join(root, '.vscode', 'mcp.json'));
+      
+      if (!dismissed && !notNow && !hasMcp) {
+        const result = await vscode.window.showInformationMessage(
+          'Stem project detected. Would you like to enable the Stem MCP server for AI assistants in this workspace?',
+          'Enable', 'Not Now', 'Don\'t Ask Again'
+        );
+        if (result === 'Enable') {
+          try {
+            await vscode.commands.executeCommand('stem.enableMcp');
+          } catch (e) {
+            console.error('Failed to enable MCP', e);
+          }
+        } else if (result === 'Not Now') {
+          context.workspaceState.update('stem.mcp.notNow', true);
+        } else if (result === 'Don\'t Ask Again') {
+          context.globalState.update('stem.mcp.dismissed', true);
+        }
+      }
+    }
+  })().catch(e => console.error('Stem: MCP notification error', e));
+}
+
+async function enableMcpForWorkspace(context) {
+  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+    vscode.window.showErrorMessage('No workspace folder open.');
+    return;
+  }
+  const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+
+  let mcpCommand = 'npx';
+  let mcpArgs = ['-y', '@stemdev/cli@latest', 'mcp'];
+  try {
+    await new Promise((res, rej) => execFile('stem', ['--version'], { timeout: 3000 }, (err) => err ? rej(err) : res()));
+    mcpCommand = 'stem';
+    mcpArgs = ['mcp'];
+  } catch {
+    // fallback to npx
+  }
+
+  const stemEntry = {
+    command: mcpCommand,
+    args: mcpArgs,
+    cwd: root
+  };
+
+  const fs = require('node:fs');
+
+  const updateMcpConfig = (dirPath) => {
+    const filePath = path.join(dirPath, 'mcp.json');
+    if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
+    
+    let existing = {};
+    if (fs.existsSync(filePath)) {
+      try { existing = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { /* corrupt, overwrite */ }
+    }
+    
+    existing.mcpServers = { ...(existing.mcpServers || {}), stem: stemEntry };
+    fs.writeFileSync(filePath, JSON.stringify(existing, null, 2), 'utf8');
+  };
+
+  updateMcpConfig(path.join(root, '.cursor'));
+  updateMcpConfig(path.join(root, '.vscode'));
+
+  vscode.window.showInformationMessage('Stem MCP server enabled for this workspace.');
 }
 
 function deactivate() {}

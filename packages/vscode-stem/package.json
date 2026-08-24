@@ -33,6 +33,10 @@
         "command": "stem.refreshPreview",
         "title": "Stem: Refresh Preview",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "stem.enableMcp",
+        "title": "Stem: Enable AI Context Server (MCP)"
       }
     ],
     "configuration": {
@@ -71,6 +75,10 @@
         },
         {
           "command": "stem.refreshPreview",
+          "when": "isWorkspaceTrusted"
+        },
+        {
+          "command": "stem.enableMcp",
           "when": "isWorkspaceTrusted"
         }
       ]
