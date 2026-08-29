@@ -68,7 +68,7 @@ jobs:
         run: pnpm --filter vscode-stem exec vsce package --no-git-tag-version
 
       - name: Upload VSIX to Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: vscode-stem-canary
           path: packages/vscode-stem/*.vsix
