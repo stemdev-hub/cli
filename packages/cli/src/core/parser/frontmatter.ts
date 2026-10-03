@@ -1,5 +1,8 @@
-import matter from 'gray-matter';
+import { CORE_SCHEMA, load, mergeTag, timestampTag } from 'js-yaml';
 import type { DependencyRef, IssueContextMap, StemConfig, ValidationIssue } from '@stem/types';
+
+// Timestamp values must remain non-strings when normalizing Stem fields.
+const FRONTMATTER_SCHEMA = CORE_SCHEMA.withTags(mergeTag, timestampTag);
 
 export interface ParsedFrontmatter<T extends object = StemConfig> {
   data: T;
@@ -33,9 +36,9 @@ export function parseFrontmatter<T extends object = StemConfig>(
   relativePath = ''
 ): ParsedFrontmatter<T> {
   try {
-    const parsed = matter(content);
+    const parsed = splitYamlFrontmatter(content);
     return {
-      // gray-matter intentionally returns untyped YAML data; callers choose the expected shape.
+      // YAML can be a scalar or array; callers choose the expected shape.
       data: parsed.data as T,
       body: parsed.content,
       bodyStartLine: getBodyStartLine(content, parsed.content),
@@ -58,6 +61,33 @@ export function parseFrontmatter<T extends object = StemConfig>(
       ]
     };
   }
+}
+
+function splitYamlFrontmatter(content: string): { data: unknown; content: string } {
+  const source = content.replace(/^\uFEFF/, '');
+  if (!source.startsWith('---') || source[3] === '-') {
+    return { data: {}, content: source };
+  }
+
+  let yaml = source.slice(3);
+  const languageLine = yaml.slice(0, yaml.search(/\r?\n/));
+  const language = languageLine.trim().toLowerCase();
+  if (language.length > 0) {
+    if (language !== 'yaml' && language !== 'yml') {
+      throw new Error(`Unsupported frontmatter language "${languageLine.trim()}". Only YAML is supported.`);
+    }
+    yaml = yaml.slice(languageLine.length);
+  }
+
+  // Preserve prefix matching of closing fences and the successful-parse newline removal.
+  const closingIndex = yaml.indexOf('\n---');
+  const raw = closingIndex < 0 ? yaml : yaml.slice(0, closingIndex);
+  const empty = raw.replace(/^\s*#[^\n]*/gm, '').trim().length === 0;
+  const data: unknown = empty ? {} : load(raw, { schema: FRONTMATTER_SCHEMA });
+  let body = closingIndex < 0 ? '' : yaml.slice(closingIndex + 4);
+  if (body.startsWith('\r')) body = body.slice(1);
+  if (body.startsWith('\n')) body = body.slice(1);
+  return { data: data ?? {}, content: body };
 }
 
 export function parseBlockFrontmatter(

@@ -2,6 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { parseBlockFile, parseViewFile } from '../../src/core/parser/index.js';
 
 describe('parser integration', () => {
+  it.each(['\n', '\r\n'])('preserves body-relative reference positions with %j line endings', (eol) => {
+    const body = `${eol}@stem[block:target]`;
+    const parsed = parseViewFile({ filePath: 'view.md', relativePath: 'view.md',
+      content: `\uFEFF---${eol}id: positions${eol}---${eol}${body}` });
+    expect(parsed.bodyStartLine).toBe(4);
+    expect(parsed.localContent).toBe(body);
+    expect(parsed.blockRefs[0]?.position).toEqual({
+      start: { line: 2, column: 1, offset: eol.length },
+      end: { line: 2, column: 20, offset: eol.length + 19 }
+    });
+  });
+
+  it('preserves reference positions after malformed frontmatter recovery', () => {
+    const parsed = parseViewFile({ filePath: 'broken-view.md', relativePath: 'broken-view.md',
+      content: '---\nid: [broken-position\n---\n@stem[block:target]' });
+    expect(parsed.bodyStartLine).toBe(3);
+    expect(parsed.localContent).toBe('\n@stem[block:target]');
+    expect(parsed.blockRefs[0]?.position.start).toEqual({ line: 2, column: 1, offset: 1 });
+    expect(parsed.errors[0]?.code).toBe('INVALID_FRONTMATTER');
+  });
   it('parses complete block content supplied by the fs layer', () => {
     const parsed = parseBlockFile({
       filePath: '/project/blocks/auth.md',

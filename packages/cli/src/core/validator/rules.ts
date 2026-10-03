@@ -7,6 +7,7 @@ interface ValidatorBuildIssue {
 }
 
 export interface ValidatorInput {
+  nowMs: number;
   graph: StemGraph;
   blocks: ParsedBlock[];
   views: ParsedView[];
@@ -24,7 +25,7 @@ export function validateGraph(input: ValidatorInput): ValidationIssue[] {
 
   return [
     ...checkDuplicateIds(input.buildIssues),
-    ...checkExternalRefs(input.views, input.configuredNamespaces, input.externalGraphs, input.strictExternal),
+    ...checkExternalRefs(input.views, input.configuredNamespaces, input.externalGraphs, input.nowMs, input.strictExternal),
     ...checkBrokenBlockRefs(input.views, input.graph),
     ...checkInvalidBlockRefFilters(input.views),
     ...checkBrokenSectionRefs(input.views, blockLookup),
@@ -167,6 +168,7 @@ function checkExternalRefs(
   views: ParsedView[],
   configuredNamespaces: Record<string, NamespaceConfig>,
   externalGraphs: Map<string, ExternalSnapshotState>,
+  nowMs: number,
   strictExternal: boolean = false
 ): ValidationIssue[] {
   return views.flatMap((view) =>
@@ -211,7 +213,7 @@ function checkExternalRefs(
       }
 
       if (!snapshot.isLocalFallback) {
-        const ageMs = Date.now() - new Date(snapshot.fetchedAt).getTime();
+        const ageMs = nowMs - new Date(snapshot.fetchedAt).getTime();
         if (ageMs > 7 * 24 * 60 * 60 * 1000) {
           return [
             {

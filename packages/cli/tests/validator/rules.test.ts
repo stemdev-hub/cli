@@ -14,6 +14,25 @@ import { buildGraph } from '../../src/core/graph/builder.js';
 import { validateGraph } from '../../src/core/validator/rules.js';
 
 describe('validateGraph', () => {
+  it.each([
+    [7 * 24 * 60 * 60 * 1000, false, false],
+    [7 * 24 * 60 * 60 * 1000 + 1, false, true],
+    [8 * 24 * 60 * 60 * 1000, true, false]
+  ])('uses supplied time for snapshot age %i with local fallback %s', (ageMs, isLocalFallback, expired) => {
+    const fetchedAt = '2000-01-01T00:00:00.000Z';
+    const input = createInput({
+      nowMs: Date.parse(fetchedAt) + ageMs,
+      views: [createView('dated-view', [createBlockRef('auth', { namespace: 'core' })])],
+      configuredNamespaces: { core: { graphUrl: 'https://example.com' } },
+      externalGraphs: new Map([['core', {
+        graph: { version: '1', namespace: 'core', publishedAt: fetchedAt, contentSha: 'sha',
+          blocks: [{ id: 'auth', tags: [], sections: [] }], renames: [] },
+        fetchedAt, isLocalFallback
+      }]])
+    });
+    expect(validateGraph(input).some((issue) => issue.code === 'EXPIRED_SNAPSHOT')).toBe(expired);
+  });
+
   it('returns an empty array when no build issues are present', () => {
     const block = createBlock('auth-block');
     const view = createView('auth-view', [createBlockRef('auth-block')]);
@@ -443,6 +462,7 @@ function createInput(overrides: Partial<Parameters<typeof validateGraph>[0]> = {
   const graph = overrides.graph ?? createGraph([], []);
 
   return {
+    nowMs: Date.now(),
     graph,
     blocks: [],
     views: [],

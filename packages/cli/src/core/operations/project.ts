@@ -142,6 +142,7 @@ export function validateLoadedProject(
   const issues = [
     ...project.parserIssues,
     ...validateGraph({
+      nowMs: Date.now(),
       graph: project.graph,
       blocks: project.blocks,
       views: project.views,
