@@ -4,14 +4,13 @@ Git-native, Markdown-based documentation tool. Core model: **Block** and **Tag**
 Monorepo (pnpm): `packages/cli`, `packages/vscode-stem`. `packages/core` is planned (ADR-0001).
 Package-specific commands live in each package's `AGENTS.md`.
 
-## Commands (workspace-wide)
+## Commands (run from the repo root)
 
-<!-- Fill from the root package.json. Only real commands. -->
-
-- install: `<fill>`
-- build all: `<fill>`
-- test all: `<fill>`
-- lint: `<fill>`
+- install: `pnpm install --frozen-lockfile`
+- build all: `pnpm build`
+- test all: `pnpm test`
+- lint: `pnpm lint`
+- typecheck: `pnpm typecheck`
 
 ## Read order
 

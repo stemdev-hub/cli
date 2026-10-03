@@ -18,7 +18,6 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Baseline run by the user outside the sandbox: install, typecheck, lint, test (34 files / 373 tests), build, and vsce package all EXIT 0.
 - smoke:built-cli FAILED: ".stem/cache/index.json expected version 1, got 2" (tests/smoke/built-cli-smoke.mjs:111, called at line 51). Stale index expectation corrected to source CACHE_VERSION '2'; graph expectation matches GRAPH_SNAPSHOT_VERSION '1'. Rerun pending.
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
-- lint: 2 unused-eslint-disable warnings in packages/cli/tests/mcp/setup.test.ts
 - CI does not run the built-CLI smoke script; add it in step 6 (the smoke was stale)
 
 ## Known issues
