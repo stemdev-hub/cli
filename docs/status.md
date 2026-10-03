@@ -14,9 +14,12 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 
 ## In progress: core extraction (ADR-0001)
 
-- Six steps, one Codex session each. Step 1 (baseline): fixes applied; smoke and VSIX contents await re-verification.
+- Six steps, one Codex session each. Step 1 (baseline): built-CLI smoke reverified; VSIX contents still await re-verification.
 - Baseline run by the user outside the sandbox: install, typecheck, lint, test (34 files / 373 tests), build, and vsce package all EXIT 0.
-- smoke:built-cli FAILED: ".stem/cache/index.json expected version 1, got 2" (tests/smoke/built-cli-smoke.mjs:111, called at line 51). Stale index expectation corrected to source CACHE_VERSION '2'; graph expectation matches GRAPH_SNAPSHOT_VERSION '1'. Rerun pending.
+- Step 2: parser portability, explicit validator time, and config split implemented in place; YAML policy is [proposed ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md).
+- Step 2 final verification via Node: typecheck, lint, full suite (35 files / 438 tests, including portability), build, built-CLI smoke, and `git diff --check` passed. Gray-matter characterization passed before replacement (4 files / 64 tests).
+- Portability smoke uses browser platform with native worker exports, no polyfills, and in-memory output. Sandbox denied esbuild directory access; approved runs outside the sandbox passed.
+- Gray-matter remains in Node rename/render operations; it must not be used in anything moved to core ([ADR-0001](decisions/0001-extract-core-package.md)).
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
 - CI does not run the built-CLI smoke script; add it in step 6 (the smoke was stale)
 
