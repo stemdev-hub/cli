@@ -6,7 +6,7 @@
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/extensions/vscode-stem",
+        "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-stem",
         "${workspaceFolder}"
       ]
     }

@@ -48,7 +48,7 @@ endpoint request response summary.
 
   const syncResult = await runStem(['sync']);
   assertIncludes(syncResult.stdout, 'Synced 2 files', 'sync output');
-  await assertJsonVersion('.stem/cache/index.json', '1');
+  await assertJsonVersion('.stem/cache/index.json', '2');
   await assertJsonVersion('.stem/cache/graph.json', '1');
 
   const renderResult = await runStem(['render', 'view', 'auth-service-view']);
