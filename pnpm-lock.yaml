@@ -72,6 +72,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.11
         version: 4.1.11(vitest@4.1.11)
+      esbuild:
+        specifier: 0.27.7
+        version: 0.27.7
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@microsoft/api-extractor@7.59.0(@types/node@26.2.0))(postcss@8.5.26)(tsx@4.23.12)(typescript@6.0.3)
