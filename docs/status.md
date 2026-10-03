@@ -20,6 +20,7 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Step 2 final verification via Node: typecheck, lint, full suite (35 files / 438 tests, including portability), build, built-CLI smoke, and `git diff --check` passed. Gray-matter characterization passed before replacement (4 files / 64 tests).
 - Portability smoke uses browser platform with native worker exports, no polyfills, and in-memory output. Sandbox denied esbuild directory access; approved runs outside the sandbox passed.
 - Gray-matter remains in Node rename/render operations; it must not be used in anything moved to core ([ADR-0001](decisions/0001-extract-core-package.md)).
+- Step 3 Phase A: core package skeleton added; dependency installation and Phase B extraction pending. Config lint cannot resolve tsdown until installation; build, tests, and package gates remain unverified.
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
 - CI does not run the built-CLI smoke script; add it in step 6 (the smoke was stale)
 
