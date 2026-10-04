@@ -1,7 +1,8 @@
 import path from 'node:path';
-import type { ResolvedStemConfig, ExternalSnapshotState, ExternalStemGraph, ProjectOperationOptions } from '@stem/types';
+import type { ResolvedStemConfig, ProjectOperationOptions } from '../../runtime/types/index.js';
+import type { ExternalSnapshotState, ExternalStemGraph } from '@stemdev/core';
 import { readFile } from '../fs/reader.js';
-import { isExternalStemGraphShape } from '../types/index.js';
+import { isExternalStemGraphShape } from '@stemdev/core';
 
 export async function loadExternalGraphs(
   config: ResolvedStemConfig,

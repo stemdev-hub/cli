@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { ResolvedStemConfig } from '../../src/core/types/index.js';
+import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
 import { findBlockFiles, findProjectRoot, findSchemaFiles, findViewFiles } from '../../src/core/fs/finder.js';
 import { toRelativePath } from '../../src/core/fs/reader.js';
 

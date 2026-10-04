@@ -1,25 +1,8 @@
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 
-import type {
-  CachedBlock,
-  CachedTag,
-  CachedView,
-  CacheIndex,
-  CacheIndexEntry,
-  DiscoveredFile,
-  FileInvalidation,
-  FileStats,
-  GraphSnapshot,
-  OperationResult,
-  ParsedBlock,
-  ParsedView,
-  Position,
-  ProjectOperationOptions,
-  ResolvedStemConfig,
-  StemGraph,
-  SyncResult
-} from '@stem/types';
+import type { CachedBlock, CachedTag, CachedView, CacheIndex, CacheIndexEntry, DiscoveredFile, FileInvalidation, FileStats, GraphSnapshot, OperationResult, ProjectOperationOptions, ResolvedStemConfig, SyncResult } from '../../runtime/types/index.js';
+import type { ParsedBlock, ParsedView, Position, StemGraph } from '@stemdev/core';
 import { computeFileSha256, runInvalidation } from '../cache/invalidator.js';
 import {
   readCacheIndex,
@@ -33,8 +16,8 @@ import { GRAPH_SNAPSHOT_VERSION, writeGraphSnapshot } from '../cache/graph-store
 import { loadStemConfig } from '../config/index.js';
 import { findBlockFiles, findProjectRoot, findViewFiles } from '../fs/finder.js';
 import { readFile, readFileStats, toRelativePath } from '../fs/reader.js';
-import { buildGraph } from '../graph/builder.js';
-import { parseBlockFile, parseViewFile } from '../parser/index.js';
+import { buildGraph } from '@stemdev/core';
+import { parseBlockFile, parseViewFile } from '@stemdev/core';
 import { fromCacheError, fromConfigError, fromFsError } from './errors.js';
 
 export async function syncProject(

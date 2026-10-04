@@ -1,4 +1,4 @@
-import type { OperationError, OperationErrorCode } from '@stem/types';
+import type { OperationError, OperationErrorCode } from '../../runtime/types/index.js';
 
 interface SourceError {
   code: string;

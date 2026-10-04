@@ -35,6 +35,9 @@ importers:
       '@modelcontextprotocol/server':
         specifier: ^2.0.0
         version: 2.0.0
+      '@stemdev/core':
+        specifier: workspace:^
+        version: link:../core
       commander:
         specifier: ^15.0.0
         version: 15.0.0
@@ -4525,7 +4528,7 @@ snapshots:
   vite@8.0.14(@types/node@26.2.0)(esbuild@0.27.7)(tsx@4.23.12):
     dependencies:
       lightningcss: 1.33.0
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       postcss: 8.5.26
       rolldown: 1.0.2
       tinyglobby: 0.2.17
@@ -4538,7 +4541,7 @@ snapshots:
   vite@8.0.14(@types/node@26.2.0)(esbuild@0.28.2)(tsx@4.23.12):
     dependencies:
       lightningcss: 1.33.0
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       postcss: 8.5.26
       rolldown: 1.0.2
       tinyglobby: 0.2.17

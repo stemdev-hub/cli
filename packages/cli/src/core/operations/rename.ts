@@ -2,7 +2,7 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import { dump } from 'js-yaml';
 
-import type { OperationResult, ProjectOperationOptions, RenameResult } from '@stem/types';
+import type { OperationResult, ProjectOperationOptions, RenameResult } from '../../runtime/types/index.js';
 import { readFile } from '../fs/reader.js';
 import { writeFile } from '../fs/writer.js';
 import { fromFsError, operationError } from './errors.js';

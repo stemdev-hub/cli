@@ -1,27 +1,16 @@
 import path from 'node:path';
 
-import type {
-  DiscoveredFile,
-  OperationResult,
-  ParsedBlock,
-  ParsedView,
-  ProjectOperationOptions,
-  ResolvedStemConfig,
-  StemGraph,
-  TagSchema,
-  ValidationIssue,
-  ValidationResult,
-  ExternalSnapshotState
-} from '@stem/types';
+import type { DiscoveredFile, OperationResult, ProjectOperationOptions, ResolvedStemConfig } from '../../runtime/types/index.js';
+import type { ParsedBlock, ParsedView, StemGraph, TagSchema, ValidationIssue, ValidationResult, ExternalSnapshotState } from '@stemdev/core';
 import { loadStemConfig } from '../config/index.js';
 import { findBlockFiles, findProjectRoot, findViewFiles } from '../fs/finder.js';
 import { readFile, toRelativePath } from '../fs/reader.js';
-import { buildGraph } from '../graph/builder.js';
-import type { GraphBuildIssue } from '../graph/types.js';
-import { detectCycles, getOrphanedBlocks } from '../graph/traverser.js';
-import { parseBlockFile, parseViewFile } from '../parser/index.js';
-import { validateGraph } from '../validator/rules.js';
-import { validateSchemas } from '../validator/schema.js';
+import { buildGraph } from '@stemdev/core';
+import type { GraphBuildIssue } from '@stemdev/core';
+import { detectCycles, getOrphanedBlocks } from '@stemdev/core';
+import { parseBlockFile, parseViewFile } from '@stemdev/core';
+import { validateGraph } from '@stemdev/core';
+import { validateSchemas } from '@stemdev/core';
 import { fromConfigError, fromFsError } from './errors.js';
 import { loadSchemas } from './schemas.js';
 import { loadExternalGraphs } from './external.js';

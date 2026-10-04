@@ -20,7 +20,10 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Step 2 final verification via Node: typecheck, lint, full suite (35 files / 438 tests, including portability), build, built-CLI smoke, and `git diff --check` passed. Gray-matter characterization passed before replacement (4 files / 64 tests).
 - Portability smoke uses browser platform with native worker exports, no polyfills, and in-memory output. Sandbox denied esbuild directory access; approved runs outside the sandbox passed.
 - Gray-matter remains in Node rename/render operations; it must not be used in anything moved to core ([ADR-0001](decisions/0001-extract-core-package.md)).
-- Step 3 Phase A: core package skeleton added; dependency installation and Phase B extraction pending. Config lint cannot resolve tsdown until installation; build, tests, and package gates remain unverified.
+- Step 3: portable modules/tests extracted to core; persistence/operation/resolved-config types stay in CLI runtime ([ADR-0001](decisions/0001-extract-core-package.md)). CLI test/typecheck scripts build core first; tsup leaves core external.
+- Step 3 verification: core build/typecheck, 194 core tests (portability rerun outside sandbox), CLI typecheck, repo lint, 244 CLI tests, build, and built-CLI smoke passed. Existing test bodies/expectations preserved.
+- User ran install and pnpm pack. Packed manifests/files passed; core publint passed with a repository-URL suggestion, attw passed its ESM-only profile (Node 10/CommonJS findings remain). Clean external install of both tarballs, `stem init`, and ESM parser smoke passed.
+- Step 3 gate exception: `stem --version` exits 1 (unknown option); the baseline CLI has no version flag. Preserved under the no-behavior-change constraint. Recursive script execution through pnpm remains unverified by the agent.
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
 - CI does not run the built-CLI smoke script; add it in step 6 (the smoke was stale)
 
@@ -28,8 +31,9 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 
 - External graph format: `.stem/cache/stem-graph.json` (ExternalStemGraph) is a different artifact from sync's `graph.json` (internal GraphSnapshot); not a filename bug. Gap: only `publishGraph()` produces the external format and it does not save it locally, so local-only namespace use has no producer. Decide via ADR before building a shared namespace loader.
 - vscode-stem has no build/test/typecheck scripts; its tests live in packages/cli/tests/extensions; eslint ignores extension JS, so recursive checks do not cover the extension.
-- `@stem/types` is a tsconfig path alias, not a package; removed during core extraction.
 - Local wrapper folder `stemdev-hub/` is outside git and holds nothing; the repo root is the former `cli/`.
+- `stem --version` is not supported by the CLI; gates use `stem --help` instead. Add `--version` as a small separate task.
+- External snapshot types exported from @stemdev/core are provisional until the namespace/snapshot ADR.
 
 ## Before first core release
 

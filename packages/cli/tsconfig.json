@@ -19,10 +19,6 @@
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "paths": {
-      "@stem/types": ["./src/core/types/index.ts"],
-      "@stem/types/*": ["./src/core/types/*"]
-    },
     "outDir": "dist",
     "types": ["node", "vitest"]
   },

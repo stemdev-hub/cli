@@ -1,14 +1,6 @@
 import path from 'node:path';
 
-import type {
-  CreateBlockOptions,
-  CreateBlockResult,
-  CreateGroupResult,
-  CreateViewOptions,
-  CreateViewResult,
-  OperationResult,
-  ProjectOperationOptions
-} from '@stem/types';
+import type { CreateBlockOptions, CreateBlockResult, CreateGroupResult, CreateViewOptions, CreateViewResult, OperationResult, ProjectOperationOptions } from '../../runtime/types/index.js';
 import { loadStemConfig } from '../config/index.js';
 import { findProjectRoot } from '../fs/finder.js';
 import { toRelativePath } from '../fs/reader.js';

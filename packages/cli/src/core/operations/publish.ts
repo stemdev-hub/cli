@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
-import type { OperationResult, ResolvedStemConfig, ExternalStemGraph, ExternalBlockEntry, ExternalRenameEntry, ProjectOperationOptions, PublishGraphResult } from '@stem/types';
+import type { OperationResult, ResolvedStemConfig, ProjectOperationOptions, PublishGraphResult } from '../../runtime/types/index.js';
+import type { ExternalStemGraph, ExternalBlockEntry, ExternalRenameEntry } from '@stemdev/core';
 import { loadProjectGraph } from './project.js';
 import { resolveAuthHeaders } from '../network/auth.js';
 import { networkFetch } from '../network/client.js';

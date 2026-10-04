@@ -1,4 +1,4 @@
-import type { OperationResult, PreviewResult, PreviewViewOptions } from '@stem/types';
+import type { OperationResult, PreviewResult, PreviewViewOptions } from '../../runtime/types/index.js';
 import { renderView } from './render.js';
 
 export async function previewView(

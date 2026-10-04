@@ -1,7 +1,7 @@
 import { readFile as readTextFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-import type { FileStats } from '@stem/types';
+import type { FileStats } from '../../runtime/types/index.js';
 
 export type FsErrorCode =
   | 'NOT_FOUND'

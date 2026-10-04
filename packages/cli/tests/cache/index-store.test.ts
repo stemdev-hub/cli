@@ -4,7 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { CacheIndexEntry, ParsedBlock, ParsedView, ResolvedStemConfig } from '../../src/core/types/index.js';
+import type { CacheIndexEntry, ResolvedStemConfig } from '../../src/runtime/types/index.js';
+import type { ParsedBlock, ParsedView } from '@stemdev/core';
 import {
   CACHE_VERSION,
   createEmptyCacheIndex,

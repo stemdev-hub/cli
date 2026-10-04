@@ -1,12 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type {
-  CacheIndex,
-  CacheInvalidationResult,
-  DiscoveredFile,
-  FileInvalidation,
-  FileStats
-} from '@stem/types';
+import type { CacheIndex, CacheInvalidationResult, DiscoveredFile, FileInvalidation, FileStats } from '../../runtime/types/index.js';
 import { readFile } from '../fs/reader.js';
 import { cacheError } from './errors.js';
 import type { CacheResult } from './errors.js';

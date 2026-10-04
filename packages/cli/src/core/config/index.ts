@@ -1,13 +1,9 @@
 import path from 'node:path';
 
-import type { ResolvedStemConfig, StemConfig } from '@stem/types';
+import type { ResolvedStemConfig } from '../../runtime/types/index.js';
+import type { ConfigResult, StemConfig } from '@stemdev/core';
 import { readFile } from '../fs/reader.js';
-import { getDefaultPortableConfig, normalizeStemConfig, parseConfigJson, STEM_CONFIG_FILE } from './portable.js';
-import type { ConfigResult } from './portable.js';
-
-export { STEM_CONFIG_DEFAULTS, STEM_CONFIG_FILE } from './portable.js';
-export type { ConfigError, ConfigErrorCode, ConfigResult } from './portable.js';
-
+import { getDefaultPortableConfig, normalizeStemConfig, parseConfigJson, STEM_CONFIG_FILE } from '@stemdev/core';
 export async function loadStemConfig(projectRoot: string): Promise<ConfigResult<ResolvedStemConfig>> {
   const configPath = path.join(projectRoot, STEM_CONFIG_FILE);
   const readResult = await readFile(configPath);

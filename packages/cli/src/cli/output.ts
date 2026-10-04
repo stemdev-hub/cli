@@ -1,21 +1,5 @@
-import type {
-  AddRefResult,
-  CheckResult,
-  CreateBlockResult,
-  CreateGroupResult,
-  CreateViewResult,
-  DeleteResult,
-  InitResult,
-  ListBlocksResult,
-  ListViewsResult,
-  OperationError,
-  OperationResult,
-  RenderResult,
-  RenameResult,
-  SyncResult,
-  ValidationIssue,
-  ValidationResult
-} from '@stem/types';
+import type { AddRefResult, CheckResult, CreateBlockResult, CreateGroupResult, CreateViewResult, DeleteResult, InitResult, ListBlocksResult, ListViewsResult, OperationError, OperationResult, RenderResult, RenameResult, SyncResult } from '../runtime/types/index.js';
+import type { ValidationIssue, ValidationResult } from '@stemdev/core';
 
 type OperationFailure = { success: false; error: OperationError };
 

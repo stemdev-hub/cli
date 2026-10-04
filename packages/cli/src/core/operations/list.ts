@@ -1,13 +1,5 @@
-import type {
-  ListBlocksResult,
-  ListBlocksOptions,
-  ListViewsResult,
-  ListViewsOptions,
-  OperationResult,
-  ParsedBlock,
-  ParsedView,
-  StemGraph
-} from '@stem/types';
+import type { ListBlocksResult, ListBlocksOptions, ListViewsResult, ListViewsOptions, OperationResult } from '../../runtime/types/index.js';
+import type { ParsedBlock, ParsedView, StemGraph } from '@stemdev/core';
 import { loadProjectGraph } from './project.js';
 
 export async function listBlocks(

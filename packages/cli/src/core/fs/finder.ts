@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import fastGlob from 'fast-glob';
 
-import type { ResolvedStemConfig } from '@stem/types';
+import type { ResolvedStemConfig } from '../../runtime/types/index.js';
 
 export type FsErrorCode =
   | 'NOT_FOUND'

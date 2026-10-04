@@ -3,17 +3,11 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import { dump } from 'js-yaml';
 
-import type {
-  OperationResult,
-  ParsedView,
-  RenderAllOptions,
-  RenderResult,
-  RenderViewOptions,
-  RenderedViewResult
-} from '@stem/types';
+import type { OperationResult, RenderAllOptions, RenderResult, RenderViewOptions, RenderedViewResult } from '../../runtime/types/index.js';
+import type { ParsedView } from '@stemdev/core';
 import { readFile, toRelativePath } from '../fs/reader.js';
 import { writeFile } from '../fs/writer.js';
-import { renderViewMarkdown } from '../renderer/index.js';
+import { renderViewMarkdown } from '@stemdev/core';
 import { fromFsError, operationError } from './errors.js';
 import { loadProjectForCheck, validateLoadedProject } from './project.js';
 

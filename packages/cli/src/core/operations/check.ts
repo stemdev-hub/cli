@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks';
 
-import type { CheckResult, OperationResult, ProjectOperationOptions } from '@stem/types';
+import type { CheckResult, OperationResult, ProjectOperationOptions } from '../../runtime/types/index.js';
 import { loadProjectForCheck, validateLoadedProject } from './project.js';
 
 export async function checkProject(

@@ -1,18 +1,7 @@
 import path from 'node:path';
 
-import type {
-  BlockParameter,
-  CachedBlock,
-  CachedBlockRef,
-  CachedSection,
-  CachedTag,
-  CachedView,
-  CacheIndex,
-  CacheIndexEntry,
-  ParsedBlock,
-  ParsedView,
-  ResolvedStemConfig
-} from '@stem/types';
+import type { BlockParameter, ParsedBlock, ParsedView } from '@stemdev/core';
+import type { CachedBlock, CachedBlockRef, CachedSection, CachedTag, CachedView, CacheIndex, CacheIndexEntry, ResolvedStemConfig } from '../../runtime/types/index.js';
 import { readFile } from '../fs/reader.js';
 import { ensureDir, writeFile } from '../fs/writer.js';
 import { cacheError } from './errors.js';

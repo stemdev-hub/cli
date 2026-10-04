@@ -1,4 +1,5 @@
-import type { DeleteOptions, DeleteResult, OperationResult, StemGraph } from '@stem/types';
+import type { DeleteOptions, DeleteResult, OperationResult } from '../../runtime/types/index.js';
+import type { StemGraph } from '@stemdev/core';
 import { deleteFile } from '../fs/writer.js';
 import { fromFsError, operationError } from './errors.js';
 import { loadProjectGraph } from './project.js';

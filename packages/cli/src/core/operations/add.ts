@@ -1,4 +1,5 @@
-import type { AddRefOptions, AddRefResult, OperationResult, ParsedBlock } from '@stem/types';
+import type { AddRefOptions, AddRefResult, OperationResult } from '../../runtime/types/index.js';
+import type { ParsedBlock } from '@stemdev/core';
 import { readFile } from '../fs/reader.js';
 import { writeFile } from '../fs/writer.js';
 import { fromFsError, operationError } from './errors.js';

@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import type { GraphSnapshot, ResolvedStemConfig } from '@stem/types';
+import type { GraphSnapshot, ResolvedStemConfig } from '../../runtime/types/index.js';
 import { readFile } from '../fs/reader.js';
 import { ensureDir, writeFile } from '../fs/writer.js';
 import { cacheError } from './errors.js';

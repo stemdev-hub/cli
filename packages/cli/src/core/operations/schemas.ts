@@ -1,6 +1,7 @@
 import { load } from 'js-yaml';
 
-import type { OperationResult, ResolvedStemConfig, TagSchema } from '@stem/types';
+import type { OperationResult, ResolvedStemConfig } from '../../runtime/types/index.js';
+import type { TagSchema } from '@stemdev/core';
 import { findSchemaFiles } from '../fs/finder.js';
 import { readFile } from '../fs/reader.js';
 import { fromFsError, operationError } from './errors.js';

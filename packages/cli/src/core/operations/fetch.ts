@@ -1,6 +1,6 @@
 import path from 'node:path';
-import type { OperationResult, ResolvedStemConfig, FetchNamespacesResult, ProjectOperationOptions } from '@stem/types';
-import { isExternalStemGraphShape } from '../types/index.js';
+import type { OperationResult, ResolvedStemConfig, FetchNamespacesResult, ProjectOperationOptions } from '../../runtime/types/index.js';
+import { isExternalStemGraphShape } from '@stemdev/core';
 import { networkFetch } from '../network/client.js';
 import { writeFile } from '../fs/writer.js';
 import { readFileStats } from '../fs/reader.js';

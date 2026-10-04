@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import type { InitProjectOptions, InitResult, OperationResult } from '@stem/types';
-import { STEM_CONFIG_DEFAULTS, STEM_CONFIG_FILE } from '../config/index.js';
+import type { InitProjectOptions, InitResult, OperationResult } from '../../runtime/types/index.js';
+import { STEM_CONFIG_DEFAULTS, STEM_CONFIG_FILE } from '@stemdev/core';
 import { findProjectRoot } from '../fs/finder.js';
 import { readFile } from '../fs/reader.js';
 import { ensureDir, writeFile } from '../fs/writer.js';

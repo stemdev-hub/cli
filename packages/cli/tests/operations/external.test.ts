@@ -5,7 +5,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { loadExternalGraphs } from '../../src/core/operations/external.js';
-import type { ResolvedStemConfig, ExternalStemGraph } from '@stem/types';
+import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
+import type { ExternalStemGraph } from '@stemdev/core';
 
 describe('loadExternalGraphs', () => {
   let testRoot: string;
