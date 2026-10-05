@@ -8,7 +8,7 @@ it('runs project analysis through the public entry without Node globals or clock
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
   const bundle = await build({
     stdin: {
-      contents: "export { analyzeProject } from './index.ts';",
+      contents: "export { analyzeProject, decodeTagSchemaYaml, decodeExternalSnapshotEnvelope } from './index.ts';",
       resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
       loader: 'ts'
     },
@@ -49,6 +49,21 @@ it('runs project analysis through the public entry without Node globals or clock
     });
   `, context);
   runInContext(bundle.outputFiles[0]!.text, context, { timeout: 5000 });
+  const decoded = runInContext(`JSON.stringify({
+    schema: portable.decodeTagSchemaYaml('name: api\\nrequired: [endpoint]'),
+    empty: portable.decodeTagSchemaYaml('').error.kind,
+    shape: portable.decodeTagSchemaYaml('null'),
+    snapshot: portable.decodeExternalSnapshotEnvelope({ fetchedAt: 'not a date',
+      graph: { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] } }),
+    missing: portable.decodeExternalSnapshotEnvelope(null) === undefined
+  })`, context, { timeout: 5000 }) as string;
+  expect(JSON.parse(decoded)).toEqual({
+    schema: { success: true, data: { name: 'api', required: ['endpoint'] } },
+    empty: 'yaml', shape: { success: false, error: { kind: 'shape' } },
+    snapshot: { fetchedAt: 'not a date', isLocalFallback: false,
+      graph: { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] } },
+    missing: true
+  });
   const result = runInContext(`JSON.stringify(portable.analyzeProject({
     blocks: [],
     views: [{ content: '---\\nid: api\\n---\\n@stem[block:other:auth]', filePath: 'api.md', relativePath: 'api.md' }],

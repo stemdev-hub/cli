@@ -26,6 +26,8 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Step 3 gate exception: `stem --version` exits 1 (unknown option); the baseline CLI has no version flag. Preserved under the no-behavior-change constraint. Recursive script execution through pnpm remains unverified by the agent.
 - Step 4: pure `analyzeProject(snapshot, options)` added; CLI loads snapshots and effect modules moved to runtime ([ADR-0001](decisions/0001-extract-core-package.md)).
 - Step 4 verification: core build/typecheck and 209 tests (including portability), CLI typecheck, lint, 244 tests, build, help and built-CLI smoke passed. Portability needed approved execution outside the sandbox; fresh tarball checks and clean external pnpm installation remain unverified.
+- Step 5 Phase A: pure schema and cached-envelope decoders extracted to core; CLI loading policy and contextual errors retained ([proposed ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)). Phase B awaits Phase A commit confirmation.
+- Phase A verification: pre-refactor characterization (59 tests), core build/typecheck and 288 tests (including portability), CLI build/typecheck and 299 tests, repo lint, built-CLI smoke, and diff checks passed. Public declaration exports verified; existing CLI expectations unchanged. Changes remain uncommitted.
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
 - CI does not run the built-CLI smoke script; add it in step 6 (the smoke was stale)
 
@@ -36,6 +38,7 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Local wrapper folder `stemdev-hub/` is outside git and holds nothing; the repo root is the former `cli/`.
 - `stem --version` is not supported by the CLI; gates use `stem --help` instead. Add `--version` as a small separate task.
 - External snapshot types exported from @stemdev/core are provisional until the namespace/snapshot ADR.
+- Snapshot envelope fetchedAt is not validated as a date (kept for parity); revisit with the namespace ADR.
 
 ## Before first core release
 

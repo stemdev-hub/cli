@@ -1,5 +1,8 @@
 export type { BlockParameter, BlockRefSyntax } from './types/ast.js';
 export { analyzeProject } from './project/index.js';
+export { decodeTagSchemaYaml } from './project/schema.js';
+export type { TagSchemaDecodeResult } from './project/schema.js';
+export { decodeExternalSnapshotEnvelope } from './project/external.js';
 export type { SourceDocument, ProjectSnapshot, AnalysisOptions, ProjectAnalysis } from './project/types.js';
 export { buildGraph } from './graph/builder.js';
 export type { ConfigResult, PortableStemConfig } from './config/portable.js';

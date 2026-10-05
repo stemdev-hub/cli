@@ -1,8 +1,8 @@
 import path from 'node:path';
 import type { ResolvedStemConfig, ProjectOperationOptions } from '../types/index.js';
-import type { ExternalSnapshotState, ExternalStemGraph } from '@stemdev/core';
+import type { ExternalSnapshotState } from '@stemdev/core';
 import { readFile } from '../fs/reader.js';
-import { isExternalStemGraphShape } from '@stemdev/core';
+import { decodeExternalSnapshotEnvelope, isExternalStemGraphShape } from '@stemdev/core';
 
 export async function loadExternalGraphs(
   config: ResolvedStemConfig,
@@ -52,17 +52,9 @@ export async function loadExternalGraphs(
     if (readResult.success) {
       try {
         const envelope: unknown = JSON.parse(readResult.data);
-        if (
-          typeof envelope === 'object' &&
-          envelope !== null &&
-          typeof (envelope as { fetchedAt?: unknown }).fetchedAt === 'string' &&
-          isExternalStemGraphShape((envelope as { graph?: unknown }).graph)
-        ) {
-          externalGraphs.set(namespace, {
-            graph: (envelope as { graph: ExternalStemGraph }).graph,
-            fetchedAt: (envelope as { fetchedAt: string }).fetchedAt,
-            isLocalFallback: false
-          });
+        const snapshot = decodeExternalSnapshotEnvelope(envelope);
+        if (snapshot !== undefined) {
+          externalGraphs.set(namespace, snapshot);
         }
       } catch {
         // Fall through to MISSING_SNAPSHOT if JSON parsing fails
