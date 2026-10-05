@@ -1,10 +1,12 @@
+> Legacy decision journal (pre-ADR). Layout references to `src/core` are obsolete since ADR-0001 (portable logic is in packages/core; Node effects in packages/cli/src/runtime). The frontmatter section is superseded by ADR-0002. New decisions go in docs/decisions/.
+
 # Stem Decisions Journal
 
 ## Core Architecture Decisions
 
 Stem is file-based because Git should be the source of truth. A database would create an export/import workflow and split ownership between files and hidden state.
 
-The CLI is a thin shell. All real behavior belongs in `src/core`, which future MCP servers, UI tools, and editor integrations can import without CLI dependencies.
+The CLI is a thin shell. All real behavior belongs in `packages/core/src`, which future MCP servers, UI tools, and editor integrations can import without CLI dependencies.
 
 Operations orchestrate modules. Parser, graph, cache, and validator modules do not call each other directly, which keeps dependency direction simple and prevents circular runtime imports.
 
@@ -94,7 +96,7 @@ Cached types and in-memory parsed types are separate. Cached types are serializa
 
 Validation issues use discriminated unions so each issue code has an exact typed context.
 
-All cross-module type imports use `import type`, and `src/core/types/index.ts` is a type-only barrel.
+All cross-module type imports use `import type`, and `packages/core/src/types/index.ts` is a type-only barrel.
 
 ## Tech Stack Decisions
 

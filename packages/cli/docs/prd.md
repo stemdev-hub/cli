@@ -387,7 +387,7 @@ Post-MVP: `stem diff-namespace` (drift detection via `contentSha`), MCP server, 
 Module structure:
 
 ```txt
-src/cli -> src/core/operations -> fs/parser/graph/cache/validator/types
+src/cli -> packages/cli/src/runtime/operations -> fs/parser/graph/cache/validator/types
 ```
 
 Data flow for `stem check`:
@@ -420,7 +420,7 @@ flowchart LR
 
 ## Type System
 
-Types are organized by responsibility in `src/core/types`: position, ast, config, schema, block, view, graph, cache, validation, operations, and index. Cached types omit positions; parsed in-memory types include positions for diagnostics. The barrel exports types only.
+Types are organized by responsibility in `packages/core/src/types`: position, ast, config, schema, block, view, graph, cache, validation, operations, and index. Cached types omit positions; parsed in-memory types include positions for diagnostics. The barrel exports types only.
 
 Parser results carry validation issues alongside parsed objects so later `stem check` formatting can report every recoverable issue without aborting parsing.
 
