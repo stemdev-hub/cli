@@ -39,6 +39,7 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - `stem --version` is not supported by the CLI; gates use `stem --help` instead. Add `--version` as a small separate task.
 - External snapshot types exported from @stemdev/core are provisional until the namespace/snapshot ADR.
 - Snapshot envelope fetchedAt is not validated as a date (kept for parity); revisit with the namespace ADR.
+- `pnpm install` emits 24 deprecation warnings related to `@yuku-parser/binding-win32-x64` which is pulled in by `tsdown` (a devDependency of core). This is a known issue to revisit later and does not block development.
 
 ## Before first core release
 
