@@ -4,7 +4,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/stemdev-hub/cli.git",
+    "url": "git+https://github.com/stemdev-hub/cli.git",
     "directory": "packages/core"
   },
   "type": "module",

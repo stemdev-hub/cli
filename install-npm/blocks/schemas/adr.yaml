@@ -1,0 +1,6 @@
+name: adr
+required:
+  - context
+  - decision
+  - consequences
+description: Architecture decision records must describe context, decision, and consequences.

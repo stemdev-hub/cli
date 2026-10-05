@@ -1,0 +1,6 @@
+name: api
+required:
+  - endpoint
+  - request
+  - response
+description: API documentation must describe endpoint, request, and response details.

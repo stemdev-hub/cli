@@ -2,11 +2,11 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod/v4';
 
-import { listBlocks, listViews } from '../core/operations/list.js';
-import { renderView } from '../core/operations/render.js';
-import { checkProject } from '../core/operations/check.js';
-import { loadProjectGraph } from '../core/operations/project.js';
-import { readFile } from '../core/fs/reader.js';
+import { listBlocks, listViews } from '../runtime/operations/list.js';
+import { renderView } from '../runtime/operations/render.js';
+import { checkProject } from '../runtime/operations/check.js';
+import { loadProjectGraph } from '../runtime/operations/project.js';
+import { readFile } from '../runtime/fs/reader.js';
 
 export function createMcpServer(): McpServer {
   const server = new McpServer({

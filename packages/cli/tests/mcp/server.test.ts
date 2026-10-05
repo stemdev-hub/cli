@@ -2,18 +2,18 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 
 import { createMcpServer } from '../../src/mcp/server.js';
-import * as listOps from '../../src/core/operations/list.js';
-import * as projectOps from '../../src/core/operations/project.js';
-import * as checkOps from '../../src/core/operations/check.js';
-import * as renderOps from '../../src/core/operations/render.js';
-import * as readerOps from '../../src/core/fs/reader.js';
+import * as listOps from '../../src/runtime/operations/list.js';
+import * as projectOps from '../../src/runtime/operations/project.js';
+import * as checkOps from '../../src/runtime/operations/check.js';
+import * as renderOps from '../../src/runtime/operations/render.js';
+import * as readerOps from '../../src/runtime/fs/reader.js';
 
 // Mock dependencies
-vi.mock('../../src/core/operations/list.js');
-vi.mock('../../src/core/operations/project.js');
-vi.mock('../../src/core/operations/check.js');
-vi.mock('../../src/core/operations/render.js');
-vi.mock('../../src/core/fs/reader.js');
+vi.mock('../../src/runtime/operations/list.js');
+vi.mock('../../src/runtime/operations/project.js');
+vi.mock('../../src/runtime/operations/check.js');
+vi.mock('../../src/runtime/operations/render.js');
+vi.mock('../../src/runtime/fs/reader.js');
 
 describe('MCP Server', () => {
   let client: Client;

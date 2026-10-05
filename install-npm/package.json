@@ -1,0 +1,1 @@
+{"private":true,"type":"module","dependencies":{"@stemdev/cli":"file:../stemdev-cli-0.2.1.tgz","@stemdev/core":"file:../stemdev-core-0.1.0.tgz"}}

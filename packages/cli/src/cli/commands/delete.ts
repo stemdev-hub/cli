@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { deleteBlock, deleteView } from '../../core/operations/delete.js';
+import { deleteBlock, deleteView } from '../../runtime/operations/delete.js';
 import { reportDelete } from '../output.js';
 
 export function registerDeleteCommand(program: Command): void {

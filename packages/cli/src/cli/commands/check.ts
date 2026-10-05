@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { checkProject } from '../../core/operations/check.js';
+import { checkProject } from '../../runtime/operations/check.js';
 import { reportCheck } from '../output.js';
 
 export function registerCheckCommand(program: Command): void {

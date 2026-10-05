@@ -6,8 +6,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { CacheIndexEntry, DiscoveredFile, FileStats } from '../../src/runtime/types/index.js';
-import { computeFileSha256, runInvalidation } from '../../src/core/cache/invalidator.js';
-import { createEmptyCacheIndex, upsertCacheEntry } from '../../src/core/cache/index-store.js';
+import { computeFileSha256, runInvalidation } from '../../src/runtime/cache/invalidator.js';
+import { createEmptyCacheIndex, upsertCacheEntry } from '../../src/runtime/cache/index-store.js';
 
 describe('invalidator', () => {
   let testRoot: string;

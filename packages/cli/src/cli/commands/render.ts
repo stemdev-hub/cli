@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { renderAll, renderView } from '../../core/operations/render.js';
+import { renderAll, renderView } from '../../runtime/operations/render.js';
 import { reportRender } from '../output.js';
 
 export function registerRenderCommand(program: Command): void {

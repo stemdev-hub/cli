@@ -14,7 +14,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   };
 });
 
-import { ensureDir, writeFile } from '../../src/core/fs/writer.js';
+import { ensureDir, writeFile } from '../../src/runtime/fs/writer.js';
 
 describe('writer', () => {
   let testRoot: string;

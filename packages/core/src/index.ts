@@ -1,4 +1,6 @@
 export type { BlockParameter, BlockRefSyntax } from './types/ast.js';
+export { analyzeProject } from './project/index.js';
+export type { SourceDocument, ProjectSnapshot, AnalysisOptions, ProjectAnalysis } from './project/types.js';
 export { buildGraph } from './graph/builder.js';
 export type { ConfigResult, PortableStemConfig } from './config/portable.js';
 export type { DependencyRef, ParsedBlock } from './types/block.js';

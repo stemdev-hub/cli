@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
-import { loadStemConfig } from '../../core/config/index.js';
-import { fetchNamespaces } from '../../core/operations/fetch.js';
+import { loadStemConfig } from '../../runtime/config/index.js';
+import { fetchNamespaces } from '../../runtime/operations/fetch.js';
 
 export function registerFetchNamespacesCommand(program: Command): void {
   program

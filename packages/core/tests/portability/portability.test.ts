@@ -4,6 +4,66 @@ import { createContext, runInContext } from 'node:vm';
 import { build } from 'esbuild';
 import { expect, it } from 'vitest';
 
+it('runs project analysis through the public entry without Node globals or clock reads', async () => {
+  const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
+  const bundle = await build({
+    stdin: {
+      contents: "export { analyzeProject } from './index.ts';",
+      resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
+      loader: 'ts'
+    },
+    bundle: true,
+    platform: 'browser',
+    conditions: ['worker'],
+    format: 'iife',
+    globalName: 'portable',
+    write: false,
+    plugins: [{
+      name: 'reject-project-node-dependencies',
+      setup(builder) {
+        builder.onResolve({ filter: /.*/ }, ({ path }) => {
+          if (path.startsWith('node:') || builtins.has(path) || path === 'gray-matter') {
+            return { errors: [{ text: `Non-portable dependency: ${path}` }] };
+          }
+          return undefined;
+        });
+      }
+    }]
+  });
+  const context = createContext(Object.create(null) as Record<string, unknown>);
+  runInContext(`
+    for (const name of ['Buffer', 'process', 'require', 'fetch', 'console', 'performance']) {
+      Object.defineProperty(globalThis, name, { get() { throw new Error('Forbidden global: ' + name); } });
+    }
+    const NativeDate = Date;
+    globalThis.Date = new Proxy(NativeDate, {
+      apply() { throw new Error('Clock reads are forbidden'); },
+      construct(target, args) {
+        if (args.length === 0) throw new Error('Clock reads are forbidden');
+        return Reflect.construct(target, args);
+      },
+      get(target, key) {
+        if (key === 'now') return () => { throw new Error('Clock reads are forbidden'); };
+        return Reflect.get(target, key);
+      }
+    });
+  `, context);
+  runInContext(bundle.outputFiles[0]!.text, context, { timeout: 5000 });
+  const result = runInContext(`JSON.stringify(portable.analyzeProject({
+    blocks: [],
+    views: [{ content: '---\\nid: api\\n---\\n@stem[block:other:auth]', filePath: 'api.md', relativePath: 'api.md' }],
+    schemas: new Map(), configuredNamespaces: { other: { graphUrl: 'unused' } },
+    externalGraphs: new Map([['other', {
+      fetchedAt: '1970-01-01T00:00:00.000Z', isLocalFallback: false,
+      graph: { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] }
+    }]])
+  }, { nowMs: 7 * 86400000 + 1, strictExternal: true }).validation)`, context, { timeout: 5000 }) as string;
+  expect(JSON.parse(result)).toMatchObject({
+    issues: [{ code: 'EXPIRED_SNAPSHOT', severity: 'error' }],
+    errorCount: 1, warningCount: 0, hasErrors: true, hasWarnings: false
+  });
+});
+
 it('bundles and executes the portable modules without Node dependencies or globals', async () => {
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
   const bundle = await build({

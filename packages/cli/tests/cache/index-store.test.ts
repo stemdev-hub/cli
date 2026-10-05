@@ -15,7 +15,7 @@ import {
   toCachedView,
   upsertCacheEntry,
   writeCacheIndex
-} from '../../src/core/cache/index-store.js';
+} from '../../src/runtime/cache/index-store.js';
 
 describe('index-store', () => {
   let testRoot: string;

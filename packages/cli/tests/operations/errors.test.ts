@@ -5,7 +5,7 @@ import {
   fromConfigError,
   fromFsError,
   operationError
-} from '../../src/core/operations/errors.js';
+} from '../../src/runtime/operations/errors.js';
 
 describe('operationError', () => {
   it('returns a minimal OperationError without optional fields', () => {

@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { addBlockToView } from '../../src/core/operations/add.js';
+import { addBlockToView } from '../../src/runtime/operations/add.js';
 
 describe('addBlockToView', () => {
   let testRoot: string;

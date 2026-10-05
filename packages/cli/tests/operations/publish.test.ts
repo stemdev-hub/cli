@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { publishGraph } from '../../src/core/operations/publish.js';
+import { publishGraph } from '../../src/runtime/operations/publish.js';
 import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
 import type { ExternalStemGraph } from '@stemdev/core';
 

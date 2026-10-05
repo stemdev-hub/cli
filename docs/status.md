@@ -24,6 +24,8 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Step 3 verification: core build/typecheck, 194 core tests (portability rerun outside sandbox), CLI typecheck, repo lint, 244 CLI tests, build, and built-CLI smoke passed. Existing test bodies/expectations preserved.
 - User ran install and pnpm pack. Packed manifests/files passed; core publint passed with a repository-URL suggestion, attw passed its ESM-only profile (Node 10/CommonJS findings remain). Clean external install of both tarballs, `stem init`, and ESM parser smoke passed.
 - Step 3 gate exception: `stem --version` exits 1 (unknown option); the baseline CLI has no version flag. Preserved under the no-behavior-change constraint. Recursive script execution through pnpm remains unverified by the agent.
+- Step 4: pure `analyzeProject(snapshot, options)` added; CLI loads snapshots and effect modules moved to runtime ([ADR-0001](decisions/0001-extract-core-package.md)).
+- Step 4 verification: core build/typecheck and 209 tests (including portability), CLI typecheck, lint, 244 tests, build, help and built-CLI smoke passed. Portability needed approved execution outside the sandbox; fresh tarball checks and clean external pnpm installation remain unverified.
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
 - CI does not run the built-CLI smoke script; add it in step 6 (the smoke was stale)
 

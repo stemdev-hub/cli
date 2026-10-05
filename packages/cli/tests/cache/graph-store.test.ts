@@ -10,7 +10,7 @@ import {
   GRAPH_SNAPSHOT_VERSION,
   readGraphSnapshot,
   writeGraphSnapshot
-} from '../../src/core/cache/graph-store.js';
+} from '../../src/runtime/cache/graph-store.js';
 
 describe('graph-store', () => {
   let testRoot: string;
