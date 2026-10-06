@@ -15,9 +15,12 @@
   "categories": [
     "Other"
   ],
-  "main": "./extension.js",
+  "main": "./dist/extension.js",
   "scripts": {
-    "build": "esbuild extension.js --bundle --platform=node --target=node22 --format=cjs --external:vscode --outfile=dist/extension.js"
+    "build": "pnpm --filter @stemdev/core build && esbuild extension.js --bundle --platform=node --target=node22 --format=cjs --external:vscode --outfile=dist/extension.js --metafile=dist/extension.meta.json",
+    "test": "pnpm build && pnpm --filter @stemdev/cli build && vitest run",
+    "typecheck": "pnpm --filter @stemdev/core build && tsc --noEmit",
+    "vscode:prepublish": "pnpm build"
   },
   "devDependencies": {
     "@stemdev/core": "workspace:^",
@@ -34,7 +37,7 @@
     },
     "untrustedWorkspaces": {
       "supported": false,
-      "description": "Stem preview runs the configured Stem CLI in the workspace."
+      "description": "Stem requires a trusted workspace for preview and MCP setup."
     }
   },
   "contributes": {
@@ -60,12 +63,12 @@
         "stem.cliPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the Stem CLI executable. Leave empty to use the workspace dist/cli/index.js when present, then fall back to stem on PATH."
+          "description": "Legacy CLI path setting. Preview uses bundled core; MCP setup currently uses stem on PATH or npx and ignores this setting."
         },
         "stem.preview.autoRefresh": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically refresh open Stem previews when project blocks, views, schemas, or config files change."
+          "description": "Automatically refresh open Stem previews when project files or unsaved editor contents change."
         },
         "stem.preview.refreshDebounceMs": {
           "type": "number",

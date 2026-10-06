@@ -1,7 +1,7 @@
 const { execFile } = require('node:child_process');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
-const { promisify } = require('node:util');
+const { findProjectRootAsync, isInProject, loadProjectSnapshot, renderProjectPreview, relativePath } = require('./src/project.ts');
 
 let vscode = null;
 try {
@@ -11,7 +11,6 @@ try {
   // pure helpers from this file without activating the extension.
 }
 
-const execFileAsync = promisify(execFile);
 const PREVIEW_SCHEME = 'stem-preview';
 const DEFAULT_REFRESH_DEBOUNCE_MS = 250;
 const PREVIEW_EXEC_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
@@ -25,7 +24,7 @@ const WATCH_PATTERNS = [
 function activate(context) {
   assertVscode();
   const provider = new StemPreviewProvider(context);
-  const watchers = new StemPreviewWatcherManager(provider);
+  const watchers = new StemPreviewWatcherManager(provider, { getWatchPatterns: () => ['**/*'] });
 
   context.subscriptions.push(
     vscode.workspace.registerTextDocumentContentProvider(PREVIEW_SCHEME, provider),
@@ -38,8 +37,10 @@ function activate(context) {
     vscode.commands.registerCommand('stem.enableMcp', async () => {
       await enableMcpForWorkspace(context);
     }),
+    vscode.workspace.onDidChangeTextDocument(({ document }) => watchers.documentChanged(document)),
     vscode.workspace.onDidCloseTextDocument((document) => {
       if (document.uri.scheme !== PREVIEW_SCHEME) {
+        watchers.documentChanged(document);
         return;
       }
 
@@ -56,7 +57,8 @@ function activate(context) {
         watchers.applyConfiguration();
       }
     }),
-    watchers
+    watchers,
+    provider
   );
 
   // First-load notification for MCP
@@ -143,10 +145,40 @@ class StemPreviewProvider {
     this.emitter = new this.vscode.EventEmitter();
     this.onDidChange = this.emitter.event;
     this.openPreviewUrisByProject = new Map();
+    this.jobs = new Map();
+    this.lastContent = new Map();
   }
 
-  provideTextDocumentContent(uri) {
-    return renderPreview(uri, this.context.extensionUri);
+  async provideTextDocumentContent(uri, token) {
+    const key = uri.toString();
+    this.jobs.get(key)?.controller.abort();
+    const controller = new AbortController();
+    const cancellation = token?.onCancellationRequested(() => controller.abort());
+    if (token?.isCancellationRequested) controller.abort();
+    const job = { controller, promise: null };
+    this.jobs.set(key, job);
+    job.promise = renderPreview(uri, this.vscode, controller.signal).then((content) => {
+      controller.signal.throwIfAborted();
+      if (!controller.signal.aborted && this.jobs.get(key) === job) this.lastContent.set(key, content);
+      return content;
+    }).catch((error) => {
+      if (!controller.signal.aborted) throw error;
+      const latest = this.jobs.get(key);
+      return latest && latest !== job ? latest.promise : this.lastContent.get(key) ?? '';
+    }).finally(() => cancellation?.dispose());
+    return job.promise;
+  }
+
+  cancelProject(projectRoot) {
+    for (const key of this.openPreviewUrisByProject.get(projectRoot) ?? []) this.jobs.get(key)?.controller.abort();
+  }
+
+  dispose() {
+    for (const job of this.jobs.values()) job.controller.abort();
+    this.jobs.clear();
+    this.lastContent.clear();
+    this.openPreviewUrisByProject.clear();
+    this.emitter.dispose();
   }
 
   track(uri) {
@@ -161,6 +193,10 @@ class StemPreviewProvider {
   }
 
   untrack(uri) {
+    const key = uri.toString();
+    this.jobs.get(key)?.controller.abort();
+    this.jobs.delete(key);
+    this.lastContent.delete(key);
     const params = parsePreviewUri(uri);
     if (params === null) {
       return null;
@@ -213,6 +249,7 @@ class StemPreviewWatcherManager {
     this.vscode = options.vscodeApi ?? vscode;
     this.isAutoRefreshEnabled = options.isAutoRefreshEnabled ?? isAutoRefreshEnabled;
     this.getRefreshDebounceMs = options.getRefreshDebounceMs ?? getRefreshDebounceMs;
+    this.getWatchPatterns = options.getWatchPatterns ?? (() => WATCH_PATTERNS);
     this.setTimer = options.setTimer ?? setTimeout;
     this.clearTimer = options.clearTimer ?? clearTimeout;
     this.watchersByProject = new Map();
@@ -224,7 +261,7 @@ class StemPreviewWatcherManager {
       return;
     }
 
-    const disposables = WATCH_PATTERNS.map((pattern) => {
+    const disposables = this.getWatchPatterns(projectRoot).map((pattern) => {
       const watcher = this.vscode.workspace.createFileSystemWatcher(
         new this.vscode.RelativePattern(this.vscode.Uri.file(projectRoot), pattern)
       );
@@ -267,9 +304,10 @@ class StemPreviewWatcherManager {
   }
 
   scheduleRefresh(projectRoot) {
-    if (!this.isAutoRefreshEnabled()) {
+    if (!this.isAutoRefreshEnabled() || (this.provider.hasProject && !this.provider.hasProject(projectRoot))) {
       return;
     }
+    this.provider.cancelProject?.(projectRoot);
 
     const existingTimer = this.refreshTimers.get(projectRoot);
     if (existingTimer !== undefined) {
@@ -278,9 +316,15 @@ class StemPreviewWatcherManager {
 
     const timer = this.setTimer(() => {
       this.refreshTimers.delete(projectRoot);
-      this.provider.refreshProject(projectRoot);
+      if (!this.provider.hasProject || this.provider.hasProject(projectRoot)) this.provider.refreshProject(projectRoot);
     }, this.getRefreshDebounceMs());
     this.refreshTimers.set(projectRoot, timer);
+  }
+
+  documentChanged(document) {
+    for (const projectRoot of this.provider.getTrackedProjects()) {
+      if (isInProject(projectRoot, document.uri)) this.scheduleRefresh(projectRoot);
+    }
   }
 
   dispose() {
@@ -304,7 +348,7 @@ class StemPreviewWatcherManager {
 
 async function openPreviewToSide(provider, watchers, vscodeApi = vscode) {
   if (vscodeApi.workspace.isTrusted === false) {
-    vscodeApi.window.showWarningMessage('Stem preview is disabled in untrusted workspaces because it runs the Stem CLI.');
+    vscodeApi.window.showWarningMessage('Stem preview is disabled in untrusted workspaces.');
     return;
   }
 
@@ -326,7 +370,7 @@ async function openPreviewToSide(provider, watchers, vscodeApi = vscode) {
     return;
   }
 
-  const projectRoot = findProjectRoot(path.dirname(document.uri.fsPath));
+  const projectRoot = await findProjectRootAsync(vscodeApi.workspace.fs ? vscodeApi : vscode, document.uri);
   if (projectRoot === null) {
     vscodeApi.window.showInformationMessage('No Stem project root found for the active file.');
     return;
@@ -346,7 +390,7 @@ async function openPreviewToSide(provider, watchers, vscodeApi = vscode) {
   }
 }
 
-async function renderPreview(uri, extensionUri) {
+async function renderPreview(uri, vscodeApi = vscode, signal) {
   const params = parsePreviewUri(uri);
   if (params === null) {
     return formatPreviewError(new Error('Stem preview could not resolve the requested view.'), {
@@ -355,44 +399,18 @@ async function renderPreview(uri, extensionUri) {
   }
 
   try {
-    const rendered = await runStemPreview(params.projectRoot, params.viewId, extensionUri);
-    return toPreviewDisplayMarkdown(rendered.stdout);
+    if (params.source !== null && vscodeApi.Uri.parse(params.source).scheme !== 'file') {
+      throw new Error('Stem preview is available for Markdown files on disk.');
+    }
+    return await renderProjectPreview(vscodeApi, vscodeApi.Uri.file(params.projectRoot), params.viewId, signal);
   } catch (error) {
+    if (signal?.aborted) throw error;
     const details = toPreviewErrorDetails(error);
     return formatPreviewError(error, {
       viewId: params.viewId,
       projectRoot: params.projectRoot,
       nextAction: getPreviewFailureNextAction(details)
     });
-  }
-}
-
-async function runStemPreview(projectRoot, viewId, extensionUri) {
-  const resolved = resolveStemCommand({
-    configuredCliPath: getConfiguredCliPath(),
-    projectRoot,
-    extensionRoot: extensionUri.fsPath,
-    pathExists: existsSync,
-    nodePath: process.execPath,
-    env: process.env
-  });
-  const args = [...resolved.args, 'preview', 'view', viewId];
-  const execOptions = getPreviewExecOptions({
-    command: resolved.command,
-    args,
-    cwd: projectRoot,
-    nodePath: process.execPath,
-    env: process.env,
-    runtimeVersions: process.versions
-  });
-  try {
-    return await execFileAsync(resolved.command, args, execOptions);
-  } catch (error) {
-    if (error !== null && typeof error === 'object') {
-      error.stemCommandText = formatCommandText(resolved.command, args);
-      error.stemCwd = projectRoot;
-    }
-    throw error;
   }
 }
 
@@ -703,6 +721,11 @@ module.exports = {
   activate,
   deactivate,
   _private: {
+    StemPreviewProvider,
+    renderPreview,
+    loadProjectSnapshot,
+    renderProjectPreview,
+    relativePath,
     DEFAULT_REFRESH_DEBOUNCE_MS,
     PREVIEW_SCHEME,
     PREVIEW_EXEC_MAX_BUFFER_BYTES,

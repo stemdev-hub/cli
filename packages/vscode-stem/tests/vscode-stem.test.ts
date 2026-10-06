@@ -6,7 +6,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const extensionModule = require('../../../vscode-stem/extension.js') as StemExtensionModule;
+const extensionModule = require('../dist/extension.js') as StemExtensionModule;
 const stem = extensionModule._private;
 
 interface StemExtensionModule {
@@ -615,7 +615,7 @@ describe('VS Code Stem extension helpers', () => {
     );
 
     expect(vscodeApi.window.warningMessages).toEqual([
-      'Stem preview is disabled in untrusted workspaces because it runs the Stem CLI.'
+      'Stem preview is disabled in untrusted workspaces.'
     ]);
     expect(vscodeApi.commands.executedCommands).toEqual([]);
     expect(tracked).toEqual([]);
