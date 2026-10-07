@@ -33,7 +33,8 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Phase B packaging UNVERIFIED pending the user's pnpm run: VSCE file listing invoked through Node failed because @azure/core-client could not resolve tslib.
 - Phase B symlink parity passed for file links, Windows directory junctions and broken links; cyclic links and native POSIX directory symlinks remain UNVERIFIED.
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
-- CI does not run the built-CLI smoke script; add it in step 6 (the smoke was stale)
+- Step 6A: enforcement and CI gates added ([ADR-0001](decisions/0001-extract-core-package.md)); depcruise passed (168 modules / 559 dependencies), all 15 dependency rules and 9 ESLint restrictions proved with reverted probes. Three type import specifiers changed to remove barrel cycles; core/CLI build, typecheck and full suites passed (288 / 267 tests), as did CLI smoke. User confirmed pnpm accepted the workspace cycle setting.
+- Step 6A final lint and doc-budget checks passed (12 files); packed-core/clean-install CI remains UNVERIFIED. Release work remains step 6B.
 
 ## Known issues
 
@@ -45,9 +46,10 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Snapshot envelope fetchedAt is not validated as a date (kept for parity); revisit with the namespace ADR.
 - MCP setup ignores stem.cliPath (bug); retained during extension core adoption.
 - Namespace snapshot loading policy is duplicated between CLI and extension until the namespace ADR.
-- CLI render still uses gray-matter to re-parse frontmatter; extension display uses the core-rendered body.
+- Dependency audit: remove gray-matter from the CLI (rename/render) via core frontmatter functions, which drops the old js-yaml/argparse/sprintf-js chain; replace fast-glob (braces advisory) using the parity tests as the safety net.
 - `pnpm install` emits 24 deprecation warnings related to `@yuku-parser/binding-win32-x64` which is pulled in by `tsdown` (a devDependency of core). This is a known issue to revisit later and does not block development.
 
 ## Before first core release
 
 - Confirm npm publish permissions for `@stemdev/core` (token or trusted publisher). Publish core before any CLI that depends on it.
+- Re-run `npm audit --omit=dev` on the packed install before each release.
