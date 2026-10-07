@@ -1,4 +1,4 @@
-import type { DependencyRef } from './index.js';
+import type { DependencyRef } from './block.js';
 
 export type NodeType = 'block' | 'view';
 

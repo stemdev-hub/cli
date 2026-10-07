@@ -8,11 +8,13 @@
     "test": "pnpm -r --workspace-concurrency=1 run test",
     "typecheck": "pnpm -r --workspace-concurrency=1 run typecheck",
     "lint": "eslint .",
+    "depcruise": "depcruise --config .dependency-cruiser.cjs --output-type err-long packages",
     "format": "prettier --write ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.2.0",
+    "dependency-cruiser": "^18.5.0",
     "eslint": "^10.9.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",

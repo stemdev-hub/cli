@@ -1,4 +1,4 @@
-import type { Position } from './index.js';
+import type { Position } from './position.js';
 
 export interface StemASTNode {
   type: string;
