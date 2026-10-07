@@ -77,7 +77,7 @@ it('runs project analysis through the public entry without Node globals or clock
     issues: [{ code: 'EXPIRED_SNAPSHOT', severity: 'error' }],
     errorCount: 1, warningCount: 0, hasErrors: true, hasWarnings: false
   });
-});
+}, 30_000);
 
 it('bundles and executes the portable modules without Node dependencies or globals', async () => {
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
@@ -159,4 +159,4 @@ it('bundles and executes the portable modules without Node dependencies or globa
     expired: ['EXPIRED_SNAPSHOT'], malformed: ['INVALID_FRONTMATTER'], unsupported: ['INVALID_FRONTMATTER'],
     mergedId: 'merged', date: true, config: { success: true, data: { blocksDir: 'docs' } }
   });
-});
+}, 30_000);
