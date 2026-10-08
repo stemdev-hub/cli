@@ -4,8 +4,9 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadExternalGraphs } from '../../src/core/operations/external.js';
-import type { ResolvedStemConfig, ExternalStemGraph } from '@stem/types';
+import { loadExternalGraphs } from '../../src/runtime/operations/external.js';
+import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
+import type { ExternalStemGraph } from '@stemdev/core';
 
 describe('loadExternalGraphs', () => {
   let testRoot: string;
@@ -104,5 +105,39 @@ describe('loadExternalGraphs', () => {
 
     // cleanup outside testRoot
     await rm(path.join(testRoot, '../local-api'), { recursive: true, force: true });
+  });
+
+  it.each(['', '# comment', 'null', '42', '[]', '{}'])('ignores empty, invalid, or non-envelope JSON: %j', async (content) => {
+    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), content);
+    expect(await loadExternalGraphs(config)).toEqual(new Map());
+  });
+
+  it.each([undefined, null, 123, false, [], {}])('ignores absent or non-string fetchedAt: %j', async (fetchedAt) => {
+    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), JSON.stringify({ graph: mockGraph, fetchedAt }));
+    expect(await loadExternalGraphs(config)).toEqual(new Map());
+  });
+
+  it.each(['2026-08-19T10:00:00.000Z', '', 'not a date'])('accepts any string fetchedAt: %j', async (fetchedAt) => {
+    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), JSON.stringify({
+      graph: mockGraph, fetchedAt, isLocalFallback: true, extra: 'ignored'
+    }));
+    expect(await loadExternalGraphs(config)).toEqual(new Map([['test-api', {
+      graph: mockGraph, fetchedAt, isLocalFallback: false
+    }]]));
+  });
+
+  it.each([
+    undefined, null, 1, [], {},
+    { version: 1 }, { namespace: null }, { publishedAt: false }, { contentSha: [] },
+    { blocks: null }, { renames: {} }, { blocks: [null] },
+    { blocks: [{ id: 1, tags: [], sections: [] }] },
+    { blocks: [{ id: 'a', tags: [1], sections: [] }] },
+    { blocks: [{ id: 'a', tags: [], sections: [null] }] },
+    { renames: [{ from: 'a', to: 'b', since: 1 }] }
+  ])('ignores a missing or malformed graph: %j', async (overrides) => {
+    const graph = overrides !== null && typeof overrides === 'object' && !Array.isArray(overrides)
+      ? (Object.keys(overrides).length === 0 ? {} : { ...mockGraph, ...overrides }) : overrides;
+    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), JSON.stringify({ graph, fetchedAt: '' }));
+    expect(await loadExternalGraphs(config)).toEqual(new Map());
   });
 });

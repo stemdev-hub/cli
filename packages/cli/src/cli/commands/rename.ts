@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { renameBlock } from '../../core/operations/rename.js';
+import { renameBlock } from '../../runtime/operations/rename.js';
 import { reportRename } from '../output.js';
 
 export function registerRenameCommand(program: Command): void {

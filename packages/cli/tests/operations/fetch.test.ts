@@ -4,8 +4,9 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { fetchNamespaces } from '../../src/core/operations/fetch.js';
-import type { ResolvedStemConfig, ExternalStemGraph } from '@stem/types';
+import { fetchNamespaces } from '../../src/runtime/operations/fetch.js';
+import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
+import type { ExternalStemGraph } from '@stemdev/core';
 
 const mockGraph: ExternalStemGraph = {
   version: '1',

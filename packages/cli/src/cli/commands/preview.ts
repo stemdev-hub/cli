@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { previewView } from '../../core/operations/preview.js';
+import { previewView } from '../../runtime/operations/preview.js';
 import { reportRender } from '../output.js';
 
 export function registerPreviewCommand(program: Command): void {

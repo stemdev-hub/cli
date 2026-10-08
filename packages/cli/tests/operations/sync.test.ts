@@ -4,10 +4,10 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readGraphSnapshot } from '../../src/core/cache/graph-store.js';
-import { readCacheIndex } from '../../src/core/cache/index-store.js';
-import { syncProject } from '../../src/core/operations/sync.js';
-import type { ResolvedStemConfig } from '../../src/core/types/index.js';
+import { readGraphSnapshot } from '../../src/runtime/cache/graph-store.js';
+import { readCacheIndex } from '../../src/runtime/cache/index-store.js';
+import { syncProject } from '../../src/runtime/operations/sync.js';
+import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
 
 describe('syncProject', () => {
   let testRoot: string;

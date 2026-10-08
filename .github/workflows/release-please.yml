@@ -14,7 +14,8 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      any_release_created: ${{ steps.release.outputs.releases_created == 'true' || steps.release.outputs['packages/cli--release_created'] == 'true' || steps.release.outputs['packages/vscode-stem--release_created'] == 'true' }}
+      any_release_created: ${{ steps.release.outputs.releases_created == 'true' || steps.release.outputs['packages/core--release_created'] == 'true' || steps.release.outputs['packages/cli--release_created'] == 'true' || steps.release.outputs['packages/vscode-stem--release_created'] == 'true' }}
+      core_release_created: ${{ steps.release.outputs['packages/core--release_created'] }}
       cli_release_created: ${{ steps.release.outputs['packages/cli--release_created'] }}
       vscode_release_created: ${{ steps.release.outputs['packages/vscode-stem--release_created'] }}
       vscode_tag_name: ${{ steps.release.outputs['packages/vscode-stem--tag_name'] }}
@@ -46,26 +47,76 @@ jobs:
       - name: Build project
         run: pnpm build
 
+      - name: Ensure npm supports trusted publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          pnpm --version
+          check_npm() {
+            npm --version | node -e 'let v=""; process.stdin.on("data", d => v += d); process.stdin.on("end", () => { const m = /^(\d+)\.(\d+)\.(\d+)\s*$/.exec(v); process.exit(m && (+m[1] > 11 || (+m[1] === 11 && (+m[2] > 5 || (+m[2] === 5 && +m[3] >= 1)))) ? 0 : 1); });'
+          }
+          if ! check_npm; then npm install -g npm@latest; fi
+          npm --version
+          check_npm || { echo '::error::npm >= 11.5.1 is required'; exit 1; }
+
       - name: Get Short SHA
         id: short_sha
         run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Version Core (Canary)
+        working-directory: packages/core
+        env:
+          V: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+
+      - name: Pack, verify and publish Core (Canary)
+        shell: bash
+        # Trusted publishing generates provenance automatically; --provenance makes a failure explicit.
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "${RUNNER_TEMP}/stem-core-canary.XXXXXX")"
+          trap 'rm -rf -- "$pack_dir"' EXIT
+          pnpm --filter @stemdev/core pack --pack-destination "$pack_dir"
+          shopt -s nullglob
+          tarballs=("$pack_dir"/*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          node scripts/verify-release-tarball.mjs "${tarballs[0]}"
+          npm publish "${tarballs[0]}" --tag next --access public --provenance
+
       - name: Version CLI (Canary)
-        run: npm version 0.0.0-canary.${{ steps.short_sha.outputs.sha }} --no-git-tag-version
         working-directory: packages/cli
+        env:
+          V: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
-      - name: Publish CLI to NPM (Canary)
-        run: pnpm --filter @stemdev/cli publish --tag next --access public --provenance --no-git-checks
-
-      - name: Install vsce
-        run: npm install -g @vscode/vsce
+      - name: Pack, verify and publish CLI (Canary)
+        shell: bash
+        env:
+          CANARY_VERSION: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
+        # Trusted publishing generates provenance automatically; --provenance makes a failure explicit.
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "${RUNNER_TEMP}/stem-cli-canary.XXXXXX")"
+          trap 'rm -rf -- "$pack_dir"' EXIT
+          pnpm --filter @stemdev/cli pack --pack-destination "$pack_dir"
+          shopt -s nullglob
+          tarballs=("$pack_dir"/*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          node scripts/verify-release-tarball.mjs "${tarballs[0]}" --check-registry | tee "$pack_dir/verify.log"
+          grep -Fx "dependencies: @stemdev/core@^${CANARY_VERSION}" "$pack_dir/verify.log"
+          grep -Fx "REGISTRY_VERSION @stemdev/core@${CANARY_VERSION}" "$pack_dir/verify.log"
+          npm publish "${tarballs[0]}" --tag next --access public --provenance
 
       - name: Version VS Code Extension (Canary)
-        run: npm version 0.0.0-canary.${{ steps.short_sha.outputs.sha }} --no-git-tag-version
         working-directory: packages/vscode-stem
+        env:
+          V: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
       - name: Package VS Code Extension (Canary)
-        run: pnpm --filter vscode-stem exec vsce package --no-git-tag-version
+        run: pnpm --filter vscode-stem exec vsce package --no-dependencies
 
       - name: Upload VSIX to Artifacts
         uses: actions/upload-artifact@v5
@@ -98,18 +149,63 @@ jobs:
       - name: Build project
         run: pnpm build
 
-      - name: Publish CLI to NPM
-        if: ${{ needs.release-please.outputs.cli_release_created == 'true' }}
-        run: npm publish --access public --provenance
-        working-directory: packages/cli
+      - name: Ensure npm supports trusted publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          pnpm --version
+          check_npm() {
+            npm --version | node -e 'let v=""; process.stdin.on("data", d => v += d); process.stdin.on("end", () => { const m = /^(\d+)\.(\d+)\.(\d+)\s*$/.exec(v); process.exit(m && (+m[1] > 11 || (+m[1] === 11 && (+m[2] > 5 || (+m[2] === 5 && +m[3] >= 1)))) ? 0 : 1); });'
+          }
+          if ! check_npm; then npm install -g npm@latest; fi
+          npm --version
+          check_npm || { echo '::error::npm >= 11.5.1 is required'; exit 1; }
 
-      - name: Install vsce
-        if: ${{ needs.release-please.outputs.vscode_release_created == 'true' }}
-        run: npm install -g @vscode/vsce
+      - name: Pack, verify and publish Core
+        if: ${{ needs.release-please.outputs.core_release_created == 'true' }}
+        shell: bash
+        # Trusted publishing generates provenance automatically; --provenance makes a failure explicit.
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "${RUNNER_TEMP}/stem-core-release.XXXXXX")"
+          trap 'rm -rf -- "$pack_dir"' EXIT
+          pnpm --filter @stemdev/core pack --pack-destination "$pack_dir"
+          shopt -s nullglob
+          tarballs=("$pack_dir"/*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          node scripts/verify-release-tarball.mjs "${tarballs[0]}"
+          status=0
+          node scripts/verify-release-tarball.mjs "${tarballs[0]}" --check-version-unpublished > "$pack_dir/version.log" 2>&1 || status=$?
+          cat "$pack_dir/version.log"
+          expected="$(node -p 'const p = require("./packages/core/package.json"); p.name + "@" + p.version')"
+          if [ "$status" -eq 1 ] && grep -Fxq "RELEASE_VERSION_ALREADY_PUBLISHED $expected" "$pack_dir/version.log"; then
+            echo "::notice::$expected already exists on npm; skipping core publish."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          else
+            npm publish "${tarballs[0]}" --access public --provenance
+          fi
+
+      - name: Pack, verify and publish CLI
+        if: ${{ needs.release-please.outputs.cli_release_created == 'true' }}
+        shell: bash
+        # Trusted publishing generates provenance automatically; --provenance makes a failure explicit.
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "${RUNNER_TEMP}/stem-cli-release.XXXXXX")"
+          trap 'rm -rf -- "$pack_dir"' EXIT
+          pnpm --filter @stemdev/cli pack --pack-destination "$pack_dir"
+          shopt -s nullglob
+          tarballs=("$pack_dir"/*.tgz)
+          test "${#tarballs[@]}" -eq 1
+          node scripts/verify-release-tarball.mjs "${tarballs[0]}" --check-registry
+          npm publish "${tarballs[0]}" --access public --provenance
 
       - name: Package VS Code Extension
         if: ${{ needs.release-please.outputs.vscode_release_created == 'true' }}
-        run: pnpm --filter vscode-stem exec vsce package
+        run: pnpm --filter vscode-stem exec vsce package --no-dependencies
 
       - name: Upload VSIX to GitHub Release
         if: ${{ needs.release-please.outputs.vscode_release_created == 'true' }}

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { syncProject } from '../../core/operations/sync.js';
+import { syncProject } from '../../runtime/operations/sync.js';
 import { reportSync } from '../output.js';
 
 export function registerSyncCommand(program: Command): void {

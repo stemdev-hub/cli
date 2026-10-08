@@ -13,8 +13,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "bin": {
@@ -37,20 +37,21 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsx src/cli/index.ts",
-    "test": "vitest run --passWithNoTests",
+    "test": "pnpm --filter @stemdev/core build && vitest run --passWithNoTests",
     "smoke:built-cli": "node tests/smoke/built-cli-smoke.mjs",
     "docs:types": "pnpm build && api-extractor run --local",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "pnpm --filter @stemdev/core build && tsc --noEmit"
   },
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
+    "@stemdev/core": "workspace:^",
     "commander": "^15.0.0",
     "fast-glob": "^3.3.3",
     "gray-matter": "^4.0.3",
-    "js-yaml": "5.3.0",
+    "js-yaml": "5.4.3",
     "remark": "^15.0.1",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
@@ -59,8 +60,8 @@
   "devDependencies": {
     "@microsoft/api-extractor": "^7.59.0",
     "@modelcontextprotocol/client": "^2.0.0",
-    "@types/js-yaml": "^4.0.9",
     "@vitest/coverage-v8": "^4.1.11",
+    "esbuild": "0.27.7",
     "tsup": "^8.5.1",
     "tsx": "^4.23.12"
   }

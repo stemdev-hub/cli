@@ -4,12 +4,8 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  getDefaultStemConfig,
-  loadStemConfig,
-  resolveStemConfig,
-  STEM_CONFIG_DEFAULTS
-} from '../../src/core/config/index.js';
+import { getDefaultStemConfig, loadStemConfig, resolveStemConfig } from '../../src/runtime/config/index.js';
+import { STEM_CONFIG_DEFAULTS } from '@stemdev/core';
 
 describe('config', () => {
   let testRoot: string;

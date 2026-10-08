@@ -1,5 +1,11 @@
 {
+  "bump-minor-pre-major": true,
   "packages": {
+    "packages/core": {
+      "release-type": "node",
+      "package-name": "@stemdev/core",
+      "initial-version": "0.1.0"
+    },
     "packages/cli": {
       "release-type": "node",
       "package-name": "@stemdev/cli"

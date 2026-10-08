@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { renameBlock } from '../../src/core/operations/rename.js';
+import { renameBlock } from '../../src/runtime/operations/rename.js';
 
 describe('renameBlock', () => {
   let testRoot: string;

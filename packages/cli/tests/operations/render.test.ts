@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { renderAll, renderView } from '../../src/core/operations/render.js';
+import { renderAll, renderView } from '../../src/runtime/operations/render.js';
 
 let testRoot: string;
 

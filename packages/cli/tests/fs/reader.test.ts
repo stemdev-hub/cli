@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readFile, readFileStats, toRelativePath } from '../../src/core/fs/reader.js';
+import { readFile, readFileStats, toRelativePath } from '../../src/runtime/fs/reader.js';
 
 describe('reader', () => {
   let testRoot: string;

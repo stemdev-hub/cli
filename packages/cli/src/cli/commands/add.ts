@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { addBlockToView } from '../../core/operations/add.js';
+import { addBlockToView } from '../../runtime/operations/add.js';
 import { reportAdd } from '../output.js';
 
 export function registerAddCommand(program: Command): void {

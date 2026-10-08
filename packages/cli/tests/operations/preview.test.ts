@@ -5,7 +5,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { previewView } from '../../src/core/operations/preview.js';
+import { previewView } from '../../src/runtime/operations/preview.js';
 
 let testRoot: string;
 

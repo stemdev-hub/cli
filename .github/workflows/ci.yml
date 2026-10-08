@@ -32,6 +32,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Report tool versions
+        run: |
+          node --version
+          npm --version
+          pnpm --version
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -43,6 +49,75 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Check dependency boundaries
+        run: pnpm depcruise
+
+      - name: Check documentation budgets
+        run: node scripts/check-doc-budgets.mjs
+
+      - name: Built CLI smoke
+        run: node packages/cli/tests/smoke/built-cli-smoke.mjs
+
+      - name: Check packed packages and clean installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "${RUNNER_TEMP}/stem-pack.XXXXXX")"
+          smoke_dir="$(mktemp -d "${RUNNER_TEMP}/stem-install.XXXXXX")"
+          trap 'rm -rf -- "$pack_dir" "$smoke_dir"' EXIT
+          pnpm --dir packages/core pack --pack-destination "$pack_dir"
+          pnpm --dir packages/cli pack --pack-destination "$pack_dir"
+          shopt -s nullglob
+          core_tarballs=("$pack_dir"/stemdev-core-*.tgz)
+          cli_tarballs=("$pack_dir"/stemdev-cli-*.tgz)
+          test "${#core_tarballs[@]}" -eq 1
+          test "${#cli_tarballs[@]}" -eq 1
+          node scripts/check-packed-core.mjs "${core_tarballs[0]}"
+          cd "$smoke_dir"
+          npm init -y
+          npm install --no-audit --no-fund "${core_tarballs[0]}"
+          npm install --no-audit --no-fund "${cli_tarballs[0]}"
+          export PATH="$smoke_dir/node_modules/.bin:$PATH"
+          stem --help
+          stem init
+          stem create block "Smoke Sample"
+          stem create view "Smoke Consumer"
+          stem add smoke-sample-block to smoke-consumer-view
+          stem check | tee check-output.txt
+          grep -F '0 errors, 0 warnings' check-output.txt
+          cat > core-smoke.mjs <<'EOF'
+          import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          import { parseBlockFile } from '@stemdev/core';
+
+          const filePath = 'blocks/smoke-sample-block.md';
+          const parsed = parseBlockFile({
+            content: await readFile(filePath, 'utf8'),
+            filePath,
+            relativePath: filePath
+          });
+          assert.equal(parsed.id, 'smoke-sample-block');
+          assert.deepEqual(parsed.errors, []);
+          console.log('Clean-install core ESM import and parser smoke passed.');
+          EOF
+          node core-smoke.mjs
+
+      - name: Verify release tarball dependency ranges
+        shell: bash
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "${RUNNER_TEMP}/stem-verify.XXXXXX")"
+          trap 'rm -rf -- "$pack_dir"' EXIT
+          pnpm --filter @stemdev/core pack --pack-destination "$pack_dir"
+          pnpm --filter @stemdev/cli pack --pack-destination "$pack_dir"
+          shopt -s nullglob
+          core_tarballs=("$pack_dir"/stemdev-core-*.tgz)
+          cli_tarballs=("$pack_dir"/stemdev-cli-*.tgz)
+          test "${#core_tarballs[@]}" -eq 1
+          test "${#cli_tarballs[@]}" -eq 1
+          node scripts/verify-release-tarball.mjs "${core_tarballs[0]}"
+          node scripts/verify-release-tarball.mjs "${cli_tarballs[0]}"
 
       - name: Verify CLI Publish (Dry Run)
         run: pnpm --filter @stemdev/cli publish --dry-run --no-git-checks

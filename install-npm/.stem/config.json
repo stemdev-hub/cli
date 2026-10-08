@@ -1,0 +1,7 @@
+{
+  "version": "1",
+  "blocksDir": "blocks",
+  "viewsDir": "views",
+  "schemasDir": "blocks/schemas",
+  "cacheDir": ".stem/cache"
+}

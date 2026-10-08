@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createBlock, createGroup, createView } from '../../src/core/operations/create.js';
+import { createBlock, createGroup, createView } from '../../src/runtime/operations/create.js';
 
 describe('create operations', () => {
   let testRoot: string;

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { createBlock, createGroup, createView } from '../../core/operations/create.js';
+import { createBlock, createGroup, createView } from '../../runtime/operations/create.js';
 import { reportCreateBlock, reportCreateGroup, reportCreateView } from '../output.js';
 
 export function registerCreateCommand(program: Command): void {

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { initProject } from '../../core/operations/init.js';
+import { initProject } from '../../runtime/operations/init.js';
 import { reportInit } from '../output.js';
 
 export function registerInitCommand(program: Command): void {

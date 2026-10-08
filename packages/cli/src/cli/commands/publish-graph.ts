@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
-import { loadStemConfig } from '../../core/config/index.js';
-import { publishGraph } from '../../core/operations/publish.js';
+import { loadStemConfig } from '../../runtime/config/index.js';
+import { publishGraph } from '../../runtime/operations/publish.js';
 
 export function registerPublishGraphCommand(program: Command): void {
   program

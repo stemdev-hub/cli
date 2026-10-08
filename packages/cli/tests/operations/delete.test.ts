@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { deleteBlock, deleteView } from '../../src/core/operations/delete.js';
+import { deleteBlock, deleteView } from '../../src/runtime/operations/delete.js';
 
 describe('delete operations', () => {
   let testRoot: string;

@@ -1,4 +1,6 @@
 packages:
   - 'packages/*'
+disallowWorkspaceCycles: true
 allowBuilds:
+  '@vscode/vsce-sign': false
   esbuild: true

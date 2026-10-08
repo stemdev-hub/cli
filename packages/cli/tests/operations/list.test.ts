@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { listBlocks, listViews } from '../../src/core/operations/list.js';
+import { listBlocks, listViews } from '../../src/runtime/operations/list.js';
 
 describe('list operations', () => {
   let testRoot: string;

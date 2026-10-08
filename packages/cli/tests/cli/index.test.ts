@@ -7,7 +7,8 @@ import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { ListBlocksResult, ValidationResult } from '@stem/types';
+import type { ListBlocksResult } from '../../src/runtime/types/index.js';
+import type { ValidationResult } from '@stemdev/core';
 
 const execFileAsync = promisify(execFile);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

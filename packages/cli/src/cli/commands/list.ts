@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { listBlocks, listViews } from '../../core/operations/list.js';
+import { listBlocks, listViews } from '../../runtime/operations/list.js';
 import { reportListBlocks, reportListViews } from '../output.js';
 
 export function registerListCommand(program: Command): void {
