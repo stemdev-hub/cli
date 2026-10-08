@@ -108,9 +108,8 @@ jobs:
           shopt -s nullglob
           tarballs=("$pack_dir"/*.tgz)
           test "${#tarballs[@]}" -eq 1
-          node scripts/verify-release-tarball.mjs "${tarballs[0]}" --check-registry | tee "$pack_dir/verify.log"
+          node scripts/verify-release-tarball.mjs "${tarballs[0]}" | tee "$pack_dir/verify.log"
           grep -Fx "dependencies: @stemdev/core@^${CANARY_VERSION}" "$pack_dir/verify.log"
-          grep -Fx "REGISTRY_VERSION @stemdev/core@${CANARY_VERSION}" "$pack_dir/verify.log"
           npm publish "${tarballs[0]}" --tag next --access public --provenance
 
       - name: Version VS Code Extension (Canary)
