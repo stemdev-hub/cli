@@ -103,6 +103,22 @@ jobs:
           EOF
           node core-smoke.mjs
 
+      - name: Verify release tarball dependency ranges
+        shell: bash
+        run: |
+          set -euo pipefail
+          pack_dir="$(mktemp -d "${RUNNER_TEMP}/stem-verify.XXXXXX")"
+          trap 'rm -rf -- "$pack_dir"' EXIT
+          pnpm --filter @stemdev/core pack --pack-destination "$pack_dir"
+          pnpm --filter @stemdev/cli pack --pack-destination "$pack_dir"
+          shopt -s nullglob
+          core_tarballs=("$pack_dir"/stemdev-core-*.tgz)
+          cli_tarballs=("$pack_dir"/stemdev-cli-*.tgz)
+          test "${#core_tarballs[@]}" -eq 1
+          test "${#cli_tarballs[@]}" -eq 1
+          node scripts/verify-release-tarball.mjs "${core_tarballs[0]}"
+          node scripts/verify-release-tarball.mjs "${cli_tarballs[0]}"
+
       - name: Verify CLI Publish (Dry Run)
         run: pnpm --filter @stemdev/cli publish --dry-run --no-git-checks
 

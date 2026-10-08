@@ -34,7 +34,8 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Phase B symlink parity passed for file links, Windows directory junctions and broken links; cyclic links and native POSIX directory symlinks remain UNVERIFIED.
 - VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
 - Step 6A: enforcement and CI gates added ([ADR-0001](decisions/0001-extract-core-package.md)); depcruise passed (168 modules / 559 dependencies), all 15 dependency rules and 9 ESLint restrictions proved with reverted probes. Three type import specifiers changed to remove barrel cycles; core/CLI build, typecheck and full suites passed (288 / 267 tests), as did CLI smoke. User confirmed pnpm accepted the workspace cycle setting.
-- Step 6A final lint and doc-budget checks passed (12 files); packed-core/clean-install CI remains UNVERIFIED. Release work remains step 6B.
+- Step 6A final lint and doc-budget checks passed (12 files); packed-core/clean-install CI remains UNVERIFIED.
+- Step 6B: core-first tarball publishing, registry gates, CI range verification and grouped dependency updates added; YAML/JSON parsing, lint, doc budgets and 14 temporary verifier tests passed. Real packing, canary range rewriting, GitHub execution and OIDC publishing remain UNVERIFIED locally.
 
 ## Known issues
 
@@ -51,5 +52,6 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 
 ## Before first core release
 
-- Confirm npm publish permissions for `@stemdev/core` (token or trusted publisher). Publish core before any CLI that depends on it.
+- A package's first version must be published by hand before its trusted publisher can be configured. Owner reports `@stemdev/core` reserved with a `0.0.0` placeholder and its trusted publisher configured for `stemdev-hub/cli`, workflow `release-please.yml`; renaming `release-please.yml` breaks publishing for all packages.
+- Release gate: the first core release and the accompanying CLI and vscode-stem releases must come from one release PR; confirm all three are included before merging. Core publishes before CLI ([ADR-0001](decisions/0001-extract-core-package.md)).
 - Re-run `npm audit --omit=dev` on the packed install before each release.
