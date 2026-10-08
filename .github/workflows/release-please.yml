@@ -68,8 +68,12 @@ jobs:
       - name: Version Core (Canary)
         working-directory: packages/core
         env:
-          V: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
-        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          SHA: ${{ steps.short_sha.outputs.sha }}
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version+='-canary.g'+process.env.SHA;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+
+      - name: Get Core Canary Version
+        id: core_canary_version
+        run: echo "version=$(node -p 'require("./packages/core/package.json").version')" >> $GITHUB_OUTPUT
 
       - name: Pack, verify and publish Core (Canary)
         shell: bash
@@ -88,13 +92,13 @@ jobs:
       - name: Version CLI (Canary)
         working-directory: packages/cli
         env:
-          V: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
-        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          SHA: ${{ steps.short_sha.outputs.sha }}
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version+='-canary.g'+process.env.SHA;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
       - name: Pack, verify and publish CLI (Canary)
         shell: bash
         env:
-          CANARY_VERSION: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
+          CANARY_VERSION: ${{ steps.core_canary_version.outputs.version }}
         # Trusted publishing generates provenance automatically; --provenance makes a failure explicit.
         run: |
           set -euo pipefail
@@ -112,8 +116,8 @@ jobs:
       - name: Version VS Code Extension (Canary)
         working-directory: packages/vscode-stem
         env:
-          V: 0.0.0-canary.g${{ steps.short_sha.outputs.sha }}
-        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+          SHA: ${{ steps.short_sha.outputs.sha }}
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.version+='-canary.g'+process.env.SHA;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
 
       - name: Package VS Code Extension (Canary)
         run: pnpm --filter vscode-stem exec vsce package --no-dependencies
