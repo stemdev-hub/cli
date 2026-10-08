@@ -51,7 +51,7 @@ export function readManifest(tarball) {
 }
 
 function npmView(spec) {
-  const args = ['view', spec, 'version', '--json', '--fetch-retries=0', '--fetch-timeout=30000'];
+  const args = ['view', spec, 'version', '--json', '--prefer-online', '--fetch-retries=0', '--fetch-timeout=30000'];
   let command = 'npm';
   if (process.platform === 'win32') {
     // Invoke npm's JS entry directly: .cmd files require a shell on Windows.
@@ -122,9 +122,9 @@ export async function verifyTarball(tarball, options = {}, view = npmView, sleep
       const spec = `${name}@${range}`;
       let matched = false;
       let last;
-      // Initial attempt plus up to six retries, ten seconds apart.
-      for (let attempt = 0; attempt <= 6; attempt++) {
-        console.log(`Registry check ${attempt + 1}/7: npm view ${name}@"${range}" version`);
+      // Initial attempt plus up to seventeen retries, ten seconds apart.
+      for (let attempt = 0; attempt <= 17; attempt++) {
+        console.log(`Registry check ${attempt + 1}/18: npm view ${name}@"${range}" version`);
         last = registryResult(await view(spec));
         if (last.versions?.length) {
           console.log(`PASS: ${spec} resolves to ${last.versions.join(', ')}.`);
@@ -133,7 +133,7 @@ export async function verifyTarball(tarball, options = {}, view = npmView, sleep
           break;
         }
         console.error(last.error ? `Registry error: ${last.error}` : `No published version satisfies ${spec}.`);
-        if (attempt < 6) {
+        if (attempt < 17) {
           console.log('Retrying in 10 seconds for registry propagation.');
           await sleep(10000);
         }
