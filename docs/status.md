@@ -7,51 +7,34 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - `resolveBlockSelection()` returns array for tag refs; substitution site expects string; no merge rule for duplicate tags under warning.
 - `GraphEdge.to` typed as local node id; namespace refs target nodes never in local `nodes` map.
 - "tags" used in three senses (frontmatter labels, `@stem[tag:name]` fragments, `StemSection.tags`). Proposed: rename frontmatter field to `labels`.
+- These are historical claims, not newly verified defects. [R00](../roadmap.md#r00-establish-which-status-items-block-implementation) verifies them and records the human gate disposition; backlog approval does not lift this gate.
 
 ## Open policy
 
 - Transclusion depth and cycle-warning: soft-warning threshold and configurability undecided.
+- ADR-0002 acceptance and protected-instruction corrections require the [human decisions](../roadmap.md#human-decisions); no policy change is implied by the audit.
 
-## In progress: core extraction (ADR-0001)
+## Post-publication remediation
 
-- Six steps, one Codex session each. Step 1 (baseline): built-CLI smoke reverified; VSIX contents still await re-verification.
-- Baseline run by the user outside the sandbox: install, typecheck, lint, test (34 files / 373 tests), build, and vsce package all EXIT 0.
-- Step 2: parser portability, explicit validator time, and config split implemented in place; YAML policy is [proposed ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md).
-- Step 2 final verification via Node: typecheck, lint, full suite (35 files / 438 tests, including portability), build, built-CLI smoke, and `git diff --check` passed. Gray-matter characterization passed before replacement (4 files / 64 tests).
-- Portability smoke uses browser platform with native worker exports, no polyfills, and in-memory output. Sandbox denied esbuild directory access; approved runs outside the sandbox passed.
-- Gray-matter remains in Node rename/render operations; it must not be used in anything moved to core ([ADR-0001](decisions/0001-extract-core-package.md)).
-- Step 3: portable modules/tests extracted to core; persistence/operation/resolved-config types stay in CLI runtime ([ADR-0001](decisions/0001-extract-core-package.md)). CLI test/typecheck scripts build core first; tsup leaves core external.
-- Step 3 verification: core build/typecheck, 194 core tests (portability rerun outside sandbox), CLI typecheck, repo lint, 244 CLI tests, build, and built-CLI smoke passed. Existing test bodies/expectations preserved.
-- User ran install and pnpm pack. Packed manifests/files passed; core publint passed with a repository-URL suggestion, attw passed its ESM-only profile (Node 10/CommonJS findings remain). Clean external install of both tarballs, `stem init`, and ESM parser smoke passed.
-- Step 3 gate exception: `stem --version` exits 1 (unknown option); the baseline CLI has no version flag. Preserved under the no-behavior-change constraint. Recursive script execution through pnpm remains unverified by the agent.
-- Step 4: pure `analyzeProject(snapshot, options)` added; CLI loads snapshots and effect modules moved to runtime ([ADR-0001](decisions/0001-extract-core-package.md)).
-- Step 4 verification: core build/typecheck and 209 tests (including portability), CLI typecheck, lint, 244 tests, build, help and built-CLI smoke passed. Portability needed approved execution outside the sandbox; fresh tarball checks and clean external pnpm installation remain unverified.
-- Step 5 Phase A committed: core decoders and CLI loading policy verified ([ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)); Phase B uses their public entry.
-- Step 5 Phase B: preview uses bundled core with async VS Code loading, unsaved buffers, recursive discovery, debounced cancellation, and CLI diagnostic/display parity. Existing extension tests moved; only the authorized trust warning expectation changed.
-- Phase B verification: core build/typecheck and 288 tests, CLI build/typecheck and 267 tests, extension build/typecheck and 78 tests, repo lint and CLI smoke passed. Metafile audit found no declared engine range incompatible with Node 22.15; real extension host remains unverified.
-- Phase B VSIX content rule: include only dist/extension.js from dist/; exclude every other dist artifact, including extension.meta.json and bundled-engines.json. All of dist/ remains gitignored; source, tests, config and AGENTS.md exclusions are configured.
-- Phase B packaging UNVERIFIED pending the user's pnpm run: VSCE file listing invoked through Node failed because @azure/core-client could not resolve tslib.
-- Phase B symlink parity passed for file links, Windows directory junctions and broken links; cyclic links and native POSIX directory symlinks remain UNVERIFIED.
-- VSIX packaging succeeded but included extension/AGENTS.md; AGENTS.md added to .vscodeignore. Package contents re-verification pending.
-- Step 6A: enforcement and CI gates added ([ADR-0001](decisions/0001-extract-core-package.md)); depcruise passed (168 modules / 559 dependencies), all 15 dependency rules and 9 ESLint restrictions proved with reverted probes. Three type import specifiers changed to remove barrel cycles; core/CLI build, typecheck and full suites passed (288 / 267 tests), as did CLI smoke. User confirmed pnpm accepted the workspace cycle setting.
-- Step 6A final lint and doc-budget checks passed (12 files); packed-core/clean-install CI remains UNVERIFIED.
-- Step 6B: core-first tarball publishing, registry gates, CI range verification and grouped dependency updates added; YAML/JSON parsing, lint, doc budgets and 14 temporary verifier tests passed. Real packing, canary range rewriting, GitHub execution and OIDC publishing remain UNVERIFIED locally.
+- Core extraction and first coordinated stable releases are complete. See the [8 October 2026 audit baseline](../roadmap.md#audit-baseline) for source/artifact identity, checks, and coverage limitations.
+- Detailed tasks and their statuses live only in the [remediation backlog](../roadmap.md#repository-remediation), recorded 9 October 2026. Approval covers documentation only; no fixes or releases have been authorized.
+- Start with [R00](../roadmap.md#r00-establish-which-status-items-block-implementation); follow the [execution order](../roadmap.md#execution-order) after its gate disposition.
+- Published editor defects: [preview identification R01](../roadmap.md#r01-use-core-semantics-when-opening-a-view-preview), [MCP configuration R02](../roadmap.md#r02-serialize-mcp-configuration-separately-for-vs-code-and-cursor), and [CLI discovery R03](../roadmap.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version).
+- Dependency work: [ownership R04](../roadmap.md#r04-correct-cli-runtime-dependency-ownership) and [advisory investigation R05](../roadmap.md#r05-determine-the-smallest-justified-advisory-remediation); replacement implementations are not yet scoped.
+- Documentation work: [guidance R06](../roadmap.md#r06-align-existing-repository-guidance-with-the-released-architecture), [generated API R07](../roadmap.md#r07-regenerate-the-cli-api-reference), and [published guide link R08](../roadmap.md#r08-correct-the-packaged-extension-contribution-link).
+- Optional version support is [deferred R09](../roadmap.md#r09-add-package-derived-cli-version-reporting); it does not block extension discovery repair. Other suggestions are in the [deferred register](../roadmap.md#deferred-and-rejected-suggestions).
+- Track source completion separately from [published-consumer verification R10](../roadmap.md#r10-verify-an-authorized-release-delivers-selected-fixes).
 
-## Known issues
+## Remaining namespace issues
 
-- External graph format: `.stem/cache/stem-graph.json` (ExternalStemGraph) is a different artifact from sync's `graph.json` (internal GraphSnapshot); not a filename bug. Gap: only `publishGraph()` produces the external format and it does not save it locally, so local-only namespace use has no producer. Decide via ADR before building a shared namespace loader.
-- vscode-stem's loader and tests are typechecked/linted; its legacy CommonJS entry remains outside typechecking and is ignored by eslint.
-- Local wrapper folder `stemdev-hub/` is outside git and holds nothing; the repo root is the former `cli/`.
-- `stem --version` is not supported by the CLI; gates use `stem --help` instead. Add `--version` as a small separate task.
-- External snapshot types exported from @stemdev/core are provisional until the namespace/snapshot ADR.
-- Snapshot envelope fetchedAt is not validated as a date (kept for parity); revisit with the namespace ADR.
-- MCP setup ignores stem.cliPath (bug); retained during extension core adoption.
-- Namespace snapshot loading policy is duplicated between CLI and extension until the namespace ADR.
-- Dependency audit: remove gray-matter from the CLI (rename/render) via core frontmatter functions, which drops the old js-yaml/argparse/sprintf-js chain; replace fast-glob (braces advisory) using the parity tests as the safety net.
-- `pnpm install` emits 24 deprecation warnings related to `@yuku-parser/binding-win32-x64` which is pulled in by `tsdown` (a devDependency of core). This is a known issue to revisit later and does not block development.
+- External graph format `.stem/cache/stem-graph.json` (ExternalStemGraph) differs from sync's `graph.json` (internal GraphSnapshot); this is not a filename bug. Only `publishGraph()` produces the external format and it does not save it locally, so local-only namespace use has no producer. Decide via ADR before building a shared namespace loader.
+- External snapshot types exported from core remain provisional until the namespace/snapshot ADR.
+- Snapshot envelope `fetchedAt` is not validated as a date; [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) preserves this behavior. Revisit with the namespace ADR.
+- CLI/extension namespace loading policy remains duplicated pending that decision; see [deferred D07](../roadmap.md#deferred-and-rejected-suggestions).
 
-## Before first core release
+## Remaining validation and release constraints
 
-- A package's first version must be published by hand before its trusted publisher can be configured. Owner reports `@stemdev/core` reserved with a `0.0.0` placeholder and its trusted publisher configured for `stemdev-hub/cli`, workflow `release-please.yml`; renaming `release-please.yml` breaks publishing for all packages.
-- Release gate: the first core release and the accompanying CLI and vscode-stem releases must come from one release PR; confirm all three are included before merging. Core publishes before CLI ([ADR-0001](decisions/0001-extract-core-package.md)).
-- Re-run `npm audit --omit=dev` on the packed install before each release.
+- Real extension-host behavior remains unverified; previously passing Windows file-link/junction/broken-link parity does not verify cyclic links or native POSIX directory symlinks. See [audit limits](../roadmap.md#audit-baseline) and task-specific acceptance checks.
+- Prior status reported 24 deprecation warnings for `@yuku-parser/binding-win32-x64` through core's tsdown development dependency; not reverified by backlog creation and not a demonstrated development blocker.
+- Preserve the configured `release-please.yml` workflow identity and review trusted-publisher settings before any future repository/workflow rename. Release execution is separately authorized through R10; core-first ordering remains governed by [ADR-0001](decisions/0001-extract-core-package.md).
+- Re-run `npm audit --omit=dev` on the packed consumer install before each release.
