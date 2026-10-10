@@ -66,7 +66,6 @@ interface StemExtensionModule {
       commandText: string | null;
       cwd: string | null;
     }): string;
-    getFrontmatterId(content: string): string | null;
     isElectronBackedNodePath(nodePath: string, runtimeVersions: { electron?: string }): boolean;
     openPreviewToSide(
       provider: {
@@ -478,13 +477,60 @@ describe('VS Code Stem extension helpers', () => {
     await rm(testRoot, { recursive: true, force: true });
   });
 
-  it('extracts frontmatter ids from Markdown documents', () => {
-    expect(stem.getFrontmatterId('---\nid: api-view\n---\n# API\n')).toBe('api-view');
-    expect(stem.getFrontmatterId('---\nid: "api_view-1"\n---\n')).toBe('api_view-1');
-    expect(stem.getFrontmatterId("---\nid: 'api.view with spaces'\n---\n")).toBe('api.view with spaces');
-    expect(stem.getFrontmatterId('---\nid: api-view # primary API view\n---\n')).toBe('api-view');
-    expect(stem.getFrontmatterId('# No frontmatter\n')).toBeNull();
-    expect(stem.getFrontmatterId('---\ntitle: API\n---\n')).toBeNull();
+  it.each([
+    ['ordinary id', '---\nid: api-view\n---\n# API\n', 'api-view'],
+    ['quoted key and value', '---\n"id": "my-view"\n---\n', 'my-view'],
+    ['quoted value', '---\nid: "api_view-1"\n---\n', 'api_view-1'],
+    ['single-quoted value', "---\nid: 'api.view with spaces'\n---\n", 'api.view with spaces'],
+    ['inline comment', '---\nid: api-view # primary API view\n---\n', 'api-view'],
+    ['YAML opener', '---yaml\nid: yaml-view\n---\n', 'yaml-view'],
+    ['Unicode escape', '---\nid: "api\\u002dview"\n---\n', 'api-view'],
+    ['body syntax error', '---\nid: api-view\n---\n@stem[unknown:auth]', 'api-view']
+  ])('opens the core-selected view from the active buffer: %s', async (_label, content, expectedId) => {
+    const activeFilePath = path.join(testRoot, 'views/api.md');
+    await mkdir(path.join(testRoot, '.stem'), { recursive: true });
+    await mkdir(path.dirname(activeFilePath), { recursive: true });
+    await writeFile(activeFilePath, '---\nid: disk-view\n---\nDisk content.');
+    const vscodeApi = createOpenPreviewFakeVscodeApi({ activeFilePath, activeContent: content });
+    const provider = { track: vi.fn<(target: { query: string; toString(): string }) => void>(), untrack: vi.fn(() => null), hasProject: () => false };
+    const watchers = { watchProject: vi.fn(), unwatchProject: vi.fn() };
+    const execute = vi.spyOn(vscodeApi.commands, 'executeCommand');
+
+    await stem.openPreviewToSide(provider, watchers, vscodeApi);
+
+    const target = provider.track.mock.calls[0]?.[0];
+    expect(target).toBeDefined();
+    expect(stem.parsePreviewUri(target!)).toEqual({
+      projectRoot: testRoot, viewId: expectedId,
+      source: vscodeApi.window.activeTextEditor!.document.uri.toString()
+    });
+    expect(execute).toHaveBeenCalledExactlyOnceWith('markdown.showPreviewToSide', target);
+    expect(watchers.watchProject).toHaveBeenCalledExactlyOnceWith(testRoot);
+    expect(vscodeApi.window.informationMessages).toEqual([]);
+  });
+
+  it.each([
+    ['malformed YAML after a valid id', '---\nid: api-view\ngroup: [broken\n---\n', 'Frontmatter could not be parsed.'],
+    ['malformed id', '---\nid: "unterminated\n---\n', 'Frontmatter could not be parsed.'],
+    ['absent frontmatter', '# No frontmatter\n', 'Missing required frontmatter field: id.'],
+    ['missing id', '---\ntitle: API\n---\n', 'Missing required frontmatter field: id.'],
+    ['non-string id', '---\nid: 42\n---\n', 'Missing required frontmatter field: id.'],
+    ['empty id', '---\nid: " "\n---\n', 'Missing required frontmatter field: id.']
+  ])('reports invalid view metadata without opening or tracking: %s', async (_label, content, message) => {
+    const vscodeApi = createOpenPreviewFakeVscodeApi({
+      activeFilePath: path.join(testRoot, 'views/api.md'), activeContent: content
+    });
+    const provider = { track: vi.fn(), untrack: vi.fn(() => null), hasProject: () => false };
+    const watchers = { watchProject: vi.fn(), unwatchProject: vi.fn() };
+
+    await stem.openPreviewToSide(provider, watchers, vscodeApi);
+
+    expect(vscodeApi.window.informationMessages).toEqual([
+      `Stem preview could not open this view: ${message} Check the YAML frontmatter and its top-level id.`
+    ]);
+    expect(provider.track).not.toHaveBeenCalled();
+    expect(watchers.watchProject).not.toHaveBeenCalled();
+    expect(vscodeApi.commands.executedCommands).toEqual([]);
   });
 
   it('finds the nearest Stem project root', async () => {
@@ -1148,6 +1194,7 @@ function createFakeWatcherEnvironment(): {
 function createOpenPreviewFakeVscodeApi(options: {
   isTrusted?: boolean;
   activeFilePath?: string;
+  activeContent?: string;
   commandError?: Error;
 }): OpenPreviewFakeVscodeApi & {
   commands: OpenPreviewFakeVscodeApi['commands'] & { executedCommands: string[] };
@@ -1177,7 +1224,7 @@ function createOpenPreviewFakeVscodeApi(options: {
           toString: () => `file:///${activeFilePath.replaceAll('\\', '/')}`
         },
         languageId: 'markdown',
-        getText: () => '---\nid: api-view\n---\n# API\n'
+        getText: () => options.activeContent ?? '---\nid: api-view\n---\n# API\n'
       }
     };
   }

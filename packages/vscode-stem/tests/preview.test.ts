@@ -28,6 +28,27 @@ describe('built extension preview', () => {
     expect(raw.workspace.fs.readFile.mock.calls.map(([target]) => target.fsPath)).not.toContain(path.join(root, 'views/api.md'));
   });
 
+  it.each([
+    ['quoted id', '---\n"id": "my-view"\n---\n', 'my-view'],
+    ['YAML opener', '---yaml\nid: yaml-view\n---\n', 'yaml-view'],
+    ['Unicode escape', '---\nid: "api\\u002dview"\n---\n', 'api-view']
+  ])('renders the decoded view id from unsaved YAML: %s', async (_label, frontmatter, viewId) => {
+    const { api, documents } = mockApi();
+    documents.push(openDocument(path.join(root, 'views/api.md'), () => `${frontmatter}# Unsaved\n\n@stem[block:auth]`));
+
+    expect(await stem.renderPreview(previewUri(root, viewId), api)).toBe('# Unsaved\n\nDisk.\n');
+  });
+
+  it('displays a core frontmatter error when an open view becomes invalid', async () => {
+    const { api, documents } = mockApi();
+    documents.push(openDocument(path.join(root, 'views/api.md'), () => '---\nid: api\ngroup: [broken\n---\n@stem[block:auth]'));
+
+    const result = await stem.renderPreview(previewUri(root), api);
+    expect(result).toContain('# Stem Preview Error');
+    expect(result).toContain('INVALID_FRONTMATTER');
+    expect(result).toContain('Frontmatter could not be parsed.');
+  });
+
   it('prefers open config and schemas and preserves duplicate-name overwrite', async () => {
     await writeProjectFile(root, '.stem/config.json', '{}');
     await writeProjectFile(root, 'custom/schemas/a.yaml', 'invalid');

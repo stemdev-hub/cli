@@ -7,7 +7,7 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - `resolveBlockSelection()` returns array for tag refs; substitution site expects string; no merge rule for duplicate tags under warning.
 - `GraphEdge.to` typed as local node id; namespace refs target nodes never in local `nodes` map.
 - "tags" used in three senses (frontmatter labels, `@stem[tag:name]` fragments, `StemSection.tags`). Proposed: rename frontmatter field to `labels`.
-- These are historical claims, not newly verified defects. [R00](../roadmap.md#r00-establish-which-status-items-block-implementation) owns their disposition; the owner's extension-remediation gate waiver is recorded in [R02](../roadmap.md#r02-serialize-mcp-configuration-separately-for-vs-code-and-cursor).
+- These are historical claims, not newly verified defects. [R00](../roadmap.md#r00-establish-which-status-items-block-implementation) owns their disposition; the owner's deferral to the Pure Block Model migration and extension-remediation gate waiver are recorded in [R01](../roadmap.md#r01-use-core-semantics-when-opening-a-view-preview).
 
 ## Open policy
 
@@ -17,9 +17,9 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 ## Post-publication remediation
 
 - Core extraction and first coordinated stable releases are complete. See the [8 October 2026 audit baseline](../roadmap.md#audit-baseline) for source/artifact identity, checks, and coverage limitations.
-- Detailed tasks and their statuses live only in the [remediation backlog](../roadmap.md#repository-remediation). [R02 implementation and automated checks passed; real-host acceptance remains open](../roadmap.md#r02-serialize-mcp-configuration-separately-for-vs-code-and-cursor). Release execution remains separately authorized through R10.
+- Detailed tasks and their statuses live only in the [remediation backlog](../roadmap.md#repository-remediation). [R01 and R02 implemented](../roadmap.md#execution-order). Release execution remains separately authorized through R10.
 - Follow the [execution order](../roadmap.md#execution-order) subject to explicit owner dispositions recorded in the selected task; R00 remains open for its remaining decisions.
-- Published editor defects: [preview identification R01](../roadmap.md#r01-use-core-semantics-when-opening-a-view-preview), [MCP configuration R02](../roadmap.md#r02-serialize-mcp-configuration-separately-for-vs-code-and-cursor), and [CLI discovery R03](../roadmap.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version).
+- Editor remediation: [R01](../roadmap.md#r01-use-core-semantics-when-opening-a-view-preview) and [R02](../roadmap.md#r02-serialize-mcp-configuration-separately-for-vs-code-and-cursor) are done; [CLI discovery R03](../roadmap.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version) tracks separate work. Published-consumer verification remains under R10.
 - Dependency work: [ownership R04](../roadmap.md#r04-correct-cli-runtime-dependency-ownership) and [advisory investigation R05](../roadmap.md#r05-determine-the-smallest-justified-advisory-remediation); replacement implementations are not yet scoped.
 - Documentation work: [guidance R06](../roadmap.md#r06-align-existing-repository-guidance-with-the-released-architecture), [generated API R07](../roadmap.md#r07-regenerate-the-cli-api-reference), and [published guide link R08](../roadmap.md#r08-correct-the-packaged-extension-contribution-link).
 - Optional version support is [deferred R09](../roadmap.md#r09-add-package-derived-cli-version-reporting); it does not block extension discovery repair. Other suggestions are in the [deferred register](../roadmap.md#deferred-and-rejected-suggestions).

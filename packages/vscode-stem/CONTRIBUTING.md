@@ -4,44 +4,37 @@
 
 Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`. The extension:
 
-1. Reads the active file's frontmatter `id`.
+1. Parses the active buffer with the public `@stemdev/core` `parseViewFile` API and uses its decoded `id`, reporting invalid frontmatter before opening.
 2. Finds the nearest Stem project root by walking up to `.stem`.
-3. Runs `stem preview view <view-id>` from that project.
+3. Loads project files through VS Code filesystem APIs, preferring open buffers, then analyzes and renders the selected view with bundled core.
 4. Serves the rendered Markdown body through a readonly `stem-preview:` virtual document.
 5. Opens that virtual document in VS Code's native Markdown preview.
 
 The extension does not duplicate Stem parser or renderer logic, and it does not use a custom webview.
-The CLI remains the source of truth; the preview only hides leading YAML frontmatter so the rendered document reads cleanly in VS Code.
-Because preview runs the Stem CLI from the project root, it is available only in trusted VS Code workspaces.
+Core supplies parsing, validation, and rendering semantics. Preview is available only in trusted VS Code workspaces and does not spawn a CLI process.
 
-Open previews refresh automatically when project files change:
+Open previews refresh automatically when project files or unsaved buffers change, including:
 
 - `views/**/*.md`
 - `blocks/**/*.md`
 - `blocks/schemas/**/*.{yaml,yml}`
 - `.stem/config.json`
 
-## CLI Resolution
-
-The extension resolves the CLI in this order:
-
-1. `stem.cliPath` setting
-2. `<workspace>/dist/cli/index.js`
-3. bundled repo `dist/cli/index.js`
-4. `stem` on `PATH`
-
-Run `pnpm build` in the monorepo root before testing the extension against the workspace CLI.
+Preview requires no CLI installation or path configuration. For the separate AI server, see [MCP setup and its current CLI discovery limitations](README.md#ai-context-server-mcp).
 
 ## Manual Test Checklist
 
 1. Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`.
-2. Edit and save a referenced block; the preview should refresh.
-3. Edit and save the source view; the preview should refresh.
+2. Edit a referenced block without saving; the preview should refresh. Save and confirm it still renders.
+3. Edit the source view without saving; the preview should reflect the active buffer.
 4. Introduce a broken block reference; the preview should show a Markdown-formatted Stem error.
-5. Set `stem.cliPath` to a specific CLI executable and confirm it takes precedence.
+5. Open views with `"id": "my-view"`, a `---yaml` opener, and `id: "api\u002dview"`; confirm the intended view renders. Try malformed YAML after a valid `id`, a missing ID, and a numeric ID; expect a useful notification and no new preview.
 6. Disable `stem.preview.autoRefresh`, edit a referenced file, and confirm manual refresh still works.
 7. Re-enable `stem.preview.autoRefresh` without reloading VS Code and confirm changes refresh again.
 8. In a multi-root workspace, open previews from two Stem projects and confirm edits refresh only the matching project's previews.
+9. In an untrusted workspace, confirm preview is refused. Close or refresh a preview during loading and confirm cancellation does not display an obsolete error.
+
+Run the shared [code validation profile](../../roadmap.md#shared-task-requirements-and-validation), then `pnpm --filter vscode-stem exec vitest run tests/preview.test.ts tests/vscode-stem.test.ts`. Inspect a temporary VSIX for its bundled entry and exclusions. These automated checks use mocked VS Code APIs; record the exact editor version and results of this checklist separately for real-host acceptance.
 
 ## MCP Validation
 

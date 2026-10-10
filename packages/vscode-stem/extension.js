@@ -484,11 +484,18 @@ async function openPreviewToSide(provider, watchers, vscodeApi = vscode) {
     return;
   }
 
-  const viewId = getFrontmatterId(document.getText());
-  if (viewId === null) {
-    vscodeApi.window.showInformationMessage('Stem preview requires a top-level frontmatter id, for example: id: api-view');
+  const { parseViewFile } = await import('@stemdev/core');
+  const view = parseViewFile({
+    content: document.getText(),
+    filePath: document.uri.fsPath,
+    relativePath: path.basename(document.uri.fsPath)
+  });
+  const frontmatterError = view.errors.find((issue) => issue.code === 'INVALID_FRONTMATTER');
+  if (frontmatterError !== undefined) {
+    vscodeApi.window.showInformationMessage(`Stem preview could not open this view: ${frontmatterError.message} Check the YAML frontmatter and its top-level id.`);
     return;
   }
+  const viewId = view.id;
 
   const projectRoot = await findProjectRootAsync(vscodeApi.workspace.fs ? vscodeApi : vscode, document.uri);
   if (projectRoot === null) {
@@ -680,18 +687,6 @@ function findProjectRoot(startDir) {
   }
 }
 
-function getFrontmatterId(content) {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content);
-  if (match === null) {
-    return null;
-  }
-
-  const frontmatter = match[1] ?? '';
-  const idMatch = /^id:\s*(?:"([^"\r\n]+)"|'([^'\r\n]+)'|([^#\r\n]+?))\s*(?:#.*)?$/m.exec(frontmatter);
-  const id = (idMatch?.[1] ?? idMatch?.[2] ?? idMatch?.[3] ?? '').trim();
-  return id.length > 0 ? id : null;
-}
-
 function toPreviewDisplayMarkdown(markdown) {
   return stripLeadingFrontmatter(markdown);
 }
@@ -863,7 +858,6 @@ module.exports = {
     getRefreshDebounceMs,
     getPreviewExecOptions,
     getPreviewFailureNextAction,
-    getFrontmatterId,
     isElectronBackedNodePath,
     openPreviewToSide,
     parsePreviewUri,
