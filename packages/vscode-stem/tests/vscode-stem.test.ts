@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { execFile, execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -121,6 +122,7 @@ interface McpTestApi {
     isTrusted: boolean;
     workspaceFolders: Array<{ uri: { fsPath: string } }>;
     textDocuments: Array<{ uri: { fsPath: string }; isDirty: boolean }>;
+    getConfiguration(section: string, resource: { fsPath: string }): { get(key: string, fallback: string): unknown };
   };
   window: {
     showInformationMessage(this: void, message: string): void;
@@ -132,7 +134,11 @@ interface McpTestApi {
 
 interface McpTestOptions {
   fs: typeof fs;
-  execFile(this: void, command: string, args: string[], options: { timeout: number }, callback: (error: Error | null) => void): void;
+  platform?: NodeJS.Platform;
+  env?: NodeJS.ProcessEnv;
+  nodePath?: string;
+  runtimeVersions?: { electron?: string };
+  execFile(this: void, command: string, args: string[], options: { timeout: number; cwd: string; windowsHide: boolean; env: NodeJS.ProcessEnv }, callback: (error: Error | null) => void): void;
 }
 
 interface McpTestConfig {
@@ -198,6 +204,9 @@ describe('Stem MCP setup command', () => {
   let api: McpTestApi;
   let options: McpTestOptions;
   let run: () => Promise<void>;
+  let configuredCliPath: unknown;
+  let bin: string;
+  let pathCli: string;
   const configPath = (host: string) => path.join(root, host, 'mcp.json');
   const put = async (host: string, text: string) => {
     await mkdir(path.join(root, host), { recursive: true });
@@ -212,9 +221,20 @@ describe('Stem MCP setup command', () => {
   };
 
   beforeEach(async () => {
-    root = await mkdtemp(path.join(tmpdir(), 'stem-r02-'));
+    root = await mkdtemp(path.join(tmpdir(), 'stem-mcp-'));
+    configuredCliPath = '';
+    bin = path.join(root, 'CLI tools with spaces');
+    await mkdir(bin);
+    pathCli = path.join(bin, process.platform === 'win32' ? 'stem.exe' : 'stem');
+    await writeFile(pathCli, 'mock executable');
     api = {
-      workspace: { isTrusted: true, workspaceFolders: [{ uri: { fsPath: root } }], textDocuments: [] },
+      workspace: { isTrusted: true, workspaceFolders: [{ uri: { fsPath: root } }], textDocuments: [],
+        getConfiguration: (section, resource) => {
+          expect(section).toBe('stem');
+          expect(resource).toBe(api.workspace.workspaceFolders[0]?.uri);
+          return { get: (key, fallback) => key === 'cliPath' ? configuredCliPath : fallback };
+        }
+      },
       window: { showInformationMessage: vi.fn(), showWarningMessage: vi.fn(), showErrorMessage: vi.fn() },
       commands: { registerCommand: vi.fn<McpTestApi['commands']['registerCommand']>((id, callback) => {
         expect(id).toBe('stem.enableMcp');
@@ -222,7 +242,8 @@ describe('Stem MCP setup command', () => {
         return { dispose() {} };
       }) }
     };
-    options = { fs, execFile: vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(new Error('not installed'))) };
+    options = { fs, env: { PATH: bin }, nodePath: process.execPath, runtimeVersions: {},
+      execFile: vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(new Error('not installed'))) };
     stem.registerMcpCommand({}, api, options);
   });
 
@@ -230,16 +251,139 @@ describe('Stem MCP setup command', () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it.each([false, true])('writes separate host envelopes with the unchanged discovery branch (probe succeeds: %s)', async success => {
+  it.each([false, true])('uses a supported PATH probe and falls back only on failure (probe succeeds: %s)', async success => {
     options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(success ? null : new Error('not installed')));
     await run();
-    expect(options.execFile).toHaveBeenCalledWith('stem', ['--version'], { timeout: 3000 }, expect.any(Function));
-    const entry = { ...legacyEntry(success ? 'stem' : 'npx'), type: 'stdio' };
+    expect(options.execFile).toHaveBeenCalledWith(pathCli, ['--help'], { cwd: root, timeout: 3000, windowsHide: true, env: options.env }, expect.any(Function));
+    const entry = success ? { command: pathCli, args: ['mcp'], cwd: root, type: 'stdio' } : { ...legacyEntry(), type: 'stdio' };
     expect(await config('.cursor')).toEqual({ mcpServers: { stem: entry } });
     expect(await config('.vscode')).toEqual({ servers: { stem: entry } });
     expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining(root));
     expect(api.window.showErrorMessage).not.toHaveBeenCalled();
     await assertNoStagedFiles();
+  });
+
+  it.each(['absolute', 'relative', 'PATH name'])('honors an explicit %s executable before other PATH candidates', async kind => {
+    const explicitCli = path.join(bin, process.platform === 'win32' ? 'configured-stem.exe' : 'configured-stem');
+    await writeFile(explicitCli, 'mock configured executable');
+    configuredCliPath = kind === 'absolute' ? `  ${explicitCli}  ` : kind === 'relative' ? path.relative(root, explicitCli) : path.basename(explicitCli);
+    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(null));
+    await run();
+    expect(options.execFile).toHaveBeenCalledExactlyOnceWith(explicitCli, ['--help'], expect.any(Object), expect.any(Function));
+    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: explicitCli, args: ['mcp'], cwd: root });
+    expect((await config('.cursor')).mcpServers?.['stem']?.['command']).toBe(explicitCli);
+  });
+
+  it.each(['missing', 'directory', 'probe failure', 'timeout', 'quoted', 'arguments', 'non-string'])('reports invalid explicit CLI settings without fallback or writes: %s', async kind => {
+    configuredCliPath = kind === 'missing' ? path.join(bin, 'missing.exe') : kind === 'directory' ? bin
+      : kind === 'quoted' ? `"${pathCli}"` : kind === 'arguments' ? `${pathCli} --help` : kind === 'non-string' ? null : pathCli;
+    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(new Error(kind === 'timeout' ? 'ETIMEDOUT' : 'EACCES')));
+    await put('.vscode', '{}');
+    await run();
+    expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
+    expect(fs.existsSync(configPath('.cursor'))).toBe(false);
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringMatching(/stem\.cliPath.*(clear|Correct)/u));
+    expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+    expect(vi.mocked(options.execFile).mock.calls.every(([command]) => command === pathCli)).toBe(true);
+  });
+
+  it.each(['.js', '.mjs', '.cjs'])('runs configured %s entrypoints with Node, preserving spaces', async ext => {
+    const entry = path.join(bin, `stem entry${ext}`);
+    await writeFile(entry, '// fixture');
+    configuredCliPath = entry;
+    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(null));
+    await run();
+    expect(options.execFile).toHaveBeenCalledWith(process.execPath, [entry, '--help'], expect.any(Object), expect.any(Function));
+    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: process.execPath, args: [entry, 'mcp'], cwd: root });
+  });
+
+  it('sets Electron Node mode for both the JS probe and serialized MCP invocation when Node is unavailable', async () => {
+    const entry = path.join(bin, 'stem.cjs');
+    await writeFile(entry, '// fixture');
+    configuredCliPath = entry;
+    options.nodePath = path.join(bin, 'Code.exe');
+    options.runtimeVersions = { electron: 'test' };
+    options.env = { PATH: '' };
+    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, probe, callback) => {
+      expect(probe.env['ELECTRON_RUN_AS_NODE']).toBe('1');
+      callback(null);
+    });
+    await run();
+    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: options.nodePath, args: [entry, 'mcp'], env: { ELECTRON_RUN_AS_NODE: '1' }, cwd: root });
+  });
+
+  it('tries the next PATH candidate after a broken installation', async () => {
+    const other = path.join(root, 'other');
+    await mkdir(other);
+    const otherCli = path.join(other, path.basename(pathCli));
+    await writeFile(otherCli, 'mock executable');
+    options.env = { PATH: [bin, other].join(path.delimiter) };
+    options.execFile = vi.fn<McpTestOptions['execFile']>((command, _args, _probe, callback) => callback(command === otherCli ? null : new Error('broken')));
+    await run();
+    expect((await config('.vscode')).servers?.['stem']?.['command']).toBe(otherCli);
+  });
+
+  it('falls back without a probe when PATH is empty', async () => {
+    options.env = { PATH: '' };
+    await run();
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect((await config('.vscode')).servers?.['stem']).toEqual({ ...legacyEntry(), type: 'stdio' });
+  });
+
+  it('probes and launches a real JavaScript entrypoint without changing its arguments', async () => {
+    const entry = path.join(bin, 'real entry.cjs');
+    const log = path.join(root, 'js-arguments.json');
+    await writeFile(entry, `require('node:fs').writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));`);
+    configuredCliPath = entry;
+    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
+    await run();
+    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+    expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['--help']);
+    const generated = (await config('.vscode')).servers?.['stem'];
+    execFileSync(generated?.['command'] as string, generated?.['args'] as string[], { cwd: root, windowsHide: true });
+    expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['mcp']);
+  });
+
+  it.runIf(process.platform === 'win32')('probes a real .exe in a spaced path directly without a shell', async () => {
+    // A standalone Node executable exercises CreateProcess; mock fixtures cover
+    // the Stem protocol arguments independently of this native launch check.
+    fs.copyFileSync(process.execPath, pathCli);
+    configuredCliPath = pathCli;
+    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
+    await run();
+    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: pathCli, args: ['mcp'], cwd: root });
+  });
+
+  it.runIf(process.platform === 'win32').each(['.cmd', '.bat'])('executes actual Windows %s shims and generated MCP arguments with spaces and metacharacters', async ext => {
+    const shim = path.join(bin, `stem & %PATH% !${ext}`);
+    const log = path.join(root, 'arguments.json');
+    const entry = path.join(bin, 'record args.cjs');
+    await writeFile(entry, `require('node:fs').writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));`);
+    await writeFile(shim, `@echo off\r\n"${process.execPath}" "${entry}" %*\r\n`);
+    configuredCliPath = shim;
+    options.env = { ...process.env, PATH: bin };
+    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
+    await run();
+    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+    expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['--help']);
+    const generated = (await config('.vscode')).servers?.['stem'];
+    execFileSync(generated?.['command'] as string, generated?.['args'] as string[], {
+      cwd: root, env: { ...process.env, ...generated?.['env'] as NodeJS.ProcessEnv }, windowsHide: true
+    });
+    expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['mcp']);
+    expect((await config('.cursor')).mcpServers?.['stem']).toEqual(generated);
+  });
+
+  it.runIf(process.platform === 'win32')('discovers a real .cmd shim from quoted Path entries and PATHEXT', async () => {
+    await writeFile(path.join(bin, 'stem.cmd'), '@echo off\r\nexit /b 0\r\n');
+    options.env = { ...process.env, PATH: undefined, Path: `"${bin}"`, PATHEXT: '.CMD;.EXE' };
+    // Avoid inheriting a differently cased PATH from the test process.
+    for (const key of Object.keys(options.env)) if (key.toLowerCase() === 'path' && key !== 'Path') delete options.env[key];
+    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
+    await run();
+    expect((await config('.vscode')).servers?.['stem']?.['env']).toEqual({ STEM_MCP_CLI: `"${path.join(bin, 'stem.cmd')}"` });
+    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
   });
 
   it.each(['', '  \r\n\t'])('initializes empty configuration %j', async text => {
@@ -351,7 +495,7 @@ describe('Stem MCP setup command', () => {
     await run();
     expect(api.window.showErrorMessage).toHaveBeenCalledWith('No workspace folder open.');
     expect(options.execFile).not.toHaveBeenCalled();
-    expect(await readdir(root)).toEqual([]);
+    expect(await readdir(root)).toEqual([path.basename(bin)]);
   });
 
   it('targets only the first workspace folder', async () => {

@@ -63,7 +63,7 @@
         "stem.cliPath": {
           "type": "string",
           "default": "",
-          "description": "Legacy CLI path setting. Preview uses bundled core; MCP setup currently uses stem on PATH or npx and ignores this setting."
+          "description": "Stem CLI executable or JavaScript entrypoint for MCP setup, without arguments or surrounding quotes. Relative paths use the first workspace folder; command names resolve on PATH. Invalid settings stop setup. Leave empty to discover stem on PATH, then fall back to npx. Preview uses bundled core."
         },
         "stem.preview.autoRefresh": {
           "type": "boolean",

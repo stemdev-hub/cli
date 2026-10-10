@@ -40,10 +40,10 @@ You can also manually refresh all open previews by running **`Stem: Refresh Prev
 
 In a trusted workspace, run **`Stem: Enable AI Context Server (MCP)`**. Setup configures both editors in the **first workspace folder**, including in a multi-root workspace:
 
-| Editor | Workspace file | Stem entry |
-| --- | --- | --- |
-| VS Code | `.vscode/mcp.json` | `servers.stem` |
-| Cursor | `.cursor/mcp.json` | `mcpServers.stem` |
+| Editor  | Workspace file     | Stem entry        |
+| ------- | ------------------ | ----------------- |
+| VS Code | `.vscode/mcp.json` | `servers.stem`    |
+| Cursor  | `.cursor/mcp.json` | `mcpServers.stem` |
 
 New entries use `type: "stdio"`. Setup preserves unrelated configuration and existing valid Stem customizations; it only adds a missing stdio type when appropriate. Repeated setup leaves an already configured file unchanged. User/profile/global configuration is not edited. Review the workspace files and use your editor's MCP controls to start the server; saving configuration does not prove successful startup.
 
@@ -60,17 +60,25 @@ Automatic setup accepts ordinary JSON. Missing or empty files are initialized. I
 
 For configurations written by older Stem versions, explicitly rerun the command. It moves an exact, uncustomized legacy `.vscode/mcp.json` `mcpServers.stem` entry to `servers.stem`. Customized, conflicting, or different-folder entries require a manual merge; unrelated legacy entries are retained. Back up the file before a manual repair. Opening a project or updating the extension never performs this repair automatically.
 
-Setup still probes `stem --version` and otherwise selects the npx command above; it currently ignores `stem.cliPath`. CLI discovery is tracked separately in [R03](https://github.com/stemdev-hub/cli/blob/main/roadmap.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version). A startup failure after configuration is saved may therefore require that separate repair. See the [MCP validation checklist](CONTRIBUTING.md#mcp-validation) for configuration recognition versus startup checks.
+MCP setup chooses the CLI in this order:
+
+1. A nonempty `stem.cliPath`: an absolute path, a path relative to the first workspace folder, or a command name on PATH. Supply only the executable or JavaScript entrypoint, without arguments or surrounding quotes. Spaces in paths are supported. A missing file, directory, or failed `--help` probe stops setup with an actionable error; it never silently switches to npx.
+2. With an empty setting, a working `stem` on the extension host's PATH, checked using `--help` (supported by CLI 0.3.0). Broken candidates are skipped.
+3. Only if neither is available, `npx -y @stemdev/cli@latest mcp` as shown above. This fallback can download the CLI and requires npm/network access when it is not cached.
+
+Native executables run directly. JavaScript entries run through Node; if the editor runtime is needed, the saved entry includes `ELECTRON_RUN_AS_NODE`. Windows `.cmd`/`.bat` shims run through `cmd.exe` with an environment variable preserving the quoted path. Keep the generated `command`, `args`, and `env` together when editing these entries. Preview continues to use bundled core.
+
+Discovery supplies new entries; existing valid Stem entries remain preserved. After changing `stem.cliPath`, review an existing entry manually or remove only that entry and rerun setup to regenerate it. See the [MCP validation checklist](CONTRIBUTING.md#mcp-validation) for configuration recognition versus startup checks.
 
 ## ⚙️ Extension Settings
 
 This extension contributes the following settings:
 
-| Setting                          | Default | Description                                                                                                                                 |
-| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stem.cliPath`                   | `""`    | Legacy setting; preview uses bundled core. See [MCP setup](#ai-context-server-mcp) for current CLI discovery limitations. |
-| `stem.preview.autoRefresh`       | `true`  | Automatically refresh open previews when project files or unsaved editor contents change.                                 |
-| `stem.preview.refreshDebounceMs` | `250`   | Debounce delay in milliseconds before refreshing open previews after a file change.                                                         |
+| Setting                          | Default | Description                                                                                                 |
+| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| `stem.cliPath`                   | `""`    | CLI executable or JavaScript entrypoint for [MCP setup](#ai-context-server-mcp). Preview uses bundled core. |
+| `stem.preview.autoRefresh`       | `true`  | Automatically refresh open previews when project files or unsaved editor contents change.                   |
+| `stem.preview.refreshDebounceMs` | `250`   | Debounce delay in milliseconds before refreshing open previews after a file change.                         |
 
 ## 🛠 Troubleshooting
 

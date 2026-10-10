@@ -20,7 +20,7 @@ Open previews refresh automatically when project files or unsaved buffers change
 - `blocks/schemas/**/*.{yaml,yml}`
 - `.stem/config.json`
 
-Preview requires no CLI installation or path configuration. For the separate AI server, see [MCP setup and its current CLI discovery limitations](README.md#ai-context-server-mcp).
+Preview requires no CLI installation or path configuration. For the separate AI server, see [MCP setup and CLI discovery](README.md#ai-context-server-mcp).
 
 ## Manual Test Checklist
 
@@ -38,7 +38,7 @@ Run the shared [code validation profile](../../roadmap.md#shared-task-requiremen
 
 ## MCP Validation
 
-The [MCP usage guide](README.md#ai-context-server-mcp) defines destinations, preservation, JSONC refusal, and explicit legacy repair. Use disposable workspace fixtures and separate temporary editor user-data/extensions directories; never test against your real configuration. The CLI discovery behavior remains the responsibility of [R03](https://github.com/stemdev-hub/cli/blob/main/roadmap.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version).
+The [MCP usage guide](README.md#ai-context-server-mcp) defines destinations, CLI selection, preservation, JSONC refusal, and explicit legacy repair. Use disposable workspace fixtures and separate temporary editor user-data/extensions directories; never test against your real configuration.
 
 From the repository root, with the pinned pnpm version and existing dependencies:
 
@@ -47,13 +47,13 @@ pnpm --filter vscode-stem build
 pnpm --filter vscode-stem exec vitest run tests/vscode-stem.test.ts
 ```
 
-The command tests use real temporary files and mocked executable probing. They cover both host formats, empty files, customizations, idempotence, unsafe input, explicit legacy repair/conflicts, trust, first-folder targeting, dirty buffers, concurrent writes, staging/replacement failures and partial results. They do not prove editor integration. Run the shared [code validation profile](../../roadmap.md#shared-task-requirements-and-validation), including CLI tests, and package a temporary VSIX before completing R02.
+The command tests use real temporary files and mocked executable probing, with actual Windows shim invocations on Windows. They cover explicit/relative/PATH CLI settings, JavaScript entries, failed probes, fallback, spaces and shell metacharacters, alongside both host formats, preservation, legacy repair, trust, dirty buffers, concurrent writes and write failures. Run the shared [code validation profile](../../roadmap.md#shared-task-requirements-and-validation), including CLI tests, and package a temporary VSIX. These checks do not prove editor integration.
 
 For real-host validation, resolve absolute temporary paths for the candidate VSIX, fixture workspace, and each editor's user-data/extensions directories. Install with `code --user-data-dir <data> --extensions-dir <extensions> --install-extension <vsix>` and open with the same isolation flags plus `--new-window <fixture>`; repeat using `cursor`. Verify that no home-global MCP source is being used. Record exact editor/CLI versions, source SHA, VSIX SHA-256 and platform.
 
 1. **Configuration recognition:** invoke Stem setup, inspect both workspace files, and confirm each editor lists Stem from its own expected file. Repeat with existing unrelated servers, legacy output, JSONC, and a two-folder workspace. Configuration recognition is separate from server startup.
 2. **Startup:** start Stem through the editor's MCP controls, inspect MCP output, confirm initialization/tool discovery, and use a harmless read-only tool against the fixture. Record trust or organizational-policy restrictions without bypassing them.
-3. **R03 isolation:** if the generated executable fails, record that failure first. In the disposable fixture only, substitute an available Node executable and the built CLI entry to check host transport/cwd independently. Success after substitution does not validate unmodified setup end to end.
+3. **CLI discovery:** use fresh fixture entries for an explicit executable, JavaScript entry, Windows `.cmd` shim, and PATH installation, including paths with spaces. Confirm setup probes `--help`, then start the generated entry without substitutions. An invalid explicit setting must notify without writing configuration; empty settings with no working PATH CLI must produce the npx fallback. Changing the setting preserves existing valid entries as described in the usage guide. Record real process results separately from mocks and editor recognition.
 4. **Coverage:** check VS Code 1.101.x and an available newer build, plus Cursor with its exact version recorded. Verify remote file placement and process cwd when a remote host is available; otherwise record that limitation.
 5. **Artifact:** inspect the VSIX's `extension/package.json`, `dist/extension.js`, assets and README, confirming source/test/fixture exclusions. Source checks and candidate inspection do not verify a published artifact; distribution remains under R10.
 

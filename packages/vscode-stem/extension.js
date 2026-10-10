@@ -107,17 +107,8 @@ async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) 
   const fs = options.fs ?? require('node:fs');
   const written = [];
   try {
-    let mcpCommand = 'npx';
-    let mcpArgs = ['-y', '@stemdev/cli@latest', 'mcp'];
-    try {
-      await new Promise((res, rej) => (options.execFile ?? execFile)('stem', ['--version'], { timeout: 3000 }, (err) => err ? rej(err) : res()));
-      mcpCommand = 'stem';
-      mcpArgs = ['mcp'];
-    } catch {
-      // CLI discovery is unchanged; its repair belongs to R03.
-    }
-
-    const stemEntry = { type: 'stdio', command: mcpCommand, args: mcpArgs, cwd: root };
+    const invocation = await discoverMcpCli(root, vscodeApi, { ...options, fs });
+    const stemEntry = { type: 'stdio', ...invocation, cwd: root };
     const plans = [
       prepareMcpConfig(path.join(root, '.cursor', 'mcp.json'), 'mcpServers', stemEntry, fs),
       prepareMcpConfig(path.join(root, '.vscode', 'mcp.json'), 'servers', stemEntry, fs)
@@ -135,6 +126,60 @@ async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) 
       : ' No configuration files were changed.';
     vscodeApi.window.showErrorMessage(`Stem MCP setup failed: ${toErrorMessage(error)}${result}`);
   }
+}
+
+async function discoverMcpCli(root, vscodeApi, options) {
+  const { fs, platform = process.platform, env = process.env } = options;
+  const paths = platform === 'win32' ? path.win32 : path.posix;
+  const configured = vscodeApi.workspace.getConfiguration('stem', vscodeApi.workspace.workspaceFolders[0].uri).get('cliPath', '');
+  if (typeof configured !== 'string') throw new Error('stem.cliPath must be a path string. Correct or clear the setting and rerun MCP setup.');
+  const cliPath = configured.trim();
+  const candidates = [];
+  if (cliPath) candidates.push(paths.resolve(root, cliPath));
+  const name = cliPath || 'stem';
+  if (!paths.isAbsolute(name) && !/[\\/]/u.test(name)) {
+    const pathKey = Object.keys(env).find(key => platform === 'win32' ? key.toLowerCase() === 'path' : key === 'PATH');
+    const extensions = platform === 'win32' && !paths.extname(name)
+      ? (env.PATHEXT ?? env.PathExt ?? '.COM;.EXE;.BAT;.CMD').split(';').filter(ext => /^\.(com|exe|bat|cmd)$/iu.test(ext)).map(ext => ext.toLowerCase()) : [''];
+    for (const entry of (env[pathKey] ?? '').split(platform === 'win32' ? ';' : ':')) {
+      const directory = entry.replace(/^"(.*)"$/u, '$1');
+      if (!directory) continue;
+      for (const ext of extensions) candidates.push(paths.resolve(root, directory, name + ext));
+    }
+  }
+  let failure = 'file not found';
+  for (const candidate of new Set(candidates)) {
+    try {
+      if (!fs.statSync(candidate).isFile()) throw new Error('expected a file, not a directory');
+      const invocation = mcpCliInvocation(candidate, { ...options, platform, env });
+      await new Promise((resolve, reject) => (options.execFile ?? execFile)(invocation.command,
+        [...invocation.args, '--help'], { cwd: root, timeout: 3000, windowsHide: true, env: { ...env, ...invocation.env } },
+        error => error ? reject(error) : resolve()));
+      return { ...invocation, args: [...invocation.args, 'mcp'] };
+    } catch (error) {
+      failure = toErrorMessage(error);
+    }
+  }
+  if (cliPath) throw new Error(`stem.cliPath ${JSON.stringify(cliPath)} could not run --help: ${failure}. Set it to an existing Stem executable or JavaScript entrypoint (without arguments or surrounding quotes), or clear it to use PATH/npx, then rerun MCP setup.`);
+  return { command: 'npx', args: ['-y', '@stemdev/cli@latest', 'mcp'] };
+}
+
+function mcpCliInvocation(cliPath, { fs, platform, env, nodePath = process.execPath, runtimeVersions = process.versions }) {
+  if (isJavaScriptEntrypoint(cliPath)) {
+    const command = resolveNodeRuntime({ nodePath, env, pathExists: file => fs.existsSync(file), runtimeVersions });
+    return { command, args: [cliPath], ...(isElectronBackedNodePath(command, runtimeVersions) ? { env: { ELECTRON_RUN_AS_NODE: '1' } } : {}) };
+  }
+  if (platform === 'win32' && /\.(cmd|bat)$/iu.test(cliPath)) {
+    if (/["\r\n\0]/u.test(cliPath)) throw new Error('unsupported character in Windows shim path');
+    // Expand once inside cmd, after argument serialization. This preserves spaces,
+    // metacharacters and literal %/! in paths without shell:true or CALL expansion.
+    return {
+      command: path.win32.join(env.SystemRoot ?? env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'cmd.exe'),
+      args: ['/d', '/v:off', '/c', '%STEM_MCP_CLI%'],
+      env: { STEM_MCP_CLI: `"${cliPath}"` }
+    };
+  }
+  return { command: cliPath, args: [] };
 }
 
 function readMcpConfig(filePath, fs) {
