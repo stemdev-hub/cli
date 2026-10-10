@@ -80,7 +80,7 @@ Priority expresses impact, not scheduling: P0 requires concrete severe immediate
 | 2                  | R01: core semantics for preview identification | P1       | Owner waived extension-remediation gate                                  | Small  | Done                                          |
 | 3                  | R02: host-specific MCP configuration           | P1       | Owner waived extension-remediation gate                                  | Medium | Done                                          |
 | 4                  | R03: configured/installed CLI discovery        | P2       | Owner waived extension-remediation gate; R02 source in place             | Medium | Done; candidate verified, publication pending |
-| 5                  | R08: packaged contribution link                | P2       | No technical prerequisite; preferably after guide corrections in R01/R03 | Small  | Proposed                                      |
+| 5                  | R08: packaged contribution link                | P2       | No technical prerequisite; preferably after guide corrections in R01/R03 | Small  | Done                                          |
 | Release checkpoint | R10: selected fixes reach consumers            | P1       | Only the selected source tasks and explicit release approval             | Medium | Proposed                                      |
 | 6                  | R04: CLI dependency ownership                  | P2       | R00 disposition                                                          | Small  | Proposed                                      |
 | 7                  | R05: advisory investigation                    | P2       | None; can run earlier without waiting for R04                            | Medium | Proposed                                      |
@@ -236,13 +236,13 @@ Task statuses are proposed, ready, in progress, blocked, done, or deferred. Read
 
 ### R08: Correct the packaged extension contribution link
 
-- **Classification / priority / state:** Confirmed documentation defect; P2 because extension contributors are sent to the wrong guide. Proposed; distribution pending. Small; low risk.
+- **Classification / priority / state:** Confirmed documentation defect; P2 because extension contributors were sent to the wrong guide. Done; candidate verified, publication pending under R10. Small; low risk.
 - **Evidence:** A07c; published VSIX README contribution link resolves to root `CONTRIBUTING.md`. Planning inspection of installed VSCE `out/package.js`, `guessBaseUrls()` around line 703, found it uses repository URL/branch and not `repository.directory`; D02 alone is not this fix.
-- **Scope / change:** `packages/vscode-stem/README.md` contribution link. Use an explicit repository URL targeting the existing extension guide.
+- **Scope / change:** `packages/vscode-stem/README.md`, this R08 record and execution-order row, and the editor remediation line in `docs/status.md`. The contribution link uses the explicit URL `https://github.com/stemdev-hub/cli/blob/main/packages/vscode-stem/CONTRIBUTING.md`.
 - **Exclusions:** No repository metadata change, release-workflow edit, or broader guide rewrite.
 - **Dependencies / position:** No technical prerequisite; schedule after R01/R03 guide corrections where practical.
-- **Acceptance:** Both repository Markdown and packaged `extension/readme.md` lead to the existing extension-specific guide; verify the target path.
-- **Validation:** Documentation profile and VSIX packaging/README inspection; no runtime tests needed solely for this link change.
+- **Acceptance:** The repository README and packaged `extension/readme.md` lead to the existing extension-specific guide. Passed.
+- **Validation (10 October 2026):** Windows x64, Node 26.7.0, pnpm 11.2.2; baseline `8e00f94304d67a7561b586dc0c864c4400010c0c`. `node scripts/check-doc-budgets.mjs` passed (12 files); `git diff --check` passed. `pnpm --filter vscode-stem exec vsce package --no-dependencies --out "C:\Users\Asus\AppData\Local\Temp\stem-r08-candidate-20261010.vsix"` passed (VSCE 0.4.0; 7 files). Inspected `extension/readme.md` in that VSIX and confirmed the Contributing Guide URL targets `packages/vscode-stem/CONTRIBUTING.md`. Candidate SHA-256: `EDD1F19ED96BEC952E751B69C15CA804FE02717C53088CBA71148D040151073B`.
 - **Compatibility / rollback:** New VSIX needed for published readers; no runtime change. Revert the link if needed; already released VSIX needs a corrective version.
 
 ### R09: Add package-derived CLI version reporting

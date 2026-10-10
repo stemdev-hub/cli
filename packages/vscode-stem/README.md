@@ -89,4 +89,4 @@ This extension contributes the following settings:
 
 ## 🤝 Contributing
 
-Are you a developer looking to contribute to the extension? Please see our [Contributing Guide](CONTRIBUTING.md) for architecture details and validation checklists.
+Are you a developer looking to contribute to the extension? Please see our [Contributing Guide](https://github.com/stemdev-hub/cli/blob/main/packages/vscode-stem/CONTRIBUTING.md) for architecture details and validation checklists.
