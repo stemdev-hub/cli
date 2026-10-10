@@ -1,16 +1,19 @@
 import { createRequire } from 'node:module';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import * as fs from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const extensionModule = require('../dist/extension.js') as StemExtensionModule;
 const stem = extensionModule._private;
 
 interface StemExtensionModule {
+  activate(context: unknown): void;
   _private: {
+    registerMcpCommand(context: unknown, vscodeApi: McpTestApi, options: McpTestOptions): { dispose(): void };
     DEFAULT_REFRESH_DEBOUNCE_MS: number;
     PREVIEW_SCHEME: string;
     PREVIEW_EXEC_MAX_BUFFER_BYTES: number;
@@ -114,6 +117,31 @@ interface StemExtensionModule {
   };
 }
 
+interface McpTestApi {
+  workspace: {
+    isTrusted: boolean;
+    workspaceFolders: Array<{ uri: { fsPath: string } }>;
+    textDocuments: Array<{ uri: { fsPath: string }; isDirty: boolean }>;
+  };
+  window: {
+    showInformationMessage(this: void, message: string): void;
+    showWarningMessage(this: void, message: string): void;
+    showErrorMessage(this: void, message: string): void;
+  };
+  commands: { registerCommand(this: void, id: string, callback: () => Promise<void>): { dispose(): void } };
+}
+
+interface McpTestOptions {
+  fs: typeof fs;
+  execFile(this: void, command: string, args: string[], options: { timeout: number }, callback: (error: Error | null) => void): void;
+}
+
+interface McpTestConfig {
+  servers?: Record<string, Record<string, unknown>>;
+  mcpServers?: Record<string, Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
 interface FakeTimer {
   callback: () => void;
   ms: number;
@@ -165,6 +193,279 @@ interface OpenPreviewFakeVscodeApi {
     isTrusted?: boolean;
   };
 }
+
+describe('Stem MCP setup command', () => {
+  let root: string;
+  let api: McpTestApi;
+  let options: McpTestOptions;
+  let run: () => Promise<void>;
+  const configPath = (host: string) => path.join(root, host, 'mcp.json');
+  const put = async (host: string, text: string) => {
+    await mkdir(path.join(root, host), { recursive: true });
+    await writeFile(configPath(host), text);
+  };
+  const config = async (host: string) => JSON.parse(await readFile(configPath(host), 'utf8')) as McpTestConfig;
+  const legacyEntry = (command = 'npx') => ({ command, args: command === 'stem' ? ['mcp'] : ['-y', '@stemdev/cli@latest', 'mcp'], cwd: root });
+  const assertNoStagedFiles = async () => {
+    for (const host of ['.cursor', '.vscode']) {
+      if (fs.existsSync(path.join(root, host))) expect((await readdir(path.join(root, host))).filter(name => name.endsWith('.tmp'))).toEqual([]);
+    }
+  };
+
+  beforeEach(async () => {
+    root = await mkdtemp(path.join(tmpdir(), 'stem-r02-'));
+    api = {
+      workspace: { isTrusted: true, workspaceFolders: [{ uri: { fsPath: root } }], textDocuments: [] },
+      window: { showInformationMessage: vi.fn(), showWarningMessage: vi.fn(), showErrorMessage: vi.fn() },
+      commands: { registerCommand: vi.fn<McpTestApi['commands']['registerCommand']>((id, callback) => {
+        expect(id).toBe('stem.enableMcp');
+        run = callback;
+        return { dispose() {} };
+      }) }
+    };
+    options = { fs, execFile: vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(new Error('not installed'))) };
+    stem.registerMcpCommand({}, api, options);
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it.each([false, true])('writes separate host envelopes with the unchanged discovery branch (probe succeeds: %s)', async success => {
+    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(success ? null : new Error('not installed')));
+    await run();
+    expect(options.execFile).toHaveBeenCalledWith('stem', ['--version'], { timeout: 3000 }, expect.any(Function));
+    const entry = { ...legacyEntry(success ? 'stem' : 'npx'), type: 'stdio' };
+    expect(await config('.cursor')).toEqual({ mcpServers: { stem: entry } });
+    expect(await config('.vscode')).toEqual({ servers: { stem: entry } });
+    expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining(root));
+    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+    await assertNoStagedFiles();
+  });
+
+  it.each(['', '  \r\n\t'])('initializes empty configuration %j', async text => {
+    await put('.cursor', text);
+    await put('.vscode', text);
+    await run();
+    expect((await config('.vscode')).servers?.['stem']?.['type']).toBe('stdio');
+    expect((await config('.cursor')).mcpServers?.['stem']?.['type']).toBe('stdio');
+  });
+
+  it('preserves unrelated keys and customized servers, including remote Stem entries', async () => {
+    const cursor = { inputs: [{ id: 'secret' }], custom: { enabled: true }, mcpServers: { other: { command: 'other' }, stem: { type: 'stdio', command: 'custom', args: ['--custom'], cwd: '/custom', env: { TOKEN: '${env:TOKEN}' } } } };
+    const vscode = { inputs: [{ id: 'secret' }], servers: { other: { command: 'other' }, stem: { type: 'http', url: 'https://example.test/mcp', headers: { Authorization: '${input:secret}' } } } };
+    await put('.cursor', JSON.stringify(cursor));
+    await put('.vscode', JSON.stringify(vscode));
+    options.fs = { ...fs, openSync: vi.fn(fs.openSync) };
+    await run();
+    expect(await config('.cursor')).toEqual(cursor);
+    expect(await config('.vscode')).toEqual(vscode);
+    expect(options.fs.openSync).not.toHaveBeenCalled();
+    expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('already configured'));
+  });
+
+  it('adds only the missing stdio type to a customized entry', async () => {
+    const custom = { command: 'node', args: ['custom.js'], env: { CUSTOM: 'yes' }, cwd: '/custom', dev: { watch: '*.js' } };
+    await put('.vscode', JSON.stringify({ servers: { stem: custom }, inputs: [] }));
+    await run();
+    expect((await config('.vscode')).servers?.['stem']).toEqual({ ...custom, type: 'stdio' });
+  });
+
+  it('does not rewrite configurations on repeated setup', async () => {
+    await run();
+    const original = await readFile(configPath('.vscode'));
+    options.fs = { ...fs, openSync: vi.fn(fs.openSync), renameSync: vi.fn(fs.renameSync), linkSync: vi.fn(fs.linkSync) };
+    await run();
+    expect(await readFile(configPath('.vscode'))).toEqual(original);
+    expect(options.fs.openSync).not.toHaveBeenCalled();
+    expect(options.fs.renameSync).not.toHaveBeenCalled();
+    expect(options.fs.linkSync).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '{ broken', '{ // valid JSONC\n "servers": {},\n}', 'null', '[]', '42', '"text"',
+    '{"servers":null}', '{"servers":[]}', '{"servers":"bad"}', '{"mcpServers":null}',
+    '{"servers":{"stem":null}}', '{"servers":{"stem":[]}}', '{"servers":{"stem":{}}}',
+    '{"servers":{"stem":{"command":"node","args":"bad"}}}',
+    '{"servers":{"stem":{"command":"node","type":"http"}}}',
+    '{"servers":{"stem":{"command":"node","env":[]}}}'
+  ])('leaves both files unchanged for unsupported VS Code content %j', async text => {
+    await put('.vscode', text);
+    const cursor = '{"mcpServers":{"other":{"command":"other"}}}';
+    await put('.cursor', cursor);
+    await run();
+    expect(await readFile(configPath('.vscode'), 'utf8')).toBe(text);
+    expect(await readFile(configPath('.cursor'), 'utf8')).toBe(cursor);
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining(configPath('.vscode')));
+    expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+    await assertNoStagedFiles();
+  });
+
+  it.each(['{"mcpServers":[]}', '{"mcpServers":{"stem":null}}', '{ // comment\n}'])('refuses unsafe Cursor content %j without creating the other file', async text => {
+    await put('.cursor', text);
+    await run();
+    expect(await readFile(configPath('.cursor'), 'utf8')).toBe(text);
+    expect(fs.existsSync(configPath('.vscode'))).toBe(false);
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining(configPath('.cursor')));
+  });
+
+  it.each(['npx', 'stem'])('repairs only recognizable legacy %s output during invoked setup', async command => {
+    const entry = legacyEntry(command);
+    await put('.vscode', JSON.stringify({ inputs: [], mcpServers: { stem: entry } }));
+    await run();
+    expect(await config('.vscode')).toEqual({ inputs: [], servers: { stem: { ...entry, type: 'stdio' } } });
+  });
+
+  it('preserves unrelated legacy entries and reports their manual review', async () => {
+    await put('.vscode', JSON.stringify({ mcpServers: { stem: legacyEntry(), other: { command: 'other' } }, servers: { otherCurrent: { command: 'current' } } }));
+    await run();
+    expect((await config('.vscode')).mcpServers).toEqual({ other: { command: 'other' } });
+    expect((await config('.vscode')).servers?.['otherCurrent']).toEqual({ command: 'current' });
+    expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('merge those manually'));
+  });
+
+  it('removes a recognizable duplicate when the current entry matches it', async () => {
+    const entry = legacyEntry();
+    await put('.vscode', JSON.stringify({ servers: { stem: { ...entry, type: 'stdio' } }, mcpServers: { stem: entry } }));
+    await run();
+    expect((await config('.vscode')).mcpServers).toBeUndefined();
+    expect((await config('.vscode')).servers?.['stem']).toEqual({ ...entry, type: 'stdio' });
+  });
+
+  it.each(['customized', 'conflicting', 'other-root'])('does not repair ambiguous legacy entries: %s', async kind => {
+    const old = kind === 'customized' ? { ...legacyEntry(), env: { CUSTOM: 'yes' } }
+      : kind === 'other-root' ? { ...legacyEntry(), cwd: '/other' } : legacyEntry();
+    const text = JSON.stringify({ mcpServers: { stem: old }, ...(kind === 'conflicting' ? { servers: { stem: { command: 'custom' } } } : {}) });
+    await put('.vscode', text);
+    await run();
+    expect(await readFile(configPath('.vscode'), 'utf8')).toBe(text);
+    expect(fs.existsSync(configPath('.cursor'))).toBe(false);
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('merge it into servers.stem manually'));
+  });
+
+  it('refuses setup in untrusted or absent workspaces before probing or writing', async () => {
+    api.workspace.isTrusted = false;
+    await run();
+    expect(api.window.showWarningMessage).toHaveBeenCalled();
+    api.workspace.isTrusted = true;
+    api.workspace.workspaceFolders = [];
+    await run();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith('No workspace folder open.');
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect(await readdir(root)).toEqual([]);
+  });
+
+  it('targets only the first workspace folder', async () => {
+    const second = path.join(root, 'second');
+    await mkdir(second);
+    api.workspace.workspaceFolders.push({ uri: { fsPath: second } });
+    await run();
+    expect(await readdir(second)).toEqual([]);
+    expect((await config('.vscode')).servers?.['stem']?.['cwd']).toBe(root);
+  });
+
+  it('preserves both files when a configuration has unsaved editor changes', async () => {
+    await put('.vscode', '{}');
+    api.workspace.textDocuments.push({ uri: { fsPath: configPath('.vscode') }, isDirty: true });
+    await run();
+    expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
+    expect(fs.existsSync(configPath('.cursor'))).toBe(false);
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('unsaved configuration'));
+  });
+
+  it('reports read failures without overwriting the file', async () => {
+    await put('.vscode', '{}');
+    options.fs = { ...fs, readFileSync: () => { throw new Error('EACCES fixture read denied'); } };
+    await run();
+    expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
+    expect(fs.existsSync(configPath('.cursor'))).toBe(false);
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('EACCES'));
+  });
+
+  it.each(['open', 'write', 'rename'])('keeps originals intact on %s failure and cleans staged files', async operation => {
+    await put('.cursor', '{}');
+    await put('.vscode', '{}');
+    const fail = () => { throw new Error(`fixture ${operation} denied`); };
+    options.fs = { ...fs,
+      ...(operation === 'open' ? { openSync: fail } : {}),
+      ...(operation === 'write' ? { writeFileSync: fail } : {}),
+      ...(operation === 'rename' ? { renameSync: fail } : {})
+    };
+    await run();
+    for (const host of ['.cursor', '.vscode']) expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('No configuration files were changed'));
+    await assertNoStagedFiles();
+  });
+
+  it('reports the exact partial outcome if the second replacement fails', async () => {
+    await put('.cursor', '{}');
+    await put('.vscode', '{}');
+    options.fs = { ...fs, renameSync: (oldPath, newPath) => {
+      if (newPath === configPath('.vscode')) throw new Error('fixture second rename denied');
+      fs.renameSync(oldPath, newPath);
+    } };
+    await run();
+    expect((await config('.cursor')).mcpServers?.['stem']?.['type']).toBe('stdio');
+    expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining(`Updated only: ${configPath('.cursor')}`));
+    expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+    await assertNoStagedFiles();
+  });
+
+  it('detects concurrent edits before committing either file', async () => {
+    await put('.vscode', '{}');
+    options.fs = { ...fs, fsyncSync: fd => {
+      fs.fsyncSync(fd);
+      fs.writeFileSync(configPath('.vscode'), '{"concurrent":true}');
+    } };
+    await run();
+    expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{"concurrent":true}');
+    expect(fs.existsSync(configPath('.cursor'))).toBe(false);
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('changed during setup'));
+    await assertNoStagedFiles();
+  });
+
+  it('does not clobber a concurrent creator of a previously missing file', async () => {
+    options.fs = { ...fs, linkSync: (existingPath, newPath) => {
+      fs.writeFileSync(newPath, '{"concurrent":true}');
+      fs.linkSync(existingPath, newPath);
+    } };
+    await run();
+    expect(await readFile(configPath('.cursor'), 'utf8')).toBe('{"concurrent":true}');
+    expect(fs.existsSync(configPath('.vscode'))).toBe(false);
+    expect(api.window.showErrorMessage).toHaveBeenCalled();
+    await assertNoStagedFiles();
+  });
+
+  it('does not migrate existing configuration during activation', async () => {
+    await mkdir(path.join(root, '.stem'));
+    await writeFile(path.join(root, '.stem', 'config.json'), '{}');
+    const text = JSON.stringify({ mcpServers: { stem: legacyEntry() } });
+    await put('.vscode', text);
+    const mock = require('vscode') as Record<string, unknown>;
+    const original = { ...mock };
+    const disposable = () => ({ dispose() {} });
+    const subscriptions: Array<{ dispose(): void }> = [];
+    Object.assign(mock, {
+      EventEmitter: class { event = () => {}; dispose() {} },
+      window: api.window,
+      commands: { registerCommand: vi.fn(disposable) },
+      workspace: { ...api.workspace, registerTextDocumentContentProvider: disposable, onDidChangeTextDocument: disposable, onDidCloseTextDocument: disposable, onDidChangeConfiguration: disposable }
+    });
+    try {
+      extensionModule.activate({ subscriptions, globalState: { get: () => false }, workspaceState: { get: () => false } });
+      await Promise.resolve();
+      expect(await readFile(configPath('.vscode'), 'utf8')).toBe(text);
+      expect(fs.existsSync(configPath('.cursor'))).toBe(false);
+      expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+      expect((mock['commands'] as { registerCommand: unknown }).registerCommand).toHaveBeenCalledWith('stem.enableMcp', expect.any(Function));
+    } finally {
+      subscriptions.forEach(subscription => subscription.dispose());
+      for (const key of Object.keys(mock)) delete mock[key];
+      Object.assign(mock, original);
+    }
+  });
+});
 
 describe('VS Code Stem extension helpers', () => {
   let testRoot: string;

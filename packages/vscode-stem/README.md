@@ -38,6 +38,32 @@ npm install -g @stemdev/cli
 
 You can also manually refresh all open previews by running **`Stem: Refresh Preview`**.
 
+## AI Context Server (MCP)
+
+In a trusted workspace, run **`Stem: Enable AI Context Server (MCP)`**. Setup configures both editors in the **first workspace folder**, including in a multi-root workspace:
+
+| Editor | Workspace file | Stem entry |
+| --- | --- | --- |
+| VS Code | `.vscode/mcp.json` | `servers.stem` |
+| Cursor | `.cursor/mcp.json` | `mcpServers.stem` |
+
+New entries use `type: "stdio"`. Setup preserves unrelated configuration and existing valid Stem customizations; it only adds a missing stdio type when appropriate. Repeated setup leaves an already configured file unchanged. User/profile/global configuration is not edited. Review the workspace files and use your editor's MCP controls to start the server; saving configuration does not prove successful startup.
+
+Automatic setup accepts ordinary JSON. Missing or empty files are initialized. Invalid JSON, wrong-shaped values, and JSONC with comments/trailing commas are left untouched, with an error naming the file. VS Code supports JSONC, but this setup command does not edit it. Save or close dirty configuration buffers before retrying. For manual setup, merge this entry under the editor-specific key above, preserving other entries:
+
+```json
+"stem": {
+  "type": "stdio",
+  "command": "npx",
+  "args": ["-y", "@stemdev/cli@latest", "mcp"],
+  "cwd": "/absolute/path/to/your/workspace-folder"
+}
+```
+
+For configurations written by older Stem versions, explicitly rerun the command. It moves an exact, uncustomized legacy `.vscode/mcp.json` `mcpServers.stem` entry to `servers.stem`. Customized, conflicting, or different-folder entries require a manual merge; unrelated legacy entries are retained. Back up the file before a manual repair. Opening a project or updating the extension never performs this repair automatically.
+
+Setup still probes `stem --version` and otherwise selects the npx command above; it currently ignores `stem.cliPath`. CLI discovery is tracked separately in [R03](https://github.com/stemdev-hub/cli/blob/main/roadmap.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version). A startup failure after configuration is saved may therefore require that separate repair. See the [MCP validation checklist](CONTRIBUTING.md#mcp-validation) for configuration recognition versus startup checks.
+
 ## ⚙️ Extension Settings
 
 This extension contributes the following settings:

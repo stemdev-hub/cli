@@ -34,9 +34,7 @@ function activate(context) {
     vscode.commands.registerCommand('stem.refreshPreview', () => {
       provider.refresh();
     }),
-    vscode.commands.registerCommand('stem.enableMcp', async () => {
-      await enableMcpForWorkspace(context);
-    }),
+    registerMcpCommand(context),
     vscode.workspace.onDidChangeTextDocument(({ document }) => watchers.documentChanged(document)),
     vscode.workspace.onDidCloseTextDocument((document) => {
       if (document.uri.scheme !== PREVIEW_SCHEME) {
@@ -92,48 +90,170 @@ function activate(context) {
   })().catch(e => console.error('Stem: MCP notification error', e));
 }
 
-async function enableMcpForWorkspace(context) {
-  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
-    vscode.window.showErrorMessage('No workspace folder open.');
+function registerMcpCommand(context, vscodeApi = vscode, options = {}) {
+  return vscodeApi.commands.registerCommand('stem.enableMcp', () => enableMcpForWorkspace(context, vscodeApi, options));
+}
+
+async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) {
+  if (vscodeApi.workspace.isTrusted === false) {
+    vscodeApi.window.showWarningMessage('Stem MCP setup requires a trusted workspace.');
     return;
   }
-  const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
-
-  let mcpCommand = 'npx';
-  let mcpArgs = ['-y', '@stemdev/cli@latest', 'mcp'];
-  try {
-    await new Promise((res, rej) => execFile('stem', ['--version'], { timeout: 3000 }, (err) => err ? rej(err) : res()));
-    mcpCommand = 'stem';
-    mcpArgs = ['mcp'];
-  } catch {
-    // fallback to npx
+  if (!vscodeApi.workspace.workspaceFolders?.length) {
+    vscodeApi.window.showErrorMessage('No workspace folder open.');
+    return;
   }
-
-  const stemEntry = {
-    command: mcpCommand,
-    args: mcpArgs,
-    cwd: root
-  };
-
-  const fs = require('node:fs');
-
-  const updateMcpConfig = (dirPath) => {
-    const filePath = path.join(dirPath, 'mcp.json');
-    if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
-    
-    let existing = {};
-    if (fs.existsSync(filePath)) {
-      try { existing = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { /* corrupt, overwrite */ }
+  const root = vscodeApi.workspace.workspaceFolders[0].uri.fsPath;
+  const fs = options.fs ?? require('node:fs');
+  const written = [];
+  try {
+    let mcpCommand = 'npx';
+    let mcpArgs = ['-y', '@stemdev/cli@latest', 'mcp'];
+    try {
+      await new Promise((res, rej) => (options.execFile ?? execFile)('stem', ['--version'], { timeout: 3000 }, (err) => err ? rej(err) : res()));
+      mcpCommand = 'stem';
+      mcpArgs = ['mcp'];
+    } catch {
+      // CLI discovery is unchanged; its repair belongs to R03.
     }
-    
-    existing.mcpServers = { ...(existing.mcpServers || {}), stem: stemEntry };
-    fs.writeFileSync(filePath, JSON.stringify(existing, null, 2), 'utf8');
+
+    const stemEntry = { type: 'stdio', command: mcpCommand, args: mcpArgs, cwd: root };
+    const plans = [
+      prepareMcpConfig(path.join(root, '.cursor', 'mcp.json'), 'mcpServers', stemEntry, fs),
+      prepareMcpConfig(path.join(root, '.vscode', 'mcp.json'), 'servers', stemEntry, fs)
+    ];
+    writeMcpConfigs(plans, vscodeApi, fs, written);
+    const legacy = plans.filter(plan => plan.hasLegacyServers).map(plan => plan.filePath);
+    const result = written.length ? 'saved' : 'already configured';
+    vscodeApi.window.showInformationMessage(
+      `Stem MCP configuration ${result} for the first workspace folder: ${root}. Review it in your editor before starting the server.` +
+      (legacy.length ? ` Unrelated mcpServers entries remain in ${legacy.join(', ')}; merge those manually.` : '')
+    );
+  } catch (error) {
+    const result = written.length
+      ? ` Updated only: ${written.join(', ')}. Other configuration files were not changed; review before retrying.`
+      : ' No configuration files were changed.';
+    vscodeApi.window.showErrorMessage(`Stem MCP setup failed: ${toErrorMessage(error)}${result}`);
+  }
+}
+
+function readMcpConfig(filePath, fs) {
+  try {
+    const stat = fs.lstatSync(filePath);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${filePath}: expected a regular configuration file; edit it manually.`);
+    return { bytes: fs.readFileSync(filePath), mode: stat.mode & 0o777 };
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw new Error(`${filePath}: ${toErrorMessage(error)}`);
+  }
+}
+
+function isMcpObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isGeneratedMcpEntry(entry, root, typed = false) {
+  if (!isMcpObject(entry) || entry.cwd !== root) return false;
+  const keys = typed ? ['args', 'command', 'cwd', 'type'] : ['args', 'command', 'cwd'];
+  if (Object.keys(entry).sort().join(',') !== keys.join(',') || (typed && entry.type !== 'stdio')) return false;
+  const expected = entry.command === 'stem' ? ['mcp']
+    : entry.command === 'npx' ? ['-y', '@stemdev/cli@latest', 'mcp'] : null;
+  return expected !== null && Array.isArray(entry.args) &&
+    entry.args.length === expected.length && entry.args.every((arg, index) => arg === expected[index]);
+}
+
+function prepareMcpConfig(filePath, serverKey, stemEntry, fs) {
+  const original = readMcpConfig(filePath, fs);
+  const text = original?.bytes.toString('utf8') ?? '';
+  let config = {};
+  if (text.trim()) {
+    try { config = JSON.parse(text); } catch {
+      throw new Error(`${filePath}: automatic setup accepts ordinary JSON only. Invalid JSON and JSONC (comments/trailing commas) are left untouched. Edit ${serverKey}.stem manually; see the extension's MCP setup guide.`);
+    }
+  }
+  if (!isMcpObject(config)) throw new Error(`${filePath}: the configuration must be an object.`);
+  for (const key of serverKey === 'servers' ? ['servers', 'mcpServers'] : ['mcpServers']) {
+    if (Object.hasOwn(config, key) && !isMcpObject(config[key])) throw new Error(`${filePath}: ${key} must be an object.`);
+  }
+  const before = JSON.stringify(config);
+  let entry = config[serverKey]?.stem;
+  if (serverKey === 'servers' && Object.hasOwn(config.mcpServers ?? {}, 'stem')) {
+    const legacy = config.mcpServers.stem;
+    const same = candidate => (isGeneratedMcpEntry(candidate, stemEntry.cwd) || isGeneratedMcpEntry(candidate, stemEntry.cwd, true)) &&
+      candidate.command === legacy.command && JSON.stringify(candidate.args) === JSON.stringify(legacy.args);
+    if (!isGeneratedMcpEntry(legacy, stemEntry.cwd) || (Object.hasOwn(config.servers ?? {}, 'stem') && !same(entry))) {
+      throw new Error(`${filePath}: customized or conflicting mcpServers.stem; merge it into servers.stem manually. No legacy entry was removed.`);
+    }
+    entry = { ...legacy, type: 'stdio' };
+    delete config.mcpServers.stem;
+    if (!Object.keys(config.mcpServers).length) delete config.mcpServers;
+  } else if (Object.hasOwn(config[serverKey] ?? {}, 'stem')) {
+    const remote = isMcpObject(entry) && typeof entry.url === 'string' && entry.url.trim();
+    const validTransport = remote ? entry.type === undefined || ['http', 'sse'].includes(entry.type)
+      : entry?.type === undefined || entry.type === 'stdio';
+    if (!isMcpObject(entry) || !validTransport || (Object.hasOwn(entry, 'url') && !remote) ||
+      (!remote && (typeof entry.command !== 'string' || !entry.command.trim())) ||
+      (entry.args !== undefined && (!Array.isArray(entry.args) || entry.args.some(arg => typeof arg !== 'string'))) ||
+      (entry.cwd !== undefined && typeof entry.cwd !== 'string') || (entry.envFile !== undefined && typeof entry.envFile !== 'string') ||
+      (entry.env !== undefined && (!isMcpObject(entry.env) || Object.values(entry.env).some(value => value !== null && !['string', 'number'].includes(typeof value))))) {
+      throw new Error(`${filePath}: ${serverKey}.stem has an invalid shape; review it manually.`);
+    }
+    if (!remote && entry.type === undefined) entry = { ...entry, type: 'stdio' };
+  } else {
+    entry = { ...stemEntry };
+  }
+  config[serverKey] = { ...config[serverKey], stem: entry };
+  return {
+    filePath, original,
+    output: before === JSON.stringify(config) ? null : JSON.stringify(config, null, 2) + '\n',
+    hasLegacyServers: serverKey === 'servers' && Object.hasOwn(config, 'mcpServers')
   };
+}
 
-  updateMcpConfig(path.join(root, '.cursor'));
-  updateMcpConfig(path.join(root, '.vscode'));
+function checkMcpConfigUnchanged(plan, vscodeApi, fs) {
+  if (vscodeApi.workspace.textDocuments?.some(doc => doc.isDirty && path.resolve(doc.uri.fsPath) === path.resolve(plan.filePath))) {
+    throw new Error(`${plan.filePath}: save or close the unsaved configuration before retrying.`);
+  }
+  const current = readMcpConfig(plan.filePath, fs);
+  if (plan.original === null ? current !== null : current === null || !plan.original.bytes.equals(current.bytes)) {
+    throw new Error(`${plan.filePath}: configuration changed during setup; retry after reviewing it.`);
+  }
+}
 
-  vscode.window.showInformationMessage('Stem MCP server enabled for this workspace.');
+function writeMcpConfigs(plans, vscodeApi, fs, written) {
+  const staged = [];
+  try {
+    for (const plan of plans) checkMcpConfigUnchanged(plan, vscodeApi, fs);
+    for (const plan of plans.filter(plan => plan.output !== null)) {
+      fs.mkdirSync(path.dirname(plan.filePath), { recursive: true });
+      const tempPath = `${plan.filePath}.${require('node:crypto').randomUUID()}.tmp`;
+      const fd = fs.openSync(tempPath, 'wx', plan.original?.mode ?? 0o600);
+      staged.push({ plan, tempPath });
+      try {
+        fs.writeFileSync(fd, plan.output, 'utf8');
+        fs.fsyncSync(fd);
+      } finally {
+        fs.closeSync(fd);
+      }
+    }
+    for (const plan of plans) checkMcpConfigUnchanged(plan, vscodeApi, fs);
+    for (const { plan, tempPath } of staged) {
+      checkMcpConfigUnchanged(plan, vscodeApi, fs);
+      if (plan.original === null) {
+        // Publish missing files without clobbering a concurrent creator.
+        fs.linkSync(tempPath, plan.filePath);
+      } else {
+        fs.renameSync(tempPath, plan.filePath);
+      }
+      written.push(plan.filePath);
+    }
+  } finally {
+    for (const { tempPath } of staged) {
+      try { fs.unlinkSync(tempPath); } catch (error) {
+        if (error.code !== 'ENOENT') console.error(`Stem: could not remove staged configuration ${tempPath}`, error);
+      }
+    }
+  }
 }
 
 function deactivate() {}
@@ -731,6 +851,7 @@ module.exports = {
     PREVIEW_EXEC_MAX_BUFFER_BYTES,
     StemPreviewWatcherManager,
     WATCH_PATTERNS,
+    registerMcpCommand,
     assertVscode,
     createPreviewUri,
     createPreviewUriText,
