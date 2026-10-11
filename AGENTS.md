@@ -1,31 +1,41 @@
 # Stem
 
 Git-native, Markdown-based documentation tool. Core model: **Block** and **Tag** only.
-Monorepo (pnpm): `packages/cli`, `packages/vscode-stem`. `packages/core` is planned (ADR-0001).
-Package-specific commands live in each package's `AGENTS.md`.
+Monorepo (pnpm): `packages/core` (@stemdev/core), `packages/cli` (@stemdev/cli), `packages/vscode-stem` (vscode-stem).
+Package-specific commands and boundaries live in each package's `AGENTS.md`.
 
-## Commands (run from the repo root)
+## Authority Hierarchy (higher wins on conflict)
+
+axioms > governance > rules > accepted ADRs > architecture > status
+Conflict between task and authority: stop and ask. Never resolve silently.
+
+## Read Order
+
+1. `docs/axioms.md` — always. Invariants, ≤10 lines. Never contradict.
+2. `docs/rules.md` — always. One testable line per rule, all binding.
+3. `docs/status.md` — for current work, active backlog, and known limits.
+4. `docs/architecture.md`, `docs/decisions/` — when touching system design or APIs.
+5. Nested `AGENTS.md` — in the package directory you are modifying.
+6. Creating/changing docs, rules, or ADRs: use the `stem-docs` skill.
+
+## Commands (run from repo root)
 
 - install: `pnpm install --frozen-lockfile`
 - build all: `pnpm build`
 - test all: `pnpm test`
-- lint: `pnpm lint`
-- typecheck: `pnpm typecheck`
+- lint all: `pnpm lint`
+- typecheck all: `pnpm typecheck`
+- dependency boundaries: `pnpm depcruise`
+- doc line budgets: `node scripts/check-doc-budgets.mjs`
+- full verification profile:
+  `pnpm build && pnpm typecheck && pnpm lint && pnpm test && pnpm depcruise && pnpm --filter @stemdev/cli smoke:built-cli && node scripts/check-doc-budgets.mjs && git diff --check`
 
-## Read order
+## Hard Constraints
 
-1. `docs/axioms.md` — always. Never contradict.
-2. `docs/rules.md` — always. One line per rule, all binding.
-3. `docs/status.md` — for current work.
-4. `docs/architecture.md`, `docs/decisions/` — when the task touches design.
-5. Nested `AGENTS.md` files on the path to the directory you are working in.
-6. Creating/changing docs, rules, or ADRs: use the `stem-docs` skill.
-
-## Hard constraints
-
-- Do not edit any `AGENTS.md`, `docs/axioms.md`, `docs/governance.md`. Propose changes in your reply instead.
-- Axiom/rule/ADR conflict with the task: stop and ask. Do not resolve silently.
-- Plan first, get approval, then edit. Stay inside the files named in the task.
-- Do not create new docs, top-level files, packages, or primitives.
-- Update `docs/status.md` in the same change as the code.
-- Do not restate content that lives elsewhere; link to it.
+- Human-owned files: do NOT edit `AGENTS.md`, `docs/axioms.md`, `docs/governance.md`. Propose changes in your reply instead.
+- Plan first, obtain approval, then edit. Stay strictly inside files named in the task.
+- Package boundaries: never import another package's `src/`; use public exports.
+- Do not create new docs, top-level files, packages, or primitives without an accepted ADR.
+- Update `docs/status.md` in the same change as code (keep ≤60 lines; prune resolved items).
+- Do not restate content that lives elsewhere; link to it. Single source of truth.
+- Git: never stage, commit, tag, or push automatically unless explicitly instructed.
