@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/stemdev-hub/cli/compare/cli-v0.3.0...cli-v0.3.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **cli:** correct runtime dependency ownership and prune unused packages ([0af64f1](https://github.com/stemdev-hub/cli/commit/0af64f1ab933012134bfdaa376601d307e41980c))
+
 ## [0.3.0](https://github.com/stemdev-hub/cli/compare/cli-v0.2.1...cli-v0.3.0) (2026-10-08)
 
 
