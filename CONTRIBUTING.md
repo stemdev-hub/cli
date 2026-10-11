@@ -1,80 +1,58 @@
 # Contributing to Stem
 
-Stem is organized as a TypeScript Node.js CLI with a reusable core library. Please keep contributions small, typed, and aligned with the module boundaries below.
+Stem is a pnpm monorepo with a portable engine, Node.js CLI/MCP adapters, and a VS Code extension. Keep contributions small, typed, and aligned with the [architecture](docs/architecture.md), [repository instructions](AGENTS.md), and [governance](docs/governance.md).
 
-## Module Structure
+## Workspace structure
 
-- `src/cli/`: command registration and terminal output only.
-- `src/core/fs/`: project discovery, file scanning, reads, and writes.
-- `src/core/config/`: `.stem/config.json` loading, defaults, and config path normalization.
-- `src/core/parser/`: frontmatter parsing, `@stem[]` parsing, and two-pass section/tag resolution.
-- `src/core/graph/`: in-memory graph construction and traversal.
-- `src/core/cache/`: cache index, graph snapshots, and hybrid stat plus SHA invalidation.
-- `src/core/operations/`: orchestration for CLI commands.
-- `src/core/validator/`: schema validation and structural rules.
-- `src/core/types/`: shared type definitions only.
+| Package | Work here for | Guide |
+| --- | --- | --- |
+| `packages/core` | Pure parsing, graph traversal, validation, rendering, and project analysis | [Core README](packages/core/README.md) |
+| `packages/cli` | Node.js project operations in `src/runtime/`, commands in `src/cli/`, and the server in `src/mcp/` | [CLI README](packages/cli/README.md) |
+| `packages/vscode-stem` | Editor documents, live preview, and workspace MCP setup | [Extension contribution guide](packages/vscode-stem/CONTRIBUTING.md) |
 
 ## Development
 
+Use Node.js 22 or later and the pnpm version declared in the root `package.json` (`packageManager`). From the repository root:
+
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
+pnpm build
 pnpm typecheck
 pnpm test
 pnpm lint
-pnpm build
-pnpm smoke:built-cli
+pnpm depcruise
+pnpm --filter @stemdev/cli smoke:built-cli
+node scripts/check-doc-budgets.mjs
+git diff --check
 ```
 
-In some sandboxed environments, `pnpm build` can fail when esbuild scans parent directories and hits filesystem access denial. Rerun the build with broader filesystem access before treating that failure as a code or bundling issue.
+The recursive build follows workspace dependencies. Use `pnpm --filter @stemdev/core build`, `pnpm --filter @stemdev/cli build`, or `pnpm --filter vscode-stem build` for targeted builds; build core before building the CLI in isolation. All three packages have `test` and `typecheck` scripts. Run the checks relevant to your change and the required checks in the applicable package instructions.
 
-## Contribution Rules
+To package an extension candidate after building:
 
-- Keep the CLI as a thin shell over `src/core/operations/`.
-- Do not introduce runtime imports from `src/cli/` into `src/core/`.
-- Use `import type` for type-only imports across modules.
-- Keep validation read-only.
-- Never write the dynamic graph into source files; cache output belongs under `.stem/cache/`.
-- Update `docs/decisions.md` whenever a major architecture or product decision changes.
+```sh
+pnpm --filter vscode-stem exec vsce package --no-dependencies --out <absolute-temporary-vsix-path>
+```
 
-## Commit Messages
+Follow the extension guide for host acceptance checks. Mocked tests and packaging do not prove editor integration. In sandboxed environments, filesystem access denial during a build may require rerunning with approved broader access.
 
-Follow conventional commits:
+## Contribution rules
 
-- `feat:` - new feature or capability.
-- `fix:` - bug fix.
-- `chore:` - tooling, dependencies, or configuration.
-- `docs:` - documentation only.
-- `test:` - tests only.
-- `refactor:` - code changes with no intended behavior change.
+Follow the [binding rules](docs/rules.md) and [ADR-0001](docs/decisions/0001-extract-core-package.md) for package boundaries. Portable logic belongs in core; Node.js I/O and orchestration belong in CLI runtime operations; editor integration belongs in the extension. Use public package entries and `import type` for type-only imports.
 
-Keep messages short and specific. Reference the affected module when useful, for example `feat(parser): add two-pass section resolution`.
+Keep validation read-only and persisted cache output under `.stem/cache/`. Public API changes and architecture decisions follow the existing ADR process in [docs/decisions/](docs/decisions/) and governance. Protected instructions are owner-edited; report drift rather than changing them. Follow the repository's documentation skill when changing guidance, and update [status](docs/status.md) with links to the owning task instead of duplicating its record.
 
-## Architecture and Module Rules
+## Commit messages
 
-Stem is deliberately layered. Every module has one job and a narrow set of allowed dependencies. Treat these boundaries as part of the public design of the project: they make changes easier to test, review, and extend.
+Follow Conventional Commits, using `feat:`, `fix:`, `chore:`, `docs:`, `test:`, or `refactor:` as appropriate. Keep messages short and specific; reference the affected module when useful, for example `fix(parser): preserve escaped references`.
 
-To view the full Layer Model, strict dependency rules, and single-responsibility guidelines for the core modules, please read [ARCHITECTURE.md](./ARCHITECTURE.md).
+## Release process
 
-## Release Process
+The existing [release workflow](.github/workflows/release-please.yml) uses Release Please and npm OIDC trusted publishing. Review the concrete release candidate and obtain separate owner authorization before merging or publishing; see [R10](roadmap.md#r10-verify-an-authorized-release-delivers-selected-fixes).
 
-Stem uses Google's `release-please-action` combined with OIDC Trusted Publishing to fully automate NPM releases.
+- Release Please maintains package-specific versions and changelogs for core, CLI, and the extension.
+- Authorized stable releases publish core before a dependent CLI, verify packed artifacts and core dependency ranges, and attach the extension VSIX to its GitHub release. A GitHub VSIX release does not establish Marketplace publication.
+- Other pushes to `main` can publish core and CLI canaries under npm's `next` tag and upload a canary VSIX artifact. Treat merges to this branch as publishing actions requiring authorization.
+- Use local tarballs and temporary VSIX candidates for isolated checks. Published-consumer verification remains separate from source completion; follow the task-specific acceptance checks in the [roadmap](roadmap.md#shared-task-requirements-and-validation).
 
-1. **Merge PRs Normally:** Ensure your PR titles follow Conventional Commits (e.g., `feat:`, `fix:`).
-2. **Review the Release PR:** A bot will automatically maintain an open "Release PR" (e.g., `chore: release v0.1.1`). It calculates the next version and compiles a `CHANGELOG.md` based on your merged PRs.
-3. **Merge to Publish:** When you are ready to publish, simply merge the bot's "Release PR". The `.github/workflows/release-please.yml` pipeline will automatically tag the release, build the project, and publish it to NPM securely via OIDC.
-
-### Staging & Pre-releases
-
-If you need to test integrations (like VS Code extensions or CLI commands) without affecting the production `latest` tag:
-
-- **NPM (CLI):** Publish locally or via an ad-hoc workflow using the `next` tag:
-  ```bash
-  npm publish --tag next
-  ```
-  Users can then test via `npm install @stemdev/cli@next`.
-- **VS Code Extension:** Do not publish to the marketplace. Instead, package the extension locally into a `.vsix` file:
-  ```bash
-  cd packages/vscode-stem
-  vsce package
-  ```
-  You can then drag and drop the `.vsix` file directly into your VS Code window to install and test the local build.
+Preserve the configured workflow identity and review trusted-publisher settings before any repository/workflow rename. Do not publish packages merely to test a documentation change.

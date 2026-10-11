@@ -13,27 +13,32 @@ Software documentation gets stale, duplicated, bloated, and locked into a single
 
 ## Ecosystem
 
-Stem is composed of two main packages:
+Stem is a pnpm monorepo with three packages:
 
-1. **[`@stemdev/cli`](./packages/cli/README.md)**: The core command-line interface for creating, managing, and rendering Stem projects.
-2. **[`vscode-stem`](./packages/vscode-stem/README.md)**: The official VS Code extension providing live, side-by-side previews of your composed Markdown views.
+| Package | Purpose |
+| --- | --- |
+| [@stemdev/core](./packages/core/README.md) | Portable parsing, graph traversal, validation, and rendering for application and editor integrations. |
+| [@stemdev/cli](./packages/cli/README.md) | Node.js project operations, the `stem` executable, and the MCP context server. |
+| [vscode-stem](./packages/vscode-stem/README.md) | VS Code previews using bundled core, plus workspace MCP setup. |
 
-_(We recommend installing both! See their respective READMEs for installation and usage instructions.)_
+Install the CLI to manage a project, the extension for editor previews, or core to build an integration. Package READMEs include installation and usage instructions.
 
 ## Architecture
 
-The CLI is intentionally thin. All business logic belongs in `src/core/`, and the public core API is exported from `src/index.ts` so future MCP servers, editor tools, and UI clients can import Stem without depending on CLI code.
+`packages/core` contains the pure domain engine. `packages/cli` supplies filesystem, configuration, cache, network, process, terminal, and MCP adapters around it. `packages/vscode-stem` bundles core and supplies editor documents through VS Code APIs; preview does not require an installed CLI.
+
+Core and CLI expose separate ESM public entries. Import portable domain functions and types from `@stemdev/core`; import Node.js project operations from `@stemdev/cli`. The CLI no longer re-exports the former domain/configuration type surface. See [ADR-0001](docs/decisions/0001-extract-core-package.md) for the extraction decision.
 
 Rendered Markdown is generated under `rendered/` by default and should not be committed unless a project intentionally publishes generated output.
 
-To view the full Layer Model, strict dependency rules, and single-responsibility guidelines for the core modules, please read [ARCHITECTURE.md](./ARCHITECTURE.md).
+See [docs/architecture.md](./docs/architecture.md) for package boundaries and data flow.
 
 ## Contributing
 
 We welcome contributions! To build the project locally:
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build
 ```
 

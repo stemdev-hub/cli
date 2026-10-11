@@ -5,27 +5,29 @@
 [![Version](https://img.shields.io/visual-studio-marketplace/v/stemdev.vscode-stem.svg?color=blue&label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/stemdev.vscode-stem.svg)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
 [![Rating](https://img.shields.io/visual-studio-marketplace/r/stemdev.vscode-stem.svg)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 </div>
 
 ---
 
 Stem is a Git-native, file-based documentation system for software developers. This extension provides a seamless, side-by-side live preview of your composed Stem Markdown views directly inside your editor.
 
-> **Note:** A placeholder for an animated GIF demonstrating the preview functionality goes here.
+## Installation
 
-## ✨ Features
+Requires VS Code 1.101 or later. Install [Stem from the Marketplace](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem), or install a release VSIX using **Extensions: Install from VSIX**. See the [repository](https://github.com/stemdev-hub/cli) for the CLI and portable engine packages.
+
+## Features
 
 - **Live Preview:** See your rendered Stem views side-by-side as you type.
 - **Auto-Refresh:** Previews automatically update when project files or unsaved editor contents change.
 - **Native Rendering:** Uses VS Code's built-in Markdown preview window so your themes and styling match perfectly.
 - **Error Reporting:** Instantly displays markdown-formatted error logs if you have broken block references or syntax errors.
 
-## 🚀 Prerequisites
+## Prerequisites
 
 Preview includes `@stemdev/core`; no CLI installation is required. Open a trusted workspace containing a Stem project with a `.stem` folder. See [MCP setup](#ai-context-server-mcp) for the separate AI context server requirements.
 
-## 📖 Usage
+## Usage
 
 1. Open a Markdown view from a Stem project.
 2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
@@ -68,9 +70,9 @@ MCP setup chooses the CLI in this order:
 
 Native executables run directly. JavaScript entries run through Node; if the editor runtime is needed, the saved entry includes `ELECTRON_RUN_AS_NODE`. Windows `.cmd`/`.bat` shims run through `cmd.exe` with an environment variable preserving the quoted path. Keep the generated `command`, `args`, and `env` together when editing these entries. Preview continues to use bundled core.
 
-Discovery supplies new entries; existing valid Stem entries remain preserved. After changing `stem.cliPath`, review an existing entry manually or remove only that entry and rerun setup to regenerate it. See the [MCP validation checklist](CONTRIBUTING.md#mcp-validation) for configuration recognition versus startup checks.
+Discovery supplies new entries; existing valid Stem entries remain preserved. After changing `stem.cliPath`, review an existing entry manually or remove only that entry and rerun setup to regenerate it. See the [MCP validation checklist](https://github.com/stemdev-hub/cli/blob/main/packages/vscode-stem/CONTRIBUTING.md#mcp-validation) for configuration recognition versus startup checks.
 
-## ⚙️ Extension Settings
+## Extension Settings
 
 This extension contributes the following settings:
 
@@ -80,13 +82,17 @@ This extension contributes the following settings:
 | `stem.preview.autoRefresh`       | `true`  | Automatically refresh open previews when project files or unsaved editor contents change.                   |
 | `stem.preview.refreshDebounceMs` | `250`   | Debounce delay in milliseconds before refreshing open previews after a file change.                         |
 
-## 🛠 Troubleshooting
+## Troubleshooting
 
 - **Preview doesn't open?** Ensure the active editor is a Markdown file saved on disk inside a valid Stem project (must have a `.stem` folder) and contains a frontmatter `id`.
 - **Invalid view notification?** Fix the YAML frontmatter and supply a nonempty string `id`, then reopen the preview.
 - **Workspace Untrusted?** Stem preview is available only in trusted workspaces. Trust the workspace in VS Code before opening a Stem preview.
 - **Preview refreshes too slow/fast?** Adjust the `stem.preview.refreshDebounceMs` setting in your VS Code preferences.
 
-## 🤝 Contributing
+## Contributing
 
 Are you a developer looking to contribute to the extension? Please see our [Contributing Guide](https://github.com/stemdev-hub/cli/blob/main/packages/vscode-stem/CONTRIBUTING.md) for architecture details and validation checklists.
+
+## License
+
+[MIT](https://github.com/stemdev-hub/cli/blob/main/LICENSE)
