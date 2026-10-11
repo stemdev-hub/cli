@@ -64,7 +64,8 @@ export default tseslint.config(
       '.temp/**',
       'eslint.config.js',
       'packages/cli/tests/smoke/*.mjs',
-      'packages/vscode-stem/extension.js'
+      'packages/vscode-stem/extension.js',
+      'packages/cli/docs/stem-api.d.ts'
     ]
   }
 );

@@ -1,3 +1,13 @@
+import { BlockParameter } from '@stemdev/core';
+import { BlockRefSyntax } from '@stemdev/core';
+import { ConfigResult } from '@stemdev/core';
+import { DependencyRef } from '@stemdev/core';
+import { GraphEdge } from '@stemdev/core';
+import { GraphNode } from '@stemdev/core';
+import { PortableStemConfig } from '@stemdev/core';
+import { StemConfig } from '@stemdev/core';
+import { ValidationResult } from '@stemdev/core';
+
 export declare function addBlockToView(blockId: string, viewId: string, options?: AddRefOptions): Promise<OperationResult<AddRefResult>>;
 
 export declare interface AddRefOptions extends ProjectOperationOptions {
@@ -13,17 +23,6 @@ export declare interface AddRefResult {
     tag: string | null;
     refString: string;
 }
-
-export declare interface BlockParameter {
-    name: string;
-    value: string;
-}
-
-export declare interface BlockRef extends CachedBlockRef {
-    position: Position;
-}
-
-export declare type BlockRefSyntax = 'legacy' | 'extended';
 
 export declare interface CachedBlock {
     id: string;
@@ -95,22 +94,6 @@ export declare interface CheckResult {
     durationMs: number;
 }
 
-export declare interface ConfigError {
-    code: ConfigErrorCode;
-    message: string;
-    path: string;
-}
-
-export declare type ConfigErrorCode = 'CONFIG_NOT_FOUND' | 'CONFIG_READ_FAILED' | 'CONFIG_INVALID_JSON' | 'CONFIG_INVALID_SCHEMA' | 'CONFIG_INVALID_PATH' | 'CONFIG_UNSUPPORTED_VERSION';
-
-export declare type ConfigResult<T> = {
-    success: true;
-    data: T;
-} | {
-    success: false;
-    error: ConfigError;
-};
-
 export declare function createBlock(name: string, options?: CreateBlockOptions): Promise<OperationResult<CreateBlockResult>>;
 
 export declare interface CreateBlockOptions extends ProjectOperationOptions {
@@ -161,49 +144,10 @@ export declare interface DeleteResult {
 
 export declare function deleteView(id: string, options?: DeleteOptions): Promise<OperationResult<DeleteResult>>;
 
-export declare interface DependencyRef {
-    blockId: string;
-    section: string | null;
-    tag: string | null;
-    raw: string;
-}
-
 export declare interface DiscoveredFile {
     filePath: string;
     relativePath: string;
     type: 'block' | 'view';
-}
-
-export declare type EdgeType = 'view-uses-block' | 'block-depends-on';
-
-export declare interface ExternalBlockEntry {
-    id: string;
-    tags: string[];
-    sections: Array<{
-        id: string;
-        tags: string[];
-    }>;
-}
-
-export declare interface ExternalRenameEntry {
-    from: string;
-    to: string;
-    since: string;
-}
-
-export declare interface ExternalSnapshotState {
-    graph: ExternalStemGraph;
-    fetchedAt: string;
-    isLocalFallback: boolean;
-}
-
-export declare interface ExternalStemGraph {
-    version: string;
-    namespace: string;
-    publishedAt: string;
-    contentSha: string;
-    blocks: ExternalBlockEntry[];
-    renames: ExternalRenameEntry[];
 }
 
 export declare interface FetchNamespacesResult {
@@ -231,23 +175,6 @@ export declare interface FileStats {
 
 export declare function getDefaultStemConfig(projectRoot: string): ResolvedStemConfig;
 
-export declare interface GraphEdge {
-    type: EdgeType;
-    from: string;
-    to: string;
-    section: string | null;
-    tag: string | null;
-}
-
-export declare interface GraphNode {
-    id: string;
-    type: NodeType;
-    filePath: string;
-    relativePath: string;
-    tags: string[];
-    group: string | null;
-}
-
 export declare interface GraphSnapshot {
     version: string;
     generatedAt: string;
@@ -271,92 +198,6 @@ export declare interface InitResult {
     viewsDir: string;
     schemasDir: string;
 }
-
-export declare function isExternalStemGraphShape(value: unknown): value is ExternalStemGraph;
-
-export declare interface IssueContextMap {
-    DUPLICATE_ID: {
-        id: string;
-        collidingFilePath: string;
-    };
-    BROKEN_BLOCK_REF: {
-        targetId: string;
-        rawRef: string;
-    };
-    BROKEN_SECTION_REF: {
-        targetId: string;
-        targetSection: string;
-    };
-    EXTERNAL_TAG_MISSING_SECTION: {
-        tagName: string;
-        sectionName: string;
-    };
-    CROSS_BLOCK_SECTION_REF: {
-        sourceBlockId: string;
-        targetBlockId: string;
-    };
-    CIRCULAR_DEPENDENCY: {
-        dependencyChain: string;
-    };
-    SCHEMA_VIOLATION: {
-        tagName: string;
-        missingSections: string;
-    };
-    ORPHANED_BLOCK: {
-        blockId: string;
-    };
-    DUPLICATE_TAG_IN_SECTION: {
-        tagName: string;
-        sectionName: string;
-    };
-    UNRESOLVED_TAG: {
-        targetId: string;
-        targetSection: string;
-        missingTag: string;
-    };
-    INVALID_BLOCK_REF_FILTER: {
-        targetId: string;
-        rawRef: string;
-    };
-    INVALID_FRONTMATTER: {
-        parseError: string;
-    };
-    INVALID_STEM_PARAMETER: {
-        rawRef: string;
-        reason: string;
-    };
-    MISSING_BLOCK_VARIABLE: {
-        blockId: string;
-        variableName: string;
-        rawRef: string;
-        viewPath: string;
-        viewLine: number;
-        viewColumn: number;
-    };
-    INLINE_BLOCK_REFERENCE: {
-        blockId: string;
-        rawRef: string;
-    };
-    BLOCK_REFERENCE_IN_TABLE_CELL: {
-        blockId: string;
-        rawRef: string;
-    };
-    UNRESOLVED_NAMESPACE: {
-        namespace: string;
-        rawRef: string;
-    };
-    MISSING_SNAPSHOT: {
-        namespace: string;
-        rawRef: string;
-    };
-    EXPIRED_SNAPSHOT: {
-        namespace: string;
-        rawRef: string;
-        fetchedAt: string;
-    };
-}
-
-export declare type IssueSeverity = 'error' | 'warning';
 
 export declare function listBlocks(options?: ListBlocksOptions): Promise<OperationResult<ListBlocksResult>>;
 
@@ -395,13 +236,6 @@ export declare interface ListViewsResult {
 
 export declare function loadStemConfig(projectRoot: string): Promise<ConfigResult<ResolvedStemConfig>>;
 
-export declare interface NamespaceConfig {
-    graphUrl?: string;
-    localPath?: string;
-}
-
-export declare type NodeType = 'block' | 'view';
-
 export declare interface OperationError {
     code: OperationErrorCode;
     message: string;
@@ -418,35 +252,6 @@ export declare type OperationResult<T> = {
     success: false;
     error: OperationError;
 };
-
-export declare interface ParsedBlock extends Omit<CachedBlock, 'sections' | 'standaloneTags'> {
-    sections: StemSection[];
-    standaloneTags: StemTag[];
-    filePath: string;
-    relativePath: string;
-    rawContent: string;
-    bodyStartLine: number;
-}
-
-export declare interface ParsedView extends Omit<CachedView, 'blockRefs'> {
-    blockRefs: BlockRef[];
-    filePath: string;
-    relativePath: string;
-    localContent: string;
-    bodyStartLine: number;
-}
-
-export declare interface Point {
-    line: number;
-    column: number;
-    offset?: number;
-}
-
-export declare interface Position {
-    start: Point;
-    end: Point;
-    indent?: number[];
-}
 
 export declare type PreviewResult = RenderResult;
 
@@ -503,94 +308,11 @@ export declare interface RenderViewOptions extends RenderOptions {
     stdout?: boolean;
 }
 
-export declare interface ResolvedStemConfig {
-    version: string;
-    namespace?: string;
-    publishUrl?: string;
+export declare interface ResolvedStemConfig extends PortableStemConfig {
     projectRoot: string;
-    blocksDir: string;
-    viewsDir: string;
-    schemasDir: string;
-    cacheDir: string;
-    namespaces: Record<string, NamespaceConfig>;
 }
 
 export declare function resolveStemConfig(raw: Partial<StemConfig>, projectRoot: string): ConfigResult<ResolvedStemConfig>;
-
-export declare interface SourceRange {
-    startOffset: number;
-    endOffset: number;
-}
-
-export declare interface StemASTNode {
-    type: string;
-    data?: Record<string, unknown>;
-    position?: Position;
-}
-
-export declare interface StemBlockRefNode extends StemASTNode {
-    type: 'stemBlockRef';
-    namespace: string | null;
-    blockId: string;
-    section: string | null;
-    tag: string | null;
-    parameters: readonly BlockParameter[];
-    syntax: BlockRefSyntax;
-    raw: string;
-}
-
-export declare interface StemConfig {
-    version?: string;
-    namespace?: string;
-    publishUrl?: string;
-    blocksDir?: string;
-    viewsDir?: string;
-    schemasDir?: string;
-    cacheDir?: string;
-    namespaces?: Record<string, NamespaceConfig>;
-}
-
-export declare interface StemDepNode extends StemASTNode {
-    type: 'stemDep';
-    blockId: string;
-    section: string | null;
-    tag: string | null;
-    raw: string;
-}
-
-export declare interface StemGraph {
-    nodes: Map<string, GraphNode>;
-    edges: GraphEdge[];
-    blockUsedInViews: Map<string, string[]>;
-    viewUsesBlocks: Map<string, string[]>;
-    blockDependsOn: Map<string, DependencyRef[]>;
-    blockDependents: Map<string, string[]>;
-}
-
-export declare interface StemSection extends Omit<CachedSection, 'tags' | 'externalTags'> {
-    tags: StemTag[];
-    externalTags: StemTag[];
-    position: Position;
-    proseRange: SourceRange;
-}
-
-export declare interface StemSectionNode extends StemASTNode {
-    type: 'stemSection';
-    name: string;
-    prose: string;
-}
-
-export declare interface StemTag extends CachedTag {
-    position: Position;
-    contentRange: SourceRange;
-}
-
-export declare interface StemTagNode extends StemASTNode {
-    type: 'stemTag';
-    name: string;
-    section: string | null;
-    content: string;
-}
 
 export declare function syncProject(options?: ProjectOperationOptions): Promise<OperationResult<SyncResult>>;
 
@@ -601,32 +323,6 @@ export declare interface SyncResult {
     graphNodes: number;
     graphEdges: number;
     durationMs: number;
-}
-
-export declare interface TagSchema {
-    name: string;
-    required: string[];
-    description?: string;
-}
-
-export declare type ValidationIssue = {
-    [K in keyof IssueContextMap]: Readonly<{
-        code: K;
-        severity: IssueSeverity;
-        message: string;
-        filePath: string;
-        relativePath: string;
-        position?: Position;
-        context: IssueContextMap[K];
-    }>;
-}[keyof IssueContextMap];
-
-export declare interface ValidationResult {
-    issues: ValidationIssue[];
-    errorCount: number;
-    warningCount: number;
-    hasErrors: boolean;
-    hasWarnings: boolean;
 }
 
 export { }
