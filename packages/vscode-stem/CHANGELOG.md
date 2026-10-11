@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.4.0...vscode-stem-v0.4.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **vscode-stem:** resolve configured or installed CLI without version probe ([8e00f94](https://github.com/stemdev-hub/cli/commit/8e00f94304d67a7561b586dc0c864c4400010c0c))
+* **vscode-stem:** serialize MCP config separately for VS Code and Cursor ([a62c18a](https://github.com/stemdev-hub/cli/commit/a62c18a824e856ac24f74bf1917617e4a9f0a803))
+* **vscode-stem:** use core parser semantics for preview identification ([9ea33f3](https://github.com/stemdev-hub/cli/commit/9ea33f3b0a8f1ff6014dcd5be8871bcca0273893))
+
 ## [0.4.0](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.3.0...vscode-stem-v0.4.0) (2026-10-08)
 
 
