@@ -52,9 +52,6 @@
     "fast-glob": "^3.3.3",
     "gray-matter": "^4.0.3",
     "js-yaml": "5.4.3",
-    "remark": "^15.0.1",
-    "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -62,7 +59,9 @@
     "@modelcontextprotocol/client": "^2.0.0",
     "@vitest/coverage-v8": "^4.1.11",
     "esbuild": "0.27.7",
+    "remark": "^15.0.1",
     "tsup": "^8.5.1",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.12",
+    "unist-util-visit": "^5.1.0"
   }
 }

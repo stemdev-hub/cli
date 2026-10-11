@@ -82,7 +82,7 @@ Priority expresses impact, not scheduling: P0 requires concrete severe immediate
 | 4                  | R03: configured/installed CLI discovery        | P2       | Owner waived extension-remediation gate; R02 source in place             | Medium | Done; candidate verified, publication pending |
 | 5                  | R08: packaged contribution link                | P2       | No technical prerequisite; preferably after guide corrections in R01/R03 | Small  | Done                                          |
 | Release checkpoint | R10: selected fixes reach consumers            | P1       | Only the selected source tasks and explicit release approval             | Medium | Proposed                                      |
-| 6                  | R04: CLI dependency ownership                  | P2       | R00 disposition                                                          | Small  | Proposed                                      |
+| 6                  | R04: CLI dependency ownership                  | P2       | R00 disposition                                                          | Small  | Done                                          |
 | 7                  | R05: advisory investigation                    | P2       | None; can run earlier without waiting for R04                            | Medium | Proposed                                      |
 | 8                  | R06: repository guidance                       | P2       | Relevant R00 governance decisions                                        | Medium | Proposed                                      |
 | 9                  | R07: generated API reference                   | P2       | None; use the current approved source baseline                           | Small  | Proposed                                      |
@@ -192,7 +192,7 @@ Task statuses are proposed, ready, in progress, blocked, done, or deferred. Read
 
 ### R04: Correct CLI runtime dependency ownership
 
-- **Classification / priority / state:** Maintainability improvement; P2 because consumer dependency ownership should reflect actual runtime use. Proposed; distribution pending. Small; low risk with packed-consumer checks.
+- **Classification / priority / state:** Maintainability improvement; P2 because consumer dependency ownership should reflect actual runtime use. Done; distribution pending. Small; low risk with packed-consumer checks.
 - **Evidence:** A04a; direct production dependencies in `packages/cli/package.json`: `remark` and `unist-util-visit` serve `spike/parser-spike.ts`; direct `unified` use was not found in maintained runtime source.
 - **Scope / change:** `packages/cli/package.json` and `pnpm-lock.yaml`. Move spike-only dependencies to devDependencies and remove the unused direct `unified` declaration after rechecking imports.
 - **Exclusions:** No spike move/deletion, gray-matter/fast-glob replacement, general dependency upgrade, or claim that transitive packages disappear.
@@ -200,6 +200,10 @@ Task statuses are proposed, ready, in progress, blocked, done, or deferred. Read
 - **Acceptance:** Spike tooling remains typecheckable; all runtime imports are declared or intentionally bundled; packed CLI metadata has the intended ownership; clean consumers work without devDependencies or workspace links.
 - **Validation:** Code profile and CLI packaging profile; inspect the exact packed dependency manifest and clean npm/pnpm installs.
 - **Compatibility / rollback:** No intended API/CLI behavior change; installed consumers benefit only after a CLI release. Revert manifest and lockfile together, with task documentation; published metadata requires a corrective release.
+- **Execution evidence (2026-10-11):** Baseline `8cf2bfa628b1f299cb8c32be12c4840055d34665`; changed files: `packages/cli/package.json`, `pnpm-lock.yaml`, `roadmap.md`, and `docs/status.md`. Windows; Node 26.7; repository-pinned pnpm 11.2.2. Runtime source scan found no imports of `unified`, `remark`, or `unist-util-visit` under `packages/cli/src`.
+- **Code validation:** `pnpm install`, `pnpm install --frozen-lockfile`, `pnpm build`, `pnpm typecheck` (includes `spike/**/*.ts`), `pnpm lint`, `pnpm test` (715 passed), `pnpm depcruise` (167 modules / 564 dependencies), `pnpm --filter @stemdev/cli smoke:built-cli`, `node scripts/check-doc-budgets.mjs`, and `git diff --check` passed.
+- **Packaging:** `pnpm --filter @stemdev/cli pack --pack-destination C:\Users\Asus\AppData\Local\Temp\stem-r04-pack-3dd50ebadc534524ad6d2c83623564cd` produced `@stemdev/cli@0.3.0` at `C:\Users\Asus\AppData\Local\Temp\stem-r04-pack-3dd50ebadc534524ad6d2c83623564cd\stemdev-cli-0.3.0.tgz`. Its manifest omits runtime `unified`, `remark`, and `unist-util-visit`, and retains `remark` and `unist-util-visit` only in devDependencies. `node scripts/verify-release-tarball.mjs C:\Users\Asus\AppData\Local\Temp\stem-r04-pack-3dd50ebadc534524ad6d2c83623564cd\stemdev-cli-0.3.0.tgz` passed.
+- **Clean consumers:** `npm install --no-package-lock C:\Users\Asus\AppData\Local\Temp\stem-r04-pack-3dd50ebadc534524ad6d2c83623564cd\stemdev-cli-0.3.0.tgz` (npm 11.19.0) and `pnpm add --dir C:\Users\Asus\AppData\Local\Temp\stem-r04-pnpm-consumer-20261011 C:\Users\Asus\AppData\Local\Temp\stem-r04-pack-3dd50ebadc534524ad6d2c83623564cd\stemdev-cli-0.3.0.tgz` (pnpm 11.23.0) passed in temporary directories. Both resolved `@stemdev/core@0.1.0` without workspace links and passed `stem --help` and `stem init`. Distribution remains pending; no published artifact was verified.
 
 ### R05: Determine the smallest justified advisory remediation
 
