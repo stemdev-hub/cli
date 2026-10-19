@@ -2,6 +2,8 @@
 
 Stem has two domain primitives: **Block** and **Tag**. Views and rendering are layered on that model. The extracted monorepo implements the boundaries established by [ADR-0001](decisions/0001-extract-core-package.md); [rules](rules.md) remain the binding package constraints.
 
+The package and runtime descriptions below cover the current implementation. The [proposed Pure Block design](#proposed-pure-block-design) is a separate draft, not implemented behavior.
+
 ## Packages and dependencies
 
 ```text
@@ -52,3 +54,19 @@ Preview works without CLI installation. The separate MCP setup command discovers
 Use the [contribution guide](../CONTRIBUTING.md) for workspace commands and the package guides for consumer setup. Dependency boundaries are checked by the root dependency-cruiser configuration; implementation types and TSDoc remain the source for implementation documentation.
 
 Core and CLI are independently published npm packages. Core is published before a CLI release that depends on it, as required by ADR-0001. The extension bundles core into a VSIX. Repository fixes and published-consumer verification are tracked separately in the [remediation backlog](../roadmap.md#repository-remediation).
+
+## Proposed Pure Block design
+
+Status: proposed. [ADR-0005](decisions/0005-pure-block-model.md) and [ADR-0007](decisions/0007-independent-project-connections.md) record the model and independent-connection choices. [ADR-0006](decisions/0006-documentation-ownership.md) accepts their documentation structure only; product acceptance and implementation remain deferred.
+
+The draft model separates authored Block ownership and classification from source syntax and composition. Project connections supply source instances and their reference contexts to that evaluation. The existing package boundaries remain the framework for core contracts and adapter I/O; the documents below own the detailed working agreements.
+
+| Specification | Owns | Original D-labels |
+| --- | --- | --- |
+| [Block model](specs/block-model.md) | Content, containment, identity, classification, selection, and Tag equality | D1–D4, D4a–D4c, D6–D10, D22, D29 |
+| [Stem syntax](specs/stem-syntax.md) | Directives, metadata, escaping, boundaries, and syntax recovery | D11 syntax; D26–D28 |
+| [Composition](specs/composition.md) | Substitution, cycles, diagnostics, evaluation, caches, resource limits, and publication | D11 behavior; D12–D14, D16–D21, D24–D25 |
+| [Project connections](specs/project-connections.md) | Identity, aliases, sources, revisions, dependency resolution, refresh, and lifecycle | D5 |
+| [Migration backlog](../roadmap.md#pure-block-migration) | Dependency-review deferral, schema retirement tasks, and open mechanics | D15, D23; deferred portions of D5, D24, D27 |
+
+D-labels are retained for traceability, not separate ADRs. D11 is split between syntax and substitution; D29 owns decoded Tag-name validation, with parsing linked from the syntax specification. Existing ADR dispositions and remaining acceptance work are tracked in the [decision review](../roadmap.md#documentation-and-decision-review).

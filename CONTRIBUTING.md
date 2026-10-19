@@ -42,6 +42,10 @@ Follow the [binding rules](docs/rules.md) and [ADR-0001](docs/decisions/0001-ext
 
 Keep validation read-only and persisted cache output under `.stem/cache/`. Public API changes and architecture decisions follow the existing ADR process in [docs/decisions/](docs/decisions/) and governance. Protected instructions are owner-edited; report drift rather than changing them. Follow the repository's documentation skill when changing guidance, and update [status](docs/status.md) with links to the owning task instead of duplicating its record.
 
+## Design documentation
+
+Use the [proposed Pure Block design](docs/architecture.md#proposed-pure-block-design) to find the draft specifications and their governing ADRs. ADRs explain significant choices; specifications own detailed behavioral contracts. These drafts do not describe released behavior or authorize implementation. [Governance](docs/governance.md) defines acceptance and changes; the [migration backlog](roadmap.md#pure-block-migration) owns open work and the review of older ADRs.
+
 ## Commit messages
 
 Follow Conventional Commits, using `feat:`, `fix:`, `chore:`, `docs:`, `test:`, or `refactor:` as appropriate. Keep messages short and specific; reference the affected module when useful, for example `fix(parser): preserve escaped references`.

@@ -11,7 +11,8 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 
 ## Open policy
 
-- Transclusion depth and cycle-warning: soft-warning threshold and configurability undecided.
+- Pure Block draft contracts and remaining decisions are linked from the [migration backlog](../roadmap.md#pure-block-migration); product acceptance and implementation remain pending.
+- Current transclusion depth/cycle-warning policy remains unresolved; proposed Pure Block behavior and numeric budget defaults are tracked in the migration backlog above.
 - ADR-0002 acceptance and protected-instruction corrections require the [human decisions](../roadmap.md#human-decisions); no policy change is implied by the audit.
 
 ## Post-publication remediation
@@ -38,3 +39,4 @@ Agent-editable. Budget: 60 lines. Delete items when resolved.
 - Prior status reported 24 deprecation warnings for `@yuku-parser/binding-win32-x64` through core's tsdown development dependency; not reverified by backlog creation and not a demonstrated development blocker.
 - Preserve the configured `release-please.yml` workflow identity and review trusted-publisher settings before any future repository/workflow rename. Release execution is separately authorized through R10; core-first ordering remains governed by [ADR-0001](decisions/0001-extract-core-package.md).
 - Re-run `npm audit --omit=dev` on the packed consumer install before each release.
+- CI workflow linting (actionlint) and upgrading `actions/upload-artifact@v7` are deferred until the Pure Block model migration completes.

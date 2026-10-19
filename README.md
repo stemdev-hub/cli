@@ -5,6 +5,8 @@
 
 Stem is a Git-native, file-based documentation system for software developers. It keeps reusable knowledge in Markdown blocks and lets teams compose those blocks into multiple view files without duplicating content.
 
+Reusability is Stem's primary purpose; identity, ownership, Tags, and diagnostics support reliable reuse and composition.
+
 Stem is designed for teams working with AI coding agents and LLM workflows: the block store and dynamic connection graph provide structured, queryable context while keeping every source file plain Markdown in Git.
 
 ## The Problem
@@ -32,6 +34,8 @@ Core and CLI expose separate ESM public entries. Import portable domain function
 Rendered Markdown is generated under `rendered/` by default and should not be committed unless a project intentionally publishes generated output.
 
 See [docs/architecture.md](./docs/architecture.md) for package boundaries and data flow.
+
+The [Pure Block design](docs/architecture.md#proposed-pure-block-design) is proposed, not released behavior. Its specifications and migration work are separate from the current package usage guides.
 
 ## Contributing
 

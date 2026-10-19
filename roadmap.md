@@ -2,6 +2,8 @@
 
 This document outlines the post-MVP roadmap for Stem, starting with foundational core updates and moving towards major AI and web integrations.
 
+The phase entries retain existing product work and future ideas; their syntax sketches do not define the proposed Pure Block grammar. The [Pure Block migration](#pure-block-migration) separately tracks that draft design and its open work.
+
 ## Phase 1: Foundational Core Updates
 
 These are internal architecture improvements to prepare the codebase for complex integrations without breaking existing functionality.
@@ -28,6 +30,63 @@ Features focused on human readability and distribution.
 
 - [ ] **Localization:** Support for fallback view/block resolution (e.g., falling back to `en` if `es` is missing).
 - [ ] **External Sources:** Pulling OpenAPI specs or GraphQL schemas as virtual blocks.
+
+## Pure Block migration
+
+Status: design proposed; implementation and product acceptance remain deferred.
+The owner approved the documentation restructuring and the one-time governance-editing exception on 19 October 2026;
+[ADR-0006](docs/decisions/0006-documentation-ownership.md) accepts only documentation organization.
+Use the [design navigation and D-label map](docs/architecture.md#proposed-pure-block-design) for the contracts.
+D-labels in this section belong to the Pure Block proposal; the older remediation register below has separate identifiers.
+
+### Documentation and decision review
+
+- Documentation restructuring: ADR-0005 condensed, ADR-0007 proposed, four draft specifications extracted, and existing navigation updated.
+- Documentation validation: budgets and whitespace checks passed; 171 local links/anchors checked, all 32 D-labels retained, and 100 original decision paragraphs reconciled across their new owners. ADRs 0001–0004, axioms, rules, and the existing Git index remain unchanged by this cleanup.
+- Product review remains open: review ADR-0005 and ADR-0007 with their specifications before acceptance. Preserve working agreements without presenting them as implemented.
+- ADR-0000 is the retained template, not a decision. Its status guidance now supports partial supersession.
+- ADR-0001 remains accepted: package extraction, portability, and public-entry boundaries still apply.
+- ADR-0002 remains proposed despite its implementation and references in binding rules and core instructions. Existing source and tests reflect its principal policy choices; recommend a separate owner acceptance review under [R00](#r00-establish-which-status-items-block-implementation), not automatic acceptance during cleanup.
+- ADR-0003 remains accepted: its completed axiom clarification still distinguishes the model from the package.
+- ADR-0004 remains accepted: its schema and snapshot requirements apply until an accepted replacement identifies the exact superseded scope. ADR-0005 proposes only partial supersession.
+- Retain existing ADR bodies and numbering; no older record is deleted or marked stale.
+- Community documentation is separate follow-up scope: assess contribution/support/security/conduct guidance before proposing files or maintainer commitments; this cleanup adds none.
+
+### Migration sequence
+
+1. Resolve the [open design work](#pure-block-open-and-deferred-work) needed for the selected implementation slice and explicitly accept its governing product decisions and contracts.
+2. At ADR-0005 acceptance, update only the affected Tag-schema rule and ADR-0004 status to identify the replaced scope; preserve external-snapshot requirements and core/I/O boundaries.
+3. Prepare a bounded implementation plan for core model, syntax, composition, and public API changes, using the specifications as acceptance criteria.
+4. Plan project-connection resolution and lifecycle across core and adapters under ADR-0007; resolve storage and transport mechanics before implementing those interfaces.
+5. Apply the schema retirement below alongside the migration, then update CLI/editor behavior and released-user guidance with targeted validation. Implementation order and files require the subsequent code plan.
+
+### D15. Dependency review
+
+Defer implementation and detailed design of the dependency review feature entirely from this migration. Preserve its intent: a changed target indicates that dependent authored content may need review. Deferred feature notes, not migration requirements: dependency review inserts no content, allows cycles, and reports missing targets without itself making content incomplete; a review signal does not rewrite content or automatically make it invalid or incomplete.
+
+Required composition refresh is specified in [D16](docs/specs/composition.md#d16-affected-results).
+
+### D23. Schemas, structural validation, and templates
+
+Remove the existing Tag-schema feature as part of the Pure Block migration: its validation, schema loading and configuration, initialization templates, and feature-specific public types/decoders.
+The retirement choice and its rationale belong to [ADR-0005](docs/decisions/0005-pure-block-model.md#rejected).
+
+Preserve user-authored schema files as ordinary files; do not automatically delete or convert them. Configuration still requesting the retired feature reports an unsupported-setting error with migration guidance rather than silently pretending the checks ran. This removal does not remove the grammar, identity, reference, or composition validation required by the proposed specifications.
+
+Defer replacement schemas, structural validation design, and template features; their future relationship to Tags remains open.
+Partial supersession and rule changes occur only on formal product acceptance as specified in
+[ADR-0005](docs/decisions/0005-pure-block-model.md#consequences); this roadmap authorizes no code changes.
+
+### Pure Block open and deferred work
+
+- **D5 mechanics:** Concrete project/connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
+- **D5 dependency policies:** User-configurable overrides of nested dependencies and explicit mechanisms for one connection to follow another remain deferred.
+- **D5 refresh scheduling:** Background polling and time-based refresh intervals remain deferred.
+- **D24 defaults:** Numeric work/output budget defaults await measurement; the required behavior is in [D24](docs/specs/composition.md#d24-resource-budgets).
+- **D27 shorthand:** Single-Tag shorthand is deferred pending demonstrated user need.
+- **Evaluation mechanics:** Cache format and algorithm, detailed result contracts, and ID generation mechanics remain deferred.
+- **Formatter:** An optional future feature; detailed design is deferred, and parsing, validation, and export do not require it.
+- Dependency review and replacement validation/templates remain owned by D15 and D23 above.
 
 ## Repository remediation
 
