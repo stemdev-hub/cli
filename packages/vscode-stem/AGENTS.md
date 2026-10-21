@@ -8,7 +8,7 @@ VS Code extension for Stem. Bundles `@stemdev/core` for in-process view preview;
 - test: `pnpm --filter vscode-stem test` (runs vitest suite in `tests/`; builds core & CLI)
 - typecheck: `pnpm --filter vscode-stem typecheck`
 - package VSIX: `pnpm --filter vscode-stem exec vsce package --no-dependencies`
-- lint: root `pnpm lint` (checks extension TypeScript; `extension.js` bundle ignored)
+- lint: root `pnpm lint` (checks extension TypeScript; `extension.js` source entry ignored)
 
 Run build, test, and typecheck before calling a change done. Package VSIX to verify bundle.
 

@@ -204,3 +204,17 @@ preserve usable content.
 
 Single-Tag shorthand is tracked in the
 [deferred design work](../../roadmap.md#pure-block-open-and-deferred-work).
+
+## Worked examples of the proposed rules
+
+These illustrate existing rules above; they are not examples for the current parser. The table uses JSON string notation so line endings and spaces are visible.
+
+| Original source                         | Block `a` content under boundary-whitespace rules |
+| --------------------------------------- | ------------------------------------------------- |
+| `"@stem:block(id:a)\nA\n@stem:end()"`   | `"A"`                                             |
+| `"@stem:block(id:a) \nA\n @stem:end()"` | `" \nA\n "`                                       |
+| `"@stem:block(id:a)\n@stem:end()"`      | `""`                                              |
+
+Each edge is independent; a space prevents consuming a newline at that edge. The shared newline in the empty definition is consumed once.
+
+For literal escaping, assume Block `a` contains `X`. One source backslash immediately before `@stem:include(a)` suppresses recognition and emits the literal expression; two source backslashes emit one backslash followed by the evaluated `X`. Escaping a definition opener alone does not protect its closer. These results follow [original-source evaluation](#escaping-and-original-source-evaluation), not rescanning of the assembled output.

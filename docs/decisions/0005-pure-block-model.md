@@ -30,8 +30,10 @@ Independent project connections are a separate decision in [ADR-0007](0007-indep
 ## Consequences
 
 Retire legacy Tag-schema validation during migration; defer replacement validation.
-[D23 migration work](../../roadmap.md#d23-schemas-structural-validation-and-templates)
-owns removal tasks, preservation of authored files, and unsupported-setting handling.
+The [model specification's D23 transition contract](../specs/block-model.md#d23-schema-retirement-transition)
+owns preservation of authored schema files and unsupported-setting behavior.
+[Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates)
+owns removal tasks, sequencing, and deferred replacement features.
 On acceptance, supersede only ADR-0004's Tag-schema decoder/export and preservation
 requirements; retain its external-snapshot requirements and pure-core/I/O boundaries.
 Until then, ADR-0004 and existing rules remain binding.

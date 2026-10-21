@@ -113,3 +113,11 @@ reports it was not updated.
 
 This is per-file, not batch atomicity; stdout can be prepared before emission but cannot retract
 bytes on downstream failure.
+
+## Worked examples of the proposed rules
+
+- A parent includes Block `a` twice on separate completed expansion paths: both occurrences are valid. Repeated use alone is not a cycle.
+- Block `a` includes `b`, and `b` includes the same resolved instance of `a`: the re-entering occurrence is a cycle. Stop that occurrence, report a localized error/incomplete result, and preserve usable surrounding content. Alias changes do not conceal that revisit.
+- A document has independent content before and after an inclusion whose target is missing: the unaffected content remains usable, while the affected result is incomplete and has an error. Normal export is ineligible under D25. This example does not choose an unspecified placeholder or recovery representation.
+
+These examples illustrate D12–D14/D25; they do not accept the proposal or claim current renderer behavior.

@@ -34,7 +34,7 @@ Preview requires no CLI installation or path configuration. For the separate AI 
 8. In a multi-root workspace, open previews from two Stem projects and confirm edits refresh only the matching project's previews.
 9. In an untrusted workspace, confirm preview is refused. Close or refresh a preview during loading and confirm cancellation does not display an obsolete error.
 
-Run the shared [code validation profile](../../roadmap.md#shared-task-requirements-and-validation), then `pnpm --filter vscode-stem exec vitest run tests/preview.test.ts tests/vscode-stem.test.ts`. Inspect a temporary VSIX for its bundled entry and exclusions. These automated checks use mocked VS Code APIs; record the exact editor version and results of this checklist separately for real-host acceptance.
+Run the shared [code validation profile](../../CONTRIBUTING.md#verification), then `pnpm --filter vscode-stem exec vitest run tests/preview.test.ts tests/vscode-stem.test.ts`. Inspect a temporary VSIX for its bundled entry and exclusions. These automated checks use mocked VS Code APIs; record the exact editor version and results of this checklist separately for real-host acceptance.
 
 ## MCP Validation
 
@@ -47,7 +47,7 @@ pnpm --filter vscode-stem build
 pnpm --filter vscode-stem exec vitest run tests/vscode-stem.test.ts
 ```
 
-The command tests use real temporary files and mocked executable probing, with actual Windows shim invocations on Windows. They cover explicit/relative/PATH CLI settings, JavaScript entries, failed probes, fallback, spaces and shell metacharacters, alongside both host formats, preservation, legacy repair, trust, dirty buffers, concurrent writes and write failures. Run the shared [code validation profile](../../roadmap.md#shared-task-requirements-and-validation), including CLI tests, and package a temporary VSIX. These checks do not prove editor integration.
+The command tests use real temporary files and mocked executable probing, with actual Windows shim invocations on Windows. They cover explicit/relative/PATH CLI settings, JavaScript entries, failed probes, fallback, spaces and shell metacharacters, alongside both host formats, preservation, legacy repair, trust, dirty buffers, concurrent writes and write failures. Run the shared [code validation profile](../../CONTRIBUTING.md#verification), including CLI tests, and package a temporary VSIX. These checks do not prove editor integration.
 
 For real-host validation, resolve absolute temporary paths for the candidate VSIX, fixture workspace, and each editor's user-data/extensions directories. Install with `code --user-data-dir <data> --extensions-dir <extensions> --install-extension <vsix>` and open with the same isolation flags plus `--new-window <fixture>`; repeat using `cursor`. Verify that no home-global MCP source is being used. Record exact editor/CLI versions, source SHA, VSIX SHA-256 and platform.
 

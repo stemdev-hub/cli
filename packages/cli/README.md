@@ -81,6 +81,8 @@ stem preview view auth-service-view
 
 _(Note: For the best experience, use the [Stem VS Code Extension](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem) for live previews!)_
 
+For block/view frontmatter, section/tag selection, parameters, schemas and known rendering limits, see the [current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md). The proposed Pure Block notation is not implemented by this quickstart.
+
 ## Configuration
 
 Stem projects are rooted by a `.stem/` directory. Project settings live in `.stem/config.json`; if that file is missing, Stem uses defaults.
@@ -97,31 +99,62 @@ Stem projects are rooted by a `.stem/` directory. Project settings live in `.ste
 
 All directory fields are project-relative and optional. Paths are normalized to POSIX `/` separators so cache keys stay stable across operating systems.
 
+`cacheDir` controls the internal `index.json` and `graph.json` files; its default is `.stem/cache`. Namespace snapshots use the fixed locations documented in the [shared reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#namespace-snapshots); changing `cacheDir` does not relocate them.
+
 ## Commands Reference
 
-| Command                                                        | Purpose                                                                           |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `stem init [--force]`                                          | Create the project scaffold, built-in schemas, and `.stem/cache/` gitignore entry |
-| `stem create block <name> [--tag <tag>]`                       | Create a Markdown block, optionally scaffolded with a tag                         |
-| `stem create view <name> [--group <path>]`                     | Create a view file, optionally inside a view group                                |
-| `stem create group <path>`                                     | Create a view group directory                                                     |
-| `stem add <block-id> to <view-id> [--section <s>] [--tag <t>]` | Append a block reference to a view                                                |
-| `stem delete block <id> [--force]`                             | Delete a block after reference checks                                             |
-| `stem delete view <id>`                                        | Delete a view                                                                     |
-| `stem rename <old-id> <new-id>`                                | Rename a block ID and update references                                           |
-| `stem render view <view-id> [--out <dir>] [--stdout]`          | Render one view to Markdown                                                       |
-| `stem render all [--out <dir>]`                                | Render all views to Markdown                                                      |
-| `stem preview view <view-id>`                                  | Print a rendered view to the terminal without writing files                       |
-| `stem list blocks [--tag <tag>] [--json]`                      | List blocks and usage metadata                                                    |
-| `stem list views [--block <block-id>] [--json]`                | List views and referenced blocks                                                  |
-| `stem check [--json]`                                          | Validate without writing files                                                    |
-| `stem sync`                                                    | Rebuild `.stem/cache/index.json` and `.stem/cache/graph.json`                     |
-| `stem publish-graph` | Upload a structural snapshot using the configured namespace and publish target |
-| `stem fetch-namespaces` | Download configured remote namespace snapshots; local-path entries are skipped |
-| `stem mcp` | Start the stdio MCP context server in the current Stem project |
-| `stem mcp setup [-y, --yes]` | Configure supported AI assistants; interactive scope selection or noninteractive defaults |
+| Command                                                        | Purpose                                                                                   |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `stem init [--force]`                                          | Create the project scaffold, built-in schemas, and `.stem/cache/` gitignore entry         |
+| `stem create block <name> [--tag <tag>]`                       | Create a Markdown block, optionally scaffolded with a tag                                 |
+| `stem create view <name> [--group <path>]`                     | Create a view file, optionally inside a view group                                        |
+| `stem create group <path>`                                     | Create a view group directory                                                             |
+| `stem add <block-id> to <view-id> [--section <s>] [--tag <t>]` | Append a block reference to a view                                                        |
+| `stem delete block <id> [--force]`                             | Delete a block after reference checks                                                     |
+| `stem delete view <id>`                                        | Delete a view                                                                             |
+| `stem rename <old-id> <new-id>`                                | Rename a block ID and update references                                                   |
+| `stem render view <view-id> [--out <dir>] [--stdout]`          | Render one view to Markdown                                                               |
+| `stem render all [--out <dir>]`                                | Render all views to Markdown                                                              |
+| `stem preview view <view-id>`                                  | Print a rendered view to the terminal without writing files                               |
+| `stem list blocks [--tag <tag>] [--json]`                      | List blocks and usage metadata                                                            |
+| `stem list views [--block <block-id>] [--json]`                | List views and referenced blocks                                                          |
+| `stem check [--json] [--strict-external] [--use-remote]`       | Validate without writing files                                                            |
+| `stem sync`                                                    | Rebuild `index.json` and `graph.json` in the configured `cacheDir`                        |
+| `stem publish-graph`                                           | Upload a structural snapshot using the configured namespace and publish target            |
+| `stem fetch-namespaces`                                        | Fetch configured snapshots; an available local snapshot can take precedence               |
+| `stem mcp`                                                     | Start the stdio MCP context server in the current Stem project                            |
+| `stem mcp setup [-y, --yes]`                                   | Configure supported AI assistants; interactive scope selection or noninteractive defaults |
 
 Run `stem --help` or `stem <command> --help` for supported options. Namespace commands require the corresponding project configuration; they do not create a hosted service. `--json` is available on `check` and `list`.
+
+## Namespace snapshots and publishing
+
+The optional configuration fields supplement the defaults above:
+
+| Field        | Meaning                                                                              |
+| ------------ | ------------------------------------------------------------------------------------ |
+| `namespace`  | This project's published identity; kebab-case, excluding the reserved `stem-` prefix |
+| `publishUrl` | An HTTP endpoint that accepts an authenticated PUT of the structural graph           |
+| `namespaces` | Map of namespace names to `graphUrl`, `localPath`, or both                           |
+
+Directory fields are project-relative and cannot contain `..`. Namespace `localPath` is also relative, but may point to a sibling project using `..`. The file must be JSON; configuration version is the string `"1"`.
+
+For a consumer of a remote structural snapshot, merge this entry into `.stem/config.json`, replacing the example URL with your own endpoint:
+
+```json
+{
+  "version": "1",
+  "namespaces": {
+    "team": { "graphUrl": "https://example.com/team/stem-graph.json" }
+  }
+}
+```
+
+Run `stem fetch-namespaces`, inspect reported warnings/skips, then `stem check`. Use `stem check --strict-external` to promote external warnings, or `stem check --use-remote` to bypass local namespace paths while checking. The fetch command itself has no `--use-remote` flag.
+
+A `localPath` entry expects that project's external snapshot at `.stem/cache/stem-graph.json`. Current sync creates a different internal graph, and publishing does not save the external snapshot locally. Do not treat a sibling source checkout alone as a complete local-snapshot setup. See [snapshot limitations](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#namespace-snapshots).
+
+To publish a snapshot, configure your own `namespace` and `publishUrl`, supply authentication, and explicitly run `stem publish-graph`. It uploads structural metadata, not document prose. GitHub Actions OIDC is attempted when its request environment is present; otherwise `STEM_PUBLISH_KEY` supplies the bearer token. Your endpoint must accept that token and PUT format; Stem does not provision hosting or native S3/GCS integration. Keep credentials out of committed configuration.
 
 ## MCP server
 
@@ -129,13 +162,13 @@ Run `stem mcp` with the client's working directory set to the Stem project. Conf
 
 `stem mcp setup` offers Antigravity and Claude setup. It can write configuration or invoke the installed Claude CLI; review its prompts and scope choices. `--yes` skips prompts and may configure detected Claude Desktop globally. VS Code/Cursor setup is provided by the extension command linked below.
 
-| Capability | Name | Result |
-| --- | --- | --- |
-| Tool | `list_blocks` | Block metadata, optionally filtered by `tag` |
-| Tool | `list_views` | View metadata, optionally filtered by `blockId` |
-| Tool | `check_references` | Validation issues, including broken references and cycles |
-| Resource template | `stem://blocks/{id}` | Raw block Markdown |
-| Resource template | `stem://views/{id}` | Composed view Markdown |
+| Capability        | Name                 | Result                                                    |
+| ----------------- | -------------------- | --------------------------------------------------------- |
+| Tool              | `list_blocks`        | Block metadata, optionally filtered by `tag`              |
+| Tool              | `list_views`         | View metadata, optionally filtered by `blockId`           |
+| Tool              | `check_references`   | Validation issues, including broken references and cycles |
+| Resource template | `stem://blocks/{id}` | Raw block Markdown                                        |
+| Resource template | `stem://views/{id}`  | Composed view Markdown                                    |
 
 The tools expose structured results and text fallbacks. These capabilities read project context; they do not expose authoring commands as MCP tools. See the [extension's MCP setup guide](https://github.com/stemdev-hub/cli/blob/main/packages/vscode-stem/README.md#ai-context-server-mcp) for VS Code and Cursor configuration.
 

@@ -1,6 +1,6 @@
 # 0006. Documentation ownership
 
-Status: accepted (19 October 2026). Owner authorized the governance amendments by a one-time editing exception.
+Status: accepted (19 October 2026); the requirements for an ADR for every accepted-specification behavior change and every new non-ADR document are superseded by [ADR-0008](0008-documentation-lifecycle.md) (20 October 2026). Other provisions remain applicable. Original acceptance included an owner-authorized one-time governance-editing exception.
 
 ## Context
 

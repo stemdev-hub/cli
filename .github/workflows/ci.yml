@@ -56,6 +56,12 @@ jobs:
       - name: Check documentation budgets
         run: node scripts/check-doc-budgets.mjs
 
+      - name: Test documentation checks
+        run: pnpm test:docs
+
+      - name: Check documentation links, examples, and generated reference
+        run: pnpm docs:check
+
       - name: Built CLI smoke
         run: node packages/cli/tests/smoke/built-cli-smoke.mjs
 

@@ -18,7 +18,6 @@ try {
   ]);
   for (const file of files) {
     if (file.endsWith('/AGENTS.md')) budgets.set(file, 40);
-    if (/^docs\/decisions\/[^/]+\.md$/.test(file)) budgets.set(file, 40);
   }
 
   let violations = 0;

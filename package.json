@@ -9,14 +9,18 @@
     "typecheck": "pnpm -r --workspace-concurrency=1 run typecheck",
     "lint": "eslint .",
     "depcruise": "depcruise --config .dependency-cruiser.cjs --output-type err-long packages",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "docs:check": "node scripts/check-docs.mjs",
+    "test:docs": "node --test scripts/check-docs.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
     "dependency-cruiser": "^18.5.0",
     "eslint": "^10.12.0",
+    "github-slugger": "2.0.0",
     "prettier": "^3.9.10",
+    "remark": "15.0.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^5.0.3"

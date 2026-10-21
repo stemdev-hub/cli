@@ -237,3 +237,11 @@ edits are validated as supplied, without silently restoring or repairing authore
 Concrete formats and mechanisms remain in the
 [deferred design work](../../roadmap.md#pure-block-open-and-deferred-work). The decision's rationale
 and precedents belong to [ADR-0007](../decisions/0007-independent-project-connections.md).
+
+## Worked example of independent revisions
+
+A consumer connects to project P twice, through aliases `stable` and `trial`, with different owner-assigned connection IDs and selected revisions. Both selections may contain a Block with the same durable ID; lookup remains scoped to the selected resolved instance, so this alone is not a duplicate-definition error.
+
+Refreshing `trial` leaves `stable`'s selected revision and dependency bindings unchanged. The implementation may share immutable content without coupling refresh settings. An inclusion originating in P retains P's reference context rather than adopting the consumer's aliases.
+
+This illustrates the existing D5 contract. It chooses no connection-file syntax, ID-generation scheme, storage layout or transport mechanism.

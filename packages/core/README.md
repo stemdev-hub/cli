@@ -25,27 +25,29 @@ Node.js consumers require Node.js 22 or later. The package provides ESM and Type
 npm install @stemdev/core
 ```
 
+For shared authoring semantics and current limitations, read the [current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md). Package declarations remain the API signature reference.
+
 ## Usage
 
 Parse supplied Markdown, build its graph, and render a view:
 
-```typescript
+```typescript stem-check=core-usage
 import {
   parseBlockFile,
   parseViewFile,
   buildGraph,
-  renderViewMarkdown as renderView,
+  renderViewMarkdown as renderView
 } from '@stemdev/core';
 
 const block = parseBlockFile({
   content: '---\nid: welcome\ntags: [guide]\n---\n\nWelcome to Stem.\n',
   filePath: '/project/blocks/welcome.md',
-  relativePath: 'blocks/welcome.md',
+  relativePath: 'blocks/welcome.md'
 });
 const view = parseViewFile({
   content: '---\nid: onboarding\n---\n\n@stem[block:welcome]\n',
   filePath: '/project/views/onboarding.md',
-  relativePath: 'views/onboarding.md',
+  relativePath: 'views/onboarding.md'
 });
 
 if (block.errors.length > 0 || view.errors.length > 0) {

@@ -90,3 +90,11 @@ errors, including when produced by escapes; leading/trailing whitespace inside q
 an error rather than silently trimmed. Tag equality uses case-sensitive comparison of decoded names
 after [Unicode NFC normalization](https://www.unicode.org/reports/tr15/tr15-58.html); authored
 source is preserved.
+
+## D23. Schema retirement transition
+
+This transition is proposed under [ADR-0005](../decisions/0005-pure-block-model.md); current Tag schemas remain supported until formal product acceptance and implementation.
+
+Preserve user-authored schema files as ordinary files; do not automatically delete or convert them. Configuration still requesting the retired feature reports an unsupported-setting error with migration guidance rather than silently pretending the checks ran. This removal does not remove the grammar, identity, reference, or composition validation required by the proposed specifications.
+
+[Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates) owns removal tasks, partial-supersession timing and deferral of replacement schemas/structural validation/templates. This section relocates the existing transition contract without accepting or extending it.

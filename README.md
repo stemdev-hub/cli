@@ -17,13 +17,23 @@ Software documentation gets stale, duplicated, bloated, and locked into a single
 
 Stem is a pnpm monorepo with three packages:
 
-| Package | Purpose |
-| --- | --- |
-| [@stemdev/core](./packages/core/README.md) | Portable parsing, graph traversal, validation, and rendering for application and editor integrations. |
-| [@stemdev/cli](./packages/cli/README.md) | Node.js project operations, the `stem` executable, and the MCP context server. |
-| [vscode-stem](./packages/vscode-stem/README.md) | VS Code previews using bundled core, plus workspace MCP setup. |
+| Package                                         | Purpose                                                                                               |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [@stemdev/core](./packages/core/README.md)      | Portable parsing, graph traversal, validation, and rendering for application and editor integrations. |
+| [@stemdev/cli](./packages/cli/README.md)        | Node.js project operations, the `stem` executable, and the MCP context server.                        |
+| [vscode-stem](./packages/vscode-stem/README.md) | VS Code previews using bundled core, plus workspace MCP setup.                                        |
 
 Install the CLI to manage a project, the extension for editor previews, or core to build an integration. Package READMEs include installation and usage instructions.
+
+## Start here
+
+- Author and render Markdown: [CLI guide](packages/cli/README.md).
+- Preview in an editor or configure MCP: [extension guide](packages/vscode-stem/README.md).
+- Integrate the portable engine: [core guide](packages/core/README.md).
+- Look up current format semantics and limitations: [shared reference](docs/reference.md).
+- Contribute or release: [contribution guide](CONTRIBUTING.md). Find active/deferred work in [roadmap](roadmap.md).
+
+Stem is beta, maintained by its owner. Current usage and proposed product design have separate reading routes; source package versions do not by themselves establish distribution or host acceptance.
 
 ## Architecture
 
