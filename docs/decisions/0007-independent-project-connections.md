@@ -17,6 +17,12 @@ may be shared without coupling updates. Shared mutable folders still share edits
 Preserve source reference context through inclusion and nested dependencies.
 Retrieve remote content locally, record resolved revisions, and default to explicit
 updates; automatic refresh is opt-in per connection.
+Ordinary regeneration reuses the consumer's recorded dependency graph. Initial resolution
+and updates honor source-recorded nested commits, resolving declared selections only
+where the source has no recorded resolution. Updating one connection rebuilds only its
+graph; it does not independently advance versions recorded by included projects.
+Resolve revisits as edges in a finite instance graph, preserving distinct dependency
+contexts even when source commits are equal.
 Detailed contracts and D5 traceability live in the proposed
 [project-connections specification](../specs/project-connections.md).
 
@@ -26,11 +32,19 @@ Detailed contracts and D5 traceability live in the proposed
 - Copying authored definitions for each connection: unnecessary new identities.
 - Receiving-project alias overrides: change the meaning of included source.
 - Fetching the latest source on every use: defeats repeatable evaluation.
+- Refreshing all nested dependencies regardless of source records: changes included
+  content's selected dependencies without an upstream revision change.
+- Identifying instances by an ever-growing traversal path: creates new instances on
+  revisits and can prevent cyclic resolution from terminating.
 
 ## Consequences
 
 Resolution must retain source state and dependency bindings, not just project IDs.
 Storage sharing must preserve independent connection lifecycle and failures.
+Missing or inconsistent required resolution records need a deliberate resolution/update
+operation; ordinary regeneration cannot invent replacement selections. Local working
+folders remain mutable inputs. Detailed precedence and examples belong to the
+[resolution contract](../specs/project-connections.md#resolution-records-and-update-scope).
 Block-cycle handling remains in the [composition spec](../specs/composition.md#d12-expansion-cycles).
 Relevant precedents: [npm aliases](https://docs.npmjs.com/cli/v8/commands/npm-install/)
 and [Nix named inputs and resolved graphs](https://nix.dev/manual/nix/2.26/command-ref/new-cli/nix3-flake.html#lock-files).

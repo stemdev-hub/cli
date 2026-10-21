@@ -23,6 +23,23 @@ Substitution does not automatically encode URLs, escape HTML or quotes, coerce c
 output-language validation. Authors supply content suitable for its insertion context; this does not
 change [D25](#d25-export-eligibility-and-publication)'s existing error/export behavior.
 
+Whole-file composition emits each definition's body in its authored position, recursively emitting
+contained definitions and removing their boundary syntax under the
+[boundary-whitespace rules](stem-syntax.md#boundary-whitespace). Surrounding content remains in
+place, including [file-level frontmatter](stem-syntax.md#file-level-frontmatter). An inclusion emits
+another occurrence of its target even if that definition's body already appears elsewhere in the
+output. Selecting a Block alone excludes surrounding file content under
+[D22](block-model.md#d22-surrounding-content).
+
+For a syntactically valid inclusion whose target is missing, ambiguous, or otherwise unresolved,
+emit no text for that occurrence and report a localized error with an incomplete result. Preserve
+the surrounding text exactly; add no placeholder or separator. A resolved target with definition
+errors still supplies usable preview content and relevant diagnostics under
+[D10](block-model.md#d10-id-and-tag-selection). Malformed syntax instead retains its literal failed
+fragment under [syntax recovery](stem-syntax.md#shared-failed-fragment-recovery); an unfinished
+definition header retains its specified visible error fragment. These are recovery representations,
+not normal-export success under [D25](#d25-export-eligibility-and-publication).
+
 The same substitution behavior applies inline and on a dedicated line; see
 [inclusion syntax](stem-syntax.md#d11-inclusion-syntax) for recognition and malformed-expression
 handling.
@@ -33,25 +50,31 @@ Re-entering the same Block in the same resolved project instance
 ([D5](project-connections.md#d5-reference-context-and-project-aliases)) on the current expansion
 path through containment or inclusion is a cycle error; stop only the re-entering occurrence,
 whether reached through containment or inclusion, preserving usable surrounding content with a
-localized diagnostic and an incomplete result. Repeated use on separate paths is valid; reaching the
-same durable Block ID in a different selected revision is not by itself a cycle.
+localized diagnostic and an incomplete result. The stopped occurrence emits no text; independent
+content continues unless the result's [D24](#d24-resource-budgets) budget is exhausted. Repeated use
+on separate paths is valid; reaching the same durable Block ID in a different selected revision is
+not by itself a cycle.
 
-Resolution must recognize revisits to existing instance graph nodes instead of assigning a fresh
-identity on every traversal; aliases must not conceal a cycle. Instance distinctions account for
-selected source state and dependency bindings, independently of optional storage or computation
-sharing. A connection-graph cycle alone is not an expansion cycle unless Block expansion re-enters
-an active Block instance.
+Resolution supplies a finite instance graph under
+[D5](project-connections.md#resolved-instance-graph); aliases must not conceal a revisit. Instance
+distinctions account for selected source state and dependency bindings, independently of optional
+storage or computation sharing. A connection-graph cycle alone is not an expansion cycle unless
+Block expansion re-enters an active Block instance.
 
 ## D13. Localized recovery
 
 Throughout processing, confine recoverable errors to the smallest affected region, including regions
 within Blocks. Preserve usable surrounding content and independent results, returning partial
 results with localized diagnostics rather than replacing the whole Block or operation with an error.
+When an output's evaluation budget is exhausted, [D24](#d24-resource-budgets) defines its stopping
+point; independent requested outputs retain their own budgets.
 
 ## D14. Completeness and validity
 
 Content completeness and validation validity are distinct: a missing inclusion target makes
-composition partial and produces a validation error.
+composition partial and produces a validation error. A definition error such as an invalid Tag list
+can leave all body text available while blocking normal export. Incomplete Tag classification is
+reported separately under [D10](block-model.md#d10-id-and-tag-selection).
 
 ## D16. Affected results
 
@@ -95,17 +118,52 @@ synchronize generated output back into source; adapters own writing and display.
 
 ## D24. Resource budgets
 
-Core composition has configurable work/output budgets that account for repeated occurrences.
-Exhaustion preserves available content with localized diagnostics and an incomplete result, without
-itself invalidating Block definitions. Optional preview folding or additional bounded evaluation
-belongs to presentation. Numeric defaults are tracked in the
-[deferred design work](../../roadmap.md#pure-block-open-and-deferred-work).
+Each requested output has a finite, configurable work budget and output budget, shared by all its
+nested expansions. Independent requested outputs have separate allowances. Cycle detection remains
+required: cycle-free repetition can still multiply output exponentially, and empty expansions can
+consume substantial work without producing text.
+
+Charge one work unit for each attempted Block entry and one for each inclusion attempt, including
+the selected root Block, contained Blocks, repeated occurrences, failed inclusions and cycle
+re-entry attempts. An inclusion attempt is charged before resolution; entering its resolved target
+is a separate Block-entry charge before processing that Block. A missing target has no target-entry
+charge. A whole-file request does not invent an implicit root Block. These counters measure logical
+expansion work, not elapsed time or parser implementation steps.
+
+Count the UTF-8 bytes emitted into that requested output, including all surviving whitespace and
+repeated content. Count final emitted bytes once, not again for each enclosing Block. Never split
+a Unicode code point to fit the remaining allowance.
+
+Traverse in authored order, expanding each containment or inclusion occurrence before continuing
+with following content. Before an action exceeds either remaining allowance, stop that output and
+retain the produced prefix. If the next text exceeds the output allowance, retain the longest
+prefix that fits without splitting a code point, then stop; do not skip ahead to later content or
+insert a placeholder. Report the exhausted limit and affected location, mark the result incomplete,
+and block normal export under [D25](#d25-export-eligibility-and-publication). Already produced
+diagnostics remain available. Exhaustion does not itself invalidate Block definitions. Reaching a
+limit exactly is permitted when all work and output finish within both allowances.
+
+Cached evaluation must have identical logical charges, partial content, diagnostics and completeness
+to uncached evaluation under [D18](#d18-disposable-computation-caches). Reusing a cached result cannot
+discount its nested occurrences or discard a whole cached fragment where uncached evaluation would
+retain a prefix. Cache representation and traversal techniques remain implementation choices.
+
+Check allowances before expansion or oversized allocation and use stack-safe traversal so deep
+nesting cannot overflow the call stack before a work limit is reached. These two counters bound
+composition work and output, not total process memory or execution time. Parsing and source
+retrieval are separate concerns. Callers may raise limits for intentionally large outputs; optional
+preview folding or additional bounded evaluation belongs to presentation. Numeric defaults await
+measurement during composition implementation, as tracked in
+[open work](../../roadmap.md#pure-block-open-and-deferred-work).
 
 ## D25. Export eligibility and publication
 
 Previews may expose partial results; normal file exports publish only complete results without
 artifact-blocking errors. Definition errors in Blocks represented by an output, and resolution or
 composition errors affecting that output, block normal export; unrelated project errors do not.
+For selected subtrees, the scope of inherited definition diagnostics follows
+[D10](block-model.md#d10-id-and-tag-selection): errors in included descendants affect the parent
+result, while independent child selection does not automatically inherit unrelated parent errors.
 
 Prepare output in temporary storage, verify computation and writes, then safely replace the
 destination atomically where supported; failure preserves any existing destination and explicitly
@@ -116,8 +174,20 @@ bytes on downstream failure.
 
 ## Worked examples of the proposed rules
 
-- A parent includes Block `a` twice on separate completed expansion paths: both occurrences are valid. Repeated use alone is not a cycle.
-- Block `a` includes `b`, and `b` includes the same resolved instance of `a`: the re-entering occurrence is a cycle. Stop that occurrence, report a localized error/incomplete result, and preserve usable surrounding content. Alias changes do not conceal that revisit.
-- A document has independent content before and after an inclusion whose target is missing: the unaffected content remains usable, while the affected result is incomplete and has an error. Normal export is ineligible under D25. This example does not choose an unspecified placeholder or recovery representation.
+The following table uses JSON string notation to make whitespace explicit. Budgets are sufficient
+unless a row specifies otherwise.
 
-These examples illustrate D12–D14/D25; they do not accept the proposal or claim current renderer behavior.
+| Source or supplied input                                                                 | Result                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Whole file: `"@stem:block(id:greeting)Hello@stem:end()\nAgain: @stem:include(greeting)"` | Complete output: `"Hello\nAgain: Hello"`. The inclusion emits another occurrence, not another definition.                                                                                                |
+| Whole file: `"L@stem:block(id:a)\nX\n@stem:end()R"`                                      | Complete output: `"LXR"`; no separator is added. Selecting `a` alone gives `"X"`.                                                                                                                        |
+| Whole file: `"---\nid: old\n---\n@stem:block(id:a)A@stem:end()"`                         | Complete output: `"---\nid: old\n---\nA"`. Only `a` is a Block ID; the frontmatter text creates no definition.                                                                                           |
+| `"Before @stem:include(missing) after"`, with no target `missing`                        | Partial output: `"Before  after"`, with a localized resolution error; normal export is blocked. An ambiguous target has the same omission behavior.                                                      |
+| `"Before @stem:include(bad id) after"`                                                   | Partial output retains the malformed expression literally, with a syntax error; normal export is blocked.                                                                                                |
+| Selected `a` has body `"L@stem:include(a)R"`                                             | Partial output: `"LR"`, with a cycle error for the re-entering occurrence.                                                                                                                               |
+| Text `"Hi 🌱!"`, with a five-byte output allowance                                       | Partial output: `"Hi "`, with an output-budget diagnostic. The four-byte emoji cannot fit in the remaining two bytes. With eight bytes and sufficient work allowance, the entire text fits and succeeds. |
+| Selected `a` includes empty Block `b` twice                                              | Completion needs five work units: entry to `a`, then two inclusion attempts and two entries to `b`. A cache does not reduce this charge.                                                                 |
+
+A cycle through several Blocks or aliases follows the same active-instance rule. Repeated use on
+separate completed paths is valid and charged for each occurrence. These examples illustrate the
+proposed contracts; they do not claim current renderer behavior.

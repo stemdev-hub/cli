@@ -137,10 +137,51 @@ source's declared bindings and recorded dependency selections; pinning only the 
 insufficient when indirect sources can change. Each evaluation uses fixed supplied inputs under
 [D20](composition.md#d20-evaluation-inputs).
 
-Refreshing a connection may produce a new resolved dependency graph for it, while preserving other
-connections' recorded graphs and the source projects' configuration. See the
+Resolution and refresh follow the record precedence below, preserving other connections' recorded
+graphs and the source projects' configuration. See the
 [deferred design work](../../roadmap.md#pure-block-open-and-deferred-work) for nested overrides and
 follow relationships.
+
+### Resolution records and update scope
+
+The selected source's configuration owns the meaning of its bindings. The consumer's recorded graph
+captures the resolutions used by that connection; it cannot override source-owned aliases,
+selections, or recorded dependency commits.
+
+| Operation                                   | Resolution rule                                                                                                                                                                                                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Initial connection or deliberate resolution | Honor the selected source's recorded dependency commits. For required remote dependencies with no source-recorded resolution, resolve their declared selections and record the results in the consumer's graph.                                               |
+| Ordinary regeneration                       | Reuse the connection's recorded graph consistently with the selected source's bindings and recorded selections. Retrieve missing content at those exact commits without advancing them.                                                                       |
+| Explicit update                             | Resolve the chosen direct connection according to its selection, then rebuild only its graph using the initial-resolution precedence. Source-recorded nested commits remain authoritative; dependencies without source-recorded resolutions may resolve anew. |
+| Opt-in automatic refresh                    | Perform the configured update before regeneration, then evaluate the resulting fixed inputs. It does not refresh dependencies during Block expansion.                                                                                                         |
+
+An update can therefore change a dependency without a source-recorded resolution even if the direct
+commit remains the same. It cannot independently advance a nested commit recorded by that source.
+Importing a project does not run its own refresh workflow to replace its recorded selections.
+
+Missing or inconsistent required resolution records are connection errors during ordinary
+regeneration. Require a deliberate resolution/update operation instead of guessing a revision,
+silently repairing records, or substituting the latest branch state. Invalid source records remain
+errors rather than permission to override upstream choices. A changed binding must have a matching
+resolution before dependent exports can succeed. This differs from missing locally stored content,
+which may be retrieved at the already recorded revision.
+
+Local working-folder content still enters each evaluation as supplied; these remote-resolution
+records do not freeze local files. Connection operations retain the failure and coherent-publication
+rules in [connection lifecycle](#connection-lifecycle).
+
+### Resolved-instance graph
+
+Represent resolved dependencies as a finite graph of instances and bindings. Reuse an existing node
+on a revisit when its selected source state and dependency context match; do not allocate a fresh
+instance merely because traversal follows another alias or path. Project ID alone is insufficient,
+and equal source commits with different dependency selections remain distinct evaluation inputs.
+Graph identity must support revisits without requiring an infinitely expanded dependency tree.
+
+A back-edge in this graph is not itself a composition error. Block expansion applies
+[D12](composition.md#d12-expansion-cycles) to the active Block-instance path. Graph representation
+and ID encoding remain implementation mechanics; storage sharing must still preserve each
+connection's independent update lifecycle.
 
 ### Shared content and duplicate connections
 
@@ -169,10 +210,11 @@ content is an input, distinct from [D18](composition.md#d18-disposable-computati
 disposable computation cache.
 
 The consuming project chooses an update policy per connection. Explicit updates are the default:
-regeneration uses the recorded revision, and a deliberate update obtains newer content and changes
-that revision. Automatic refresh is opt-in: refresh the selected branch or tag before a requested
-regeneration, then use the resolved revision throughout that evaluation. A connection pinned to a
-commit remains on that commit until its selection changes.
+regeneration reuses the recorded graph, and a deliberate update resolves the recorded selection
+under [resolution precedence](#resolution-records-and-update-scope). Automatic refresh is opt-in:
+refresh the selected branch or tag before a requested regeneration, then use the resulting graph
+throughout that evaluation. A connection pinned to a commit remains on that direct commit until its
+selection changes; nested resolution follows the same precedence.
 
 If locally stored content for a selected revision is missing, retrieve that recorded revision
 without silently advancing it; report a failure if it cannot be obtained. A required refresh failure
@@ -200,11 +242,12 @@ Validate alias uniqueness before changing the binding. Existing authored referen
 require an explicit source edit or refactoring; renaming does not implicitly rewrite source or
 retain a hidden fallback alias. Included projects' own bindings and references remain unchanged.
 
-An explicit remote update advances only the chosen connection according to its recorded selection
-and [D5](#d5-reference-context-and-project-aliases)'s refresh policy. A commit selection does not
-advance. Changing a branch, tag, commit, repository location, project subdirectory, or local target
-path is a deliberate connection edit; validate and resolve the replacement before publishing its
-matching configuration and resolution. Preserve the connection ID when editing that connection.
+An explicit remote update affects only the chosen connection according to its recorded selection,
+refresh policy and [resolution precedence](#resolution-records-and-update-scope). A direct commit
+selection does not advance. Changing a branch, tag, commit, repository location, project subdirectory,
+or local target path is a deliberate connection edit; validate and resolve the replacement before
+publishing its matching configuration and resolution. Preserve the connection ID when editing that
+connection.
 
 Ordinary refresh and local-source rereads must match the recorded target project ID. An unexpected
 change of project identity is a connection error, even if the alias, path, or repository location is
@@ -244,4 +287,23 @@ A consumer connects to project P twice, through aliases `stable` and `trial`, wi
 
 Refreshing `trial` leaves `stable`'s selected revision and dependency bindings unchanged. The implementation may share immutable content without coupling refresh settings. An inclusion originating in P retains P's reference context rather than adopting the consumer's aliases.
 
-This illustrates the existing D5 contract. It chooses no connection-file syntax, ID-generation scheme, storage layout or transport mechanism.
+For nested resolution, suppose both connections initially select Guide revision A, whose versioned
+records select Shared revision X. Guide revision B records Shared revision Y. Updating only `trial`
+to B gives:
+
+```text
+stable -> Guide A -> Shared X
+trial  -> Guide B -> Shared Y
+```
+
+Updating a connection that remains on A preserves X, even if Shared's branch has advanced. If A
+declares a Shared branch without recording a commit, initial resolution records a commit in the
+consumer graph; ordinary regeneration reuses it, while a deliberate update may resolve that branch
+again. Deleting the required consumer resolution does not make ordinary regeneration select latest.
+
+If the resolved graph revisits the same source state with the same dependency context, the edge
+returns to that existing instance. A different context remains distinct. Whether that graph cycle
+causes a composition error depends on the selected Blocks' expansion paths.
+
+These examples illustrate the proposed D5 contract. They choose no connection-file syntax,
+ID-generation scheme, storage layout or transport mechanism.

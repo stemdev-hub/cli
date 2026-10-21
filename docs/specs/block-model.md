@@ -25,9 +25,11 @@ not implicit Blocks; semantic grouping uses an ordinary parent Block.
 
 Ordinary Markdown may exist outside Blocks and remains outside the Block domain. Only Block
 definitions participate in Block lookup, classification, and inclusion selection; selecting a Block
-does not include surrounding text. Whole-file composition preserves surrounding Markdown and expands
-Block inclusions ([D3](#d3-roots-and-files)). Intended Blocks with missing or invalid IDs remain
-errors, not ordinary-content fallbacks.
+does not include surrounding text. Whole-file composition preserves surrounding Markdown and emits
+definitions and inclusions under [D11](composition.md#d11-inclusion). File-level frontmatter is
+ordinary surrounding content under the [syntax policy](stem-syntax.md#file-level-frontmatter), not
+Block metadata or an implicit Block. Intended Blocks with missing or invalid IDs remain errors,
+not ordinary-content fallbacks.
 
 ## D4. Durable identity
 
@@ -45,11 +47,15 @@ references existing identity without creating another definition with that ID.
 
 ## D4c. Duplicate and missing IDs
 
-Duplicate definitions within one resolved project instance
-([D5](project-connections.md#d5-reference-context-and-project-aliases)) are ambiguous and reported,
-never silently selected. Selecting multiple instances or revisions of a project does not itself
-duplicate its definitions. Missing IDs make definitions incomplete/invalid; reads do not invent
-durable identity.
+Multiple definitions carrying the same valid, single ID within one resolved project instance
+([D5](project-connections.md#d5-reference-context-and-project-aliases)) make lookup ambiguous: report
+the conflict and choose none, even if only one definition is otherwise valid. Selecting multiple
+instances or revisions of a project does not itself duplicate its definitions.
+
+A missing, malformed, or repeated `id:` field invalidates that definition and makes it unaddressable
+by ID. Preserve its recovered content for source preview; reads neither invent durable identity nor
+choose among repeated fields. A unique valid ID remains addressable when other definition errors
+exist, subject to [D10](#d10-id-and-tag-selection).
 
 ## D6. Containment parenthood
 
@@ -82,6 +88,20 @@ definitions or Tag memberships from different instances or revisions. Transclusi
 ID; automatic composition of Tag matches is rejected because classification supplies no ordering or
 assembly rules. Ordered assemblies use ordinary Blocks with references.
 
+Selecting a uniquely identified erroneous Block preserves usable preview content with its
+diagnostics. A selected subtree includes errors in its descendants. Independently selecting a child
+does not inherit an ancestor's metadata errors unless they affect that child's ownership or content
+interpretation. A correctly bounded child can therefore remain usable when its parent has invalid
+metadata. [D25](composition.md#d25-export-eligibility-and-publication) governs export eligibility for
+the selected result.
+
+Tag selection returns known matches from unambiguously parsed Tags. If incomplete classification in
+the searched scope leaves additional matches unknown, return an explicit incomplete-classification
+diagnostic with those matches; do not report the collection as exhaustive. Tag recovery follows
+[D28](stem-syntax.md#d28-tag-diagnostics-and-recovery). Classification completeness, composed-content
+completeness, and definition validity are distinct; an invalid Tag list need not make body text
+incomplete.
+
 ## D29. Tag names and equality
 
 Tag names are text, with no implicit number, Boolean, or null conversion. Preserve internal spaces.
@@ -98,3 +118,12 @@ This transition is proposed under [ADR-0005](../decisions/0005-pure-block-model.
 Preserve user-authored schema files as ordinary files; do not automatically delete or convert them. Configuration still requesting the retired feature reports an unsupported-setting error with migration guidance rather than silently pretending the checks ran. This removal does not remove the grammar, identity, reference, or composition validation required by the proposed specifications.
 
 [Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates) owns removal tasks, partial-supersession timing and deferral of replacement schemas/structural validation/templates. This section relocates the existing transition contract without accepting or extending it.
+
+## Worked examples of selection
+
+- Two definitions have `id:a`; one also has invalid Tag metadata. Lookup of `a` is ambiguous, rather than selecting the definition without the Tag error.
+- A definition has `id:a id:b`. It remains visible in source preview but is addressable by neither ID.
+- Parent `p` has an invalid Tag list and contains a correctly bounded, valid child `c`. Previewing `p` preserves usable content with the error; normal export of `p` is blocked. Independently selecting `c` can be exported if its own subtree and references are valid and complete, and the parent's error does not affect its interpretation.
+- A recovered Tag list certainly contains `guide` but has an unreadable remainder. Selection for `guide` includes that known match with its diagnostics; selections whose additional matches may be unknown report incomplete classification.
+
+These examples describe the proposed contracts, not the current implementation.

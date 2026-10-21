@@ -14,6 +14,11 @@ Tags classify Blocks directly. Selection and inclusion preserve source identity.
 Use explicit Stem directives for inline and multiline definitions and inclusions,
 with uniform recognition and explicit escaping independent of the output language.
 Compose fixed supplied inputs with localized errors and complete-result publication.
+File-level frontmatter is ordinary authored text, not a second source of Stem metadata.
+Replace legacy APIs and behavior directly under the beta policy, updating callers and
+tests and removing obsolete paths without compatibility shims or parallel legacy APIs.
+Bound recursive composition with configurable work and output allowances; cycle checks
+alone do not bound cycle-free repetition or the size of generated output.
 Contracts live in the proposed [model](../specs/block-model.md),
 [syntax](../specs/stem-syntax.md), and [composition](../specs/composition.md) specs.
 Independent project connections are a separate decision in [ADR-0007](0007-independent-project-connections.md).
@@ -26,6 +31,10 @@ Independent project connections are a separate decision in [ADR-0007](0007-indep
 - Markdown/HTML-context protections: prevent reuse inside code and other authored content.
 - Adapting legacy Tag schemas now: their required-text checks assume Tag-owned content;
   the classification model supplies no equivalent, so adaptation requires a redesign.
+- Keeping frontmatter as a second metadata channel: creates competing authoring rules.
+- Compatibility layers around the replaced model: retain obsolete paths during beta.
+- Cycle detection alone as an expansion limit: finite repetition can still multiply
+  output exponentially, while empty expansions consume work without emitting text.
 
 ## Consequences
 
@@ -34,8 +43,21 @@ The [model specification's D23 transition contract](../specs/block-model.md#d23-
 owns preservation of authored schema files and unsupported-setting behavior.
 [Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates)
 owns removal tasks, sequencing, and deferred replacement features.
-On acceptance, supersede only ADR-0004's Tag-schema decoder/export and preservation
-requirements; retain its external-snapshot requirements and pure-core/I/O boundaries.
-Until then, ADR-0004 and existing rules remain binding.
+On acceptance, retire ADR-0002's frontmatter-parsing contract in full: its YAML schema,
+engine restrictions, normalization, delimiter/body recovery, position and diagnostic
+preservation obligations no longer govern the replacement source parser. This retires
+Stem's interpretation of frontmatter; it does not select a new YAML policy for unrelated
+formats. Replace Node-side frontmatter helpers in affected migrated operations as well.
+
+Supersede only ADR-0004's Tag-schema decoder/export and preservation requirements;
+retain its external-snapshot decoder, shape/timestamp behavior and consumer-owned
+contextual handling. ADR-0001's pure-core/I/O and public-entry boundaries remain binding.
+At acceptance, record these dispositions in the old ADR statuses, affected rules and
+architecture applicability map; their accepted decision bodies remain historical records.
+Until then, ADR-0002, ADR-0004 and existing rules remain binding in full.
+
+Direct replacement does not choose public API names or result shapes. Finalize the
+affected replacement contracts and removals before the corresponding implementation
+slice; ADR-0001's requirement for an accepted ADR covering removals/renames still applies.
 [D15](../../roadmap.md#d15-dependency-review) defers dependency review;
 [open work](../../roadmap.md#pure-block-open-and-deferred-work) remains unresolved.

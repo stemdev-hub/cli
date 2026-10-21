@@ -60,6 +60,18 @@ Preserve every surviving line-ending sequence exactly as authored, including mix
 without normalization. Other Unicode separator characters do not delimit source lines;
 [D29](block-model.md#d29-tag-names-and-equality)'s Tag-name restrictions still apply.
 
+### File-level frontmatter
+
+Stem does not parse file-level frontmatter as metadata or derive Block identity, Tags, or other
+Stem settings from it. Its delimiters and contents are ordinary authored text: whole-file
+composition preserves them, while separately selecting a Block excludes them unless authored
+inside that Block. Uniform instruction recognition and escaping still apply there; frontmatter
+does not protect marker-shaped text from Stem grammar. Downstream tools may interpret the output.
+
+This proposed replacement requires the explicit retirement of
+[ADR-0002](../decisions/0002-frontmatter-yaml-core-schema.md)'s frontmatter policy under
+[ADR-0005](../decisions/0005-pure-block-model.md); it does not describe current parsing behavior.
+
 ### Definition boundaries
 
 Block ownership uses explicit paired opening and closing boundaries. The initial representation
@@ -82,10 +94,11 @@ and children ([D13](composition.md#d13-localized-recovery)).
 
 ### Boundary whitespace
 
-For complete definitions in inline, multiline, and mixed layouts, each edge is evaluated
-independently in the original source: at most one line ending directly after the opening marker and
-at most one directly before the closing marker belong to boundary syntax, not Block content,
-regardless of surrounding text or the opposite edge's layout.
+For inline, multiline, and mixed layouts, each actual boundary belonging to a Block is evaluated
+independently in the original source: at most one line ending directly after its complete opening
+marker and at most one directly before its actual closing marker belong to boundary syntax, not
+Block content, regardless of surrounding text or the opposite edge's layout. An implicit recovery
+ending is not a closing marker and removes no newline.
 
 Spaces and tabs inside the boundaries are content just like letters; an intervening space or tab
 prevents newline removal at that edge. Do not search past content or trim the resulting content.
@@ -133,6 +146,10 @@ delimiter is automatically corrected.
 
 ### Invalid headers and ownership recovery
 
+When the header has a recognized terminating `)` but its metadata is invalid, report the definition
+errors and continue parsing content and children immediately after that parenthesis. An invalid
+metadata value does not by itself turn a correctly terminated header into an unfinished header.
+
 For a recognized `@stem:block(` opener whose header is unfinished at line end/EOF, retain the
 intended Block as invalid for ownership recovery. Bound the unfinished header by that source line,
 consistent with [D28](#d28-tag-diagnostics-and-recovery), and recover its body from the following
@@ -151,15 +168,17 @@ until a usable closer or end-of-file recovery.
 
 For recovery only, a mismatched ID identifying an unambiguous open ancestor ends intervening
 unclosed Blocks at that boundary with missing-closer errors, then closes the ancestor; this does not
-make the source valid or infer earlier content divisions.
+make the source valid or infer earlier content divisions. That marker is an actual closer only for
+the ancestor; the intervening Blocks end implicitly under the boundary-whitespace rule.
 
 A closer with no open Block, or an ID matching neither the innermost Block nor an unambiguous open
 ancestor, reports an error and closes nothing; preserve that unmatched closer literally in partial
 output. This does not change ancestor recovery, where the closer closes the identified open
 ancestor.
 
-At end of file, recover still-open Blocks through EOF with missing-closer errors, preserving usable
-preview content and applying [D25](composition.md#d25-export-eligibility-and-publication) to
+At end of file, recover still-open Blocks through EOF with missing-closer errors, preserving their
+remaining content, including trailing spaces, tabs and line endings. There is no closing-boundary
+newline removal at EOF. Apply [D25](composition.md#d25-export-eligibility-and-publication) to
 affected exports. Recovery does not insert source text or infer boundaries from headings, blank
 lines, or later opening markers; later openings remain nested while a parent is open.
 
@@ -196,11 +215,13 @@ and recovery follow [D26](#d26-representation-grammar) and [D28](#d28-tag-diagno
 
 Duplicate Tag names attach once with a warning; repeated `tags:` fields are definition errors, with
 no silent merge or choice of one field. Preserve authored source. Malformed-list recovery retains
-only unambiguously parsed Tags and reports incomplete classification; it stops at the end of the
-opening line so an unfinished quote cannot consume subsequent Markdown. Continue parsing the Block's
-body and children ([D13](composition.md#d13-localized-recovery)); relevant definition errors block
-normal export under [D25](composition.md#d25-export-eligibility-and-publication) while previews
-preserve usable content.
+only unambiguously parsed Tags and reports incomplete classification. Recovery is bounded by the
+header's recognized termination, or by the opening line if the header is unfinished, so an
+unfinished quote cannot consume subsequent Markdown. Continue parsing the Block's body and children
+under [header recovery](#invalid-headers-and-ownership-recovery). A Tag error does not by itself
+invalidate a unique valid ID or independently bounded children; selection and diagnostic scope follow
+[D10](block-model.md#d10-id-and-tag-selection). Relevant definition errors block normal export under
+[D25](composition.md#d25-export-eligibility-and-publication) while previews preserve usable content.
 
 Single-Tag shorthand is tracked in the
 [deferred design work](../../roadmap.md#pure-block-open-and-deferred-work).
@@ -216,5 +237,15 @@ These illustrate existing rules above; they are not examples for the current par
 | `"@stem:block(id:a)\n@stem:end()"`      | `""`                                              |
 
 Each edge is independent; a space prevents consuming a newline at that edge. The shared newline in the empty definition is consumed once.
+
+Recovery examples use the same JSON string notation. The recovered content does not make the
+definition valid; the listed errors still block affected normal exports.
+
+| Original source                                         | Recovery outcome                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"@stem:block(id:a tags:[guide,])A@stem:end()"`         | The terminated header has a Tag error; `a` remains addressable, `guide` is retained, and body content is `"A"`.                                                                                                                                                                                           |
+| `"@stem:block(id:a tags:[guide\nA\n@stem:end()"`        | The unfinished header remains a literal error fragment through its source line; body recovery starts with `A` on the next line. Whole-file partial output is `"@stem:block(id:a tags:[guide\nA"`: the unfinished opener removes no newline, and the actual closer removes the newline directly before it. |
+| `"@stem:block(id:a)\nA\n\t"`                            | EOF reports the missing closer; `a`'s recovered body is `"A\n\t"`, preserving trailing whitespace.                                                                                                                                                                                                        |
+| `"@stem:block(id:a)@stem:block(id:b)B @stem:end(id:a)"` | The labelled closer closes `a`; `b` ends implicitly with a missing-closer error. Its recovered body is `"B "`; recovery neither invents an earlier ending nor trims content.                                                                                                                              |
 
 For literal escaping, assume Block `a` contains `X`. One source backslash immediately before `@stem:include(a)` suppresses recognition and emits the literal expression; two source backslashes emit one backslash followed by the evaluated `X`. Escaping a definition opener alone does not protect its closer. These results follow [original-source evaluation](#escaping-and-original-source-evaluation), not rescanning of the assembled output.
