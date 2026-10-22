@@ -9,6 +9,65 @@ Stem source describes reusable content and how to assemble it; its authoring ins
 Stem grammar ([D26](#d26-representation-grammar)), while the output language governs the resulting
 content's interpretation.
 
+## Parser contract
+
+The proposed public entry is `parse(SourceDocument): ParseResult`, directly replacing
+`parseBlockFile()` and `parseViewFile()` under ADR-0005. Do not retain parser aliases for the
+legacy file roles. Parsing interprets one supplied document without project resolution or I/O.
+
+`SourceDocument` has readonly string fields `sourceId` and `content`. The adapter supplies a source
+handle that identifies the document within the evaluation context; it is neither a durable Block ID
+nor a [connection source binding](project-connections.md#connection-record-and-source-binding).
+Core does not interpret it as a filesystem path. `SourceRange` has readonly numeric `startOffset`
+and `endOffset`: zero-based UTF-16 code-unit offsets, with an exclusive end, into the original,
+unnormalized `content`. Adapters derive display locations; positions never enter persisted caches.
+
+`ParseResult` contains readonly `tree: SyntaxTree` and `diagnostics: readonly Diagnostic[]`.
+Malformed authored syntax returns a recovered tree together with
+[diagnostics](composition.md#diagnostic-contract), rather than discarding the tree on the first
+error. A tree's existence does not establish validity or export eligibility.
+
+### Syntax tree representation
+
+`SyntaxTree` retains the supplied document in `source` and its ordered root `children`. This
+technical document root includes surrounding text and multiple root definitions; it is not an
+implicit domain Block. Retain original content once, with ranges into it, rather than copying a
+complete body for every ancestor. Node records and child arrays are readonly; the
+[evaluation ownership contract](composition.md#d20-evaluation-inputs) governs their lifetime.
+
+Each node carries `kind` and `range`. The node categories carry the following additional data:
+
+| `kind`    | Required data and interpretation                                                                                                  |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `text`    | `value`: literal text to emit after interpreting Stem escapes; the range retains access to its original spelling.                 |
+| `block`   | `header`, ordered `children`, and `ending`; retain metadata occurrences and their ranges, including repeated or malformed fields. |
+| `include` | `target`: the syntactically parsed reference, retaining its optional qualifier and ID without resolving a project or definition.  |
+| `error`   | `value`: the literal failed fragment required by recovery, without guessed instructions or targets.                               |
+
+A Block header retains its full original range and whether it has a recognized terminating
+parenthesis, so an unfinished header can preserve its visible error fragment under
+[recovery](#invalid-headers-and-ownership-recovery).
+Do not collapse repeated metadata into a last-value-wins dictionary. Header information and error
+fragments describe the same original source where needed; they do not cause duplicate emission.
+
+`ending` distinguishes `marker` (an actual closing-marker range), `ancestor` (an implicit end at
+the ancestor's closing-marker start), and `eof` (an implicit end at the original content's end).
+Only `marker` supplies an actual closer for [boundary whitespace](#boundary-whitespace). Recovery
+does not synthesize source characters or a closing-marker range. A Block's range ends after its
+actual closer, or at its implicit ending when no closer belongs to it.
+
+Text values record literal intent during parsing and are emitted during composition. Stem escapes
+are interpreted once from original source; composition never applies them again to those values or
+rescans assembled output. This does not decode Markdown/HTML escapes or normalize source text.
+Boundary-newline removal is a separate operation governed by actual boundaries, not general trimming
+of text values. Error fragments retain their literal recovery spelling.
+
+Use a small portable TypeScript scanner with an explicit nesting stack. The syntax tree carries no
+resolved project targets or semantic lookup indexes; [project analysis](block-model.md#project-analysis)
+owns that interpretation. Syntax records are technical representations, not new domain primitives.
+Whole-document parsing is the initial approach; incremental parsing and additional parser tooling
+require demonstrated need. Only helpers required by actual consumers become public exports.
+
 ## D11. Inclusion syntax
 
 The initial representation uses one explicitly bounded inclusion expression,

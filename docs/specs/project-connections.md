@@ -142,6 +142,29 @@ graphs and the source projects' configuration. See the
 [deferred design work](../../roadmap.md#pure-block-open-and-deferred-work) for nested overrides and
 follow relationships.
 
+### Block reference resolution
+
+`resolveBlockReference()` returns `BlockResolution`, a discriminated union with a readonly `status`
+and readonly `diagnostics`. The status determines its target payload:
+
+| `status`      | Payload and meaning                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| `resolved`    | `target`: exactly one addressable definition, retaining its resolved instance context.            |
+| `not-found`   | No target: the required instance and source data are available, but no definition matches the ID. |
+| `ambiguous`   | `candidates`: all definitions matching that ID in the selected instance, with no chosen target.   |
+| `unavailable` | No target: required project context or source data is unavailable or unusable for lookup.         |
+
+Targets and candidates use the model's [definition handles](block-model.md#definition-handles).
+A `resolved` target may still have definition errors; resolution success does not establish content
+completeness or export eligibility. Duplicate definitions remain ambiguous under
+[D4c](block-model.md#d4c-duplicate-and-missing-ids), even when only one is otherwise valid.
+
+Diagnostic codes distinguish causes, including unknown aliases, invalid connection configuration,
+and unavailable source content. Those failures use `unavailable`; they are not evidence that a
+Block ID is absent. `ambiguous` describes conflicting Block definitions, not an instruction to
+choose among invalid alias bindings. Payloads are readonly and evaluation-local; this API does not
+choose connection serialization, durable ID encoding, transport or storage mechanics.
+
 ### Resolution records and update scope
 
 The selected source's configuration owns the meaning of its bindings. The consumer's recorded graph

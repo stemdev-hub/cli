@@ -69,12 +69,38 @@ results with localized diagnostics rather than replacing the whole Block or oper
 When an output's evaluation budget is exhausted, [D24](#d24-resource-budgets) defines its stopping
 point; independent requested outputs retain their own budgets.
 
+### Diagnostic contract
+
+`Diagnostic` carries a stable `code`, explicit `severity`, readable `message`, a primary location
+when available, and related locations when useful. A source location identifies `sourceId` and a
+[SourceRange](stem-syntax.md#parser-contract); retain instance context where needed to distinguish
+interpretations of shared source. Related locations explain duplicate candidates, reference targets,
+or recovery context. Configuration or availability errors need not invent a source range.
+
+Maintain internal associations between diagnostics and the definitions, syntax regions or evaluation
+operations they affect. Display location alone does not determine semantic ownership; do not infer
+scope solely from overlapping ranges. A malformed ancestor header does not automatically invalidate
+an independently selected child under [D10](block-model.md#d10-id-and-tag-selection).
+
+Project analysis exposes project-wide diagnostics. Selection and composition return diagnostics
+applicable to their requested results; adapters do not reject an otherwise eligible output solely
+because project-wide analysis contains unrelated errors. Diagnostic records and collections are
+readonly. Counts and validity summaries are derived, not independent writable state.
+
 ## D14. Completeness and validity
 
 Content completeness and validation validity are distinct: a missing inclusion target makes
 composition partial and produces a validation error. A definition error such as an invalid Tag list
 can leave all body text available while blocking normal export. Incomplete Tag classification is
 reported separately under [D10](block-model.md#d10-id-and-tag-selection).
+
+`compose()` returns `CompositionResult` with readonly `content: string`, `complete: boolean`, and
+`diagnostics: readonly Diagnostic[]`. `complete` states whether all requested content was produced;
+it is not a validity or success flag. A definition error can therefore accompany complete body
+content, whereas a failed inclusion leaves incomplete content. Both remain available to preview.
+Derive normal-export eligibility from completeness and applicable blocking diagnostics under
+[D25](#d25-export-eligibility-and-publication); do not maintain an independent writable `exportable`
+flag. The parser's and selector's result contracts remain owned by their respective specifications.
 
 ## D16. Affected results
 
@@ -108,6 +134,17 @@ Each evaluation uses the source content and configuration supplied by its adapte
 that evaluation; changes enter subsequent evaluations. No project-wide atomic snapshot, saved
 snapshot history, or new domain primitive is required. Editor adapters prevent older completed
 evaluations from replacing newer results.
+
+Public input/result records and their arrays are readonly; core does not mutate supplied inputs or
+previously returned trees and results. TypeScript `readonly` expresses this contract but does not
+freeze objects at runtime, so implementations must also prevent mutation through retained aliases.
+This does not require a new immutability library or a prescribed runtime-freezing strategy.
+
+Adapters own cancellation and rejection of obsolete evaluations, accounting for changes to any
+relevant supplied source or configuration rather than only the active editor document. Core keeps
+its portable supplied-input boundary. Whole-document parsing may coexist with downstream reuse
+under D16-D18; incremental parsing, packed tree storage, workers and persistent analysis sessions
+are not prerequisites and require measured need.
 
 ## D21. Regeneration
 

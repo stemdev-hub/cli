@@ -57,6 +57,19 @@ by ID. Preserve its recovered content for source preview; reads neither invent d
 choose among repeated fields. A unique valid ID remains addressable when other definition errors
 exist, subject to [D10](#d10-id-and-tag-selection).
 
+### Definition handles
+
+Project analysis retains each recovered definition independently of its authored ID. Use temporary
+analysis-local handles or object references to distinguish definitions with duplicate, missing, or
+invalid IDs; do not overwrite candidates in an ID-keyed lookup. These handles are not new durable
+identities, are not persisted, and cannot be used as cross-analysis references. They need no public
+UUID or serialization format.
+
+A resolved target or selection match retains both its definition handle and resolved project
+instance context. Equal source text may share parsed syntax while being interpreted in different
+instances under [D5](project-connections.md#shared-content-and-duplicate-connections). Authored ID,
+temporary definition handle, and resolved-instance identity remain distinct.
+
 ## D6. Containment parenthood
 
 Each Block has at most one containment parent; containment is acyclic. Transclusion does not
@@ -102,6 +115,15 @@ diagnostic with those matches; do not report the collection as exhaustive. Tag r
 completeness, and definition validity are distinct; an invalid Tag list need not make body text
 incomplete.
 
+### Selection results
+
+`selectBlocksByTag()` returns `TagSelection` with readonly `matches`, `complete`, and `diagnostics`.
+Matches retain the definition and instance context described [above](#definition-handles), including
+known matches with definition errors. Here `complete` means that classification is exhaustive in the
+searched scope, not that the definitions are valid or their composed content is complete. An empty,
+exhaustive result is complete. The collection supplies no automatic assembly order under D10.
+ID-reference selection uses [BlockResolution](project-connections.md#block-reference-resolution).
+
 ## D29. Tag names and equality
 
 Tag names are text, with no implicit number, Boolean, or null conversion. Preserve internal spaces.
@@ -110,6 +132,21 @@ errors, including when produced by escapes; leading/trailing whitespace inside q
 an error rather than silently trimmed. Tag equality uses case-sensitive comparison of decoded names
 after [Unicode NFC normalization](https://www.unicode.org/reports/tr15/tr15-58.html); authored
 source is preserved.
+
+## Project analysis
+
+Retain `ProjectSnapshot`, `analyzeProject()` and `ProjectAnalysis`. A snapshot supplies unified
+`SourceDocument` inputs and their project/instance context, replacing the legacy Block-file/View-file
+split. It is an evaluation input, not a persisted format. Its ownership and lifetime follow
+[D20](composition.md#d20-evaluation-inputs); source binding and instance semantics follow
+[D5](project-connections.md#d5-reference-context-and-project-aliases).
+
+`ProjectAnalysis` retains parsed sources, recovered definitions and project-wide diagnostics.
+Parsing remains independent of project interpretation under the
+[parser contract](stem-syntax.md#parser-contract). Lookup indexes are private derived data; do not
+make mutable index maps a public storage contract. Project checking can report the full diagnostic
+set, while selection and composition retain their own diagnostic scope. Analysis returns useful
+data alongside diagnostics rather than a single success/failure result.
 
 ## D23. Schema retirement transition
 
