@@ -91,7 +91,20 @@ API and representation review checkpoint: on 22 October 2026, the owner approved
 - **Resolution and selection:** [BlockResolution](docs/specs/project-connections.md#block-reference-resolution) and [TagSelection](docs/specs/block-model.md#selection-results).
 - **Diagnostics and evaluation:** [diagnostic ownership](docs/specs/composition.md#diagnostic-contract), [CompositionResult](docs/specs/composition.md#d14-completeness-and-validity), and [input/result lifetime](docs/specs/composition.md#d20-evaluation-inputs).
 
-Next, map the approved contracts to core, CLI and editor callers and prepare the bounded implementation file scope, including concrete declarations needed by that slice. Review tests for exact whitespace/escaping, malformed nesting, distinct duplicate-ID candidates, independent-child diagnostic scope, obsolete editor results and representative large/deep inputs. Obtain explicit acceptance of the resulting governing decision and specification revision before implementation; names and the six choices above need no further review in the absence of conflicting evidence. At acceptance, apply the exact rule/ADR-status/applicability changes proposed in [ADR-0005](docs/decisions/0005-pure-block-model.md#consequences). Authored schema preservation remains owned by [D23](docs/specs/block-model.md#d23-schema-retirement-transition).
+Output/publication review checkpoint: on 23 October 2026, the owner approved incorporating the
+document-assembly, output-set, external-destination and selective-cleanup working agreements into
+the proposals, including failure scope for invalid manifests and conflicting destinations.
+Statuses remain proposed, with no runtime implementation authorized.
+
+- **Assembly and configuration:** [output sets and explicit source selectors](docs/specs/composition.md#output-sets-and-targets), with [one source boundary and View retirement](docs/specs/composition.md#source-boundary-and-view-retirement).
+- **Publication:** [destination checks](docs/specs/composition.md#destination-paths-and-conflicts) and [existing-file policies](docs/specs/composition.md#existing-file-policy).
+- **Persistence and cleanup:** [destination-local manifest](docs/specs/composition.md#output-manifest), [obsolete-output rules](docs/specs/composition.md#obsolete-output-cleanup), and [failure handling](docs/specs/composition.md#publication-bookkeeping-and-failures).
+- **Acceptance examples:** [output publication scenarios](docs/specs/composition.md#output-publication-examples), alongside the existing syntax, selection and composition examples.
+
+Next is the bounded unified parser/model plan in the [migration sequence](#migration-sequence).
+Use the specifications' examples as acceptance cases, including the linked publication scenarios.
+Agreed names and working choices need no further review without conflicting evidence; actual
+decision/specification acceptance remains a separate step before implementation.
 
 Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.
 
@@ -99,9 +112,10 @@ Budget defaults are needed for composition, not an earlier parser/model slice. C
 
 1. Resolve the [open design work](#pure-block-open-and-deferred-work) and replacement API contracts needed for the selected implementation slice and explicitly accept its governing product decisions and contracts.
 2. At ADR-0005 acceptance, record ADR-0002's frontmatter-policy retirement and ADR-0004's partial Tag-schema supersession in their statuses, affected rules and architecture applicability map; preserve external-snapshot requirements and core/I/O boundaries.
-3. Prepare a bounded implementation plan for core model, syntax, composition, and public API changes, using the specifications as acceptance criteria.
+3. Prepare a bounded implementation plan for core model, syntax, composition, and public API changes, mapping contracts to core, CLI and editor callers and naming exact files. Begin with unified parsing/model prerequisites; use the specification examples as acceptance criteria, with obsolete-editor-result checks and representative large/deep inputs where relevant.
 4. Plan project-connection resolution and lifecycle across core and adapters under ADR-0007; resolve storage and transport mechanics before implementing those interfaces.
 5. Apply the schema retirement below alongside the migration, then update CLI/editor behavior and released-user guidance with targeted validation. Implementation order and files require the subsequent code plan.
+6. Implement output selection and publication after their parsing/composition and identity prerequisites; establish manifest tracking before enabling pruning. Retire the legacy View role with authored-file preservation, then update current command/configuration guides. Resolve the slice's [open mechanics](#pure-block-open-and-deferred-work) in its bounded code plan.
 
 ### D15. Dependency review
 
@@ -128,6 +142,8 @@ Partial supersession and rule changes occur only on formal product acceptance as
 - **D24 defaults:** Numeric work/output budget defaults await measurement; the required behavior is in [D24](docs/specs/composition.md#d24-resource-budgets).
 - **D27 shorthand:** Single-Tag shorthand is deferred pending demonstrated user need.
 - **Evaluation mechanics:** Cache format and algorithm, and ID generation mechanics remain deferred. Result and representation contracts are incorporated; caller/declaration mapping and bounded implementation planning are next in the [API review checkpoint](#pure-block-decisions-to-finalize).
+- **Output/publication mechanics:** Concrete command spellings, public declarations, manifest record encoding/validation and local writer-coordination mechanics are required when selecting that slice; behavior is owned by the [publication contract](docs/specs/composition.md#d25-export-eligibility-and-publication).
+- **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed writer coordination are outside this initial contract. Reconsider only for a demonstrated consumer workflow; the output plan does not select them. Rejected assembly/profile alternatives remain owned by ADR-0005.
 - **Formatter:** An optional future feature; detailed design is deferred, and parsing, validation, and export do not require it.
 - Dependency review and replacement validation/templates remain owned by D15 and D23 above.
 

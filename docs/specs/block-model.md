@@ -21,6 +21,11 @@ A file may store multiple independent root Blocks; one root per file is an organ
 convention. A root is an ordinary Block without a containment parent. Files are storage containers,
 not implicit Blocks; semantic grouping uses an ordinary parent Block.
 
+A source file may contain no Block definitions. Document assemblies use ordinary Blocks with text
+and inclusions, or whole-file composition; there is no separate Page type or definition-free source
+role. [Output sets](composition.md#output-sets-and-targets) select these existing sources and assign
+destination paths without creating content identity.
+
 ## D22. Surrounding content
 
 Ordinary Markdown may exist outside Blocks and remains outside the Block domain. Only Block

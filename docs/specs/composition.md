@@ -123,6 +123,10 @@ must yield identical content, diagnostics, and completeness with or without a ca
 corrupt, or incompatible caches trigger recomputation; external source content is an input whose
 availability is separately required.
 
+The [output manifest](#output-manifest) is separate operational state: recomputing current content
+cannot recover which obsolete files Stem previously wrote. Clearing computation caches must not
+erase generation ownership or enable cleanup without that evidence.
+
 ## D19. Current results
 
 Current composition never silently substitutes a previous successful result or stale content for a
@@ -148,10 +152,82 @@ are not prerequisites and require measured need.
 
 ## D21. Regeneration
 
-Successful regeneration uses newly supplied inputs and replaces the selected generated output, or
-writes to another explicitly selected destination, subject to
-[D25](#d25-export-eligibility-and-publication). Stem maintains no output history and does not
-synchronize generated output back into source; adapters own writing and display.
+Regeneration uses newly supplied inputs for selected output targets, subject to their
+[existing-file policy](#existing-file-policy) and [D25](#d25-export-eligibility-and-publication).
+Stem keeps no saved output-content history and does not synchronize generated output back into
+source. Adapters own writing, display and the [manifest](#output-manifest) of current generation
+ownership; that bookkeeping stores no previous document contents.
+
+### Output sets and targets
+
+Project configuration may declare `outputSets`, a map of nonempty, case-sensitive set names to
+explicit target lists and set-wide publication policies. An absent or empty map is valid for a
+library-only project; an empty target list is also valid. A set is a named collection of mappings,
+not a profile with inheritance, merging or implicit overrides. A target has exactly one `source`
+selector and a nonempty relative destination `path`:
+
+- `{ "kind": "block", "ref": "guide" }` selects a Block and its subtree. `ref` uses the ID or
+  `alias:ID` target grammar from [inclusions](stem-syntax.md#d11-inclusion-syntax), without a directive
+  wrapper. Resolve it from the configuring project's context under
+  [D5](project-connections.md#d5-reference-context-and-project-aliases).
+- `{ "kind": "file", "path": "blocks/guide.md" }` selects a whole local source file beneath
+  `blocksDir`. Its path is project-relative, not relative to `blocksDir` or `outputDir`. File
+  selection preserves surrounding text and definitions under [D11](#d11-inclusion); it creates no
+  implicit Block. Connected content is available through Block references/inclusions, not arbitrary
+  external file selectors.
+
+Do not infer a selector kind from its spelling, derive filenames from IDs, or compose Tag matches
+automatically. The same source may feed several explicitly named destinations. All source files
+use the same parser and may contain definitions, inclusions and free text. Each target produces one
+Markdown file; filenames are explicit, without automatic extension changes, heading adjustment,
+formatting, asset copying or relative-link rewriting.
+
+Each set has optional `outputDir` (default `"."`), `ifExists` (default `"replace"`), and `cleanup`
+(default `"keep"`). Their contracts are below. Callers explicitly select sets, individual targets,
+or all local sets; loading a connection never executes the connected project's output configuration.
+Set names and destination paths identify configured targets; no new durable target ID is required.
+Preview and stdout composition do not require an output set and never update destination ownership.
+
+This proposed configuration fragment shows both selector kinds and an external destination; it is
+not a complete project configuration or a claim of current CLI support:
+
+```json
+{
+  "blocksDir": "blocks",
+  "outputSets": {
+    "repository": {
+      "outputDir": ".",
+      "ifExists": "replace",
+      "cleanup": "keep",
+      "targets": [
+        { "source": { "kind": "block", "ref": "project-readme" }, "path": "README.md" },
+        { "source": { "kind": "file", "path": "blocks/start.md" }, "path": "docs/start.md" }
+      ]
+    },
+    "bundle": {
+      "outputDir": "../published-docs",
+      "ifExists": "replace",
+      "cleanup": "prune",
+      "targets": [{ "source": { "kind": "block", "ref": "project-readme" }, "path": "README.md" }]
+    }
+  }
+}
+```
+
+### Source boundary and View retirement
+
+Retain `blocksDir`, default `"blocks"`, as the single project-relative source directory within the
+project. Files there need not define Blocks. Outputs may sit elsewhere, including at the project
+root, but writing into the source directory is an error; do not silently exclude an output file
+from the source model to permit this overlap.
+
+Replace the legacy View role, its separate discovery/parser paths and `viewsDir` during the
+corresponding migration. Preserve authored View files; do not delete, move or convert them
+automatically. A remaining `viewsDir` setting reports an unsupported-setting error with guidance
+to select the unified source directory and explicit output mappings. Files outside that directory
+remain ordinary files until the author deliberately includes them in the new source layout.
+The output manifest alone does not establish a Stem source project; source project identity and
+configuration remain governed by [D5](project-connections.md#project-identity).
 
 ## D24. Resource budgets
 
@@ -202,12 +278,156 @@ For selected subtrees, the scope of inherited definition diagnostics follows
 [D10](block-model.md#d10-id-and-tag-selection): errors in included descendants affect the parent
 result, while independent child selection does not automatically inherit unrelated parent errors.
 
-Prepare output in temporary storage, verify computation and writes, then safely replace the
-destination atomically where supported; failure preserves any existing destination and explicitly
-reports it was not updated.
+Prepare output in temporary storage, verify computation and writes, then publish according to the
+existing-file policy, replacing the destination atomically where supported. Composition,
+preparation or publication failure preserves any existing destination and explicitly reports that
+it was not updated. Later tracking/cleanup failures follow [publication bookkeeping](#publication-bookkeeping-and-failures).
 
 This is per-file, not batch atomicity; stdout can be prepared before emission but cannot retract
 bytes on downstream failure.
+
+### Destination paths and conflicts
+
+Resolve a relative `outputDir` against the configuring project's root, never the process working
+directory or the configuration file's directory. `.` selects the project root; `..` may select
+external sibling or ancestor directories. Native fully qualified absolute directory paths are
+also supported. Prefer relative paths in shared configuration. Reject empty, drive-relative,
+host-incompatible or URL destinations rather than guessing a base or falling back to another path.
+Output paths have this policy independently of [connection source paths](project-connections.md#local-path-resolution).
+
+A target's `path` names a file beneath that output root: reject absolute paths, parent traversal,
+empty filenames and directory destinations. Adapters resolve directory symlinks/junctions and
+validate actual containment, including existing ancestors when creating new paths. Revalidate
+before mutation; reject file symlinks and paths that escape the selected root. String-prefix checks
+alone are insufficient. Apply the same protections to generation and cleanup.
+
+Protect current and loaded connected source directories, project configuration, Git metadata,
+Stem internal state and output manifests from target writes or deletion, including through aliases.
+The adapter's own manifest update is separate from an authored output mapping. An output root is
+only a path base; selecting it grants no permission to clear its contents.
+
+Before any writes, reject conflicts among selected destinations: duplicate paths, case-only names,
+aliases to the same physical destination, and file/directory-prefix collisions. Never pick a winner
+by configuration order. Such a collision invalidates the entire selected publication plan: publish
+no targets and perform no cleanup, including for otherwise independent targets. Different sets in
+one project may target the same file in separate runs; selecting them together is a conflict.
+A target with known ownership by a different producer project fails even with `ifExists: "replace"`;
+do not silently take it over.
+
+### Existing-file policy
+
+The set-wide `ifExists` policy applies to each selected destination:
+
+| Policy              | Destination absent          | Existing regular file                                                          |
+| ------------------- | --------------------------- | ------------------------------------------------------------------------------ |
+| `replace` (default) | Publish an eligible result. | Replace with an eligible result, including when existing content was edited.   |
+| `skip`              | Publish an eligible result. | Preserve and report a skip; no claim that its content is current or validated. |
+| `error`             | Publish an eligible result. | Preserve and report a conflict.                                                |
+
+Invalid policy values are configuration errors. Existing-file `skip`/`error` can be decided without
+composing that target, but do not bypass destination/ownership checks. Enforce the policy at
+publication as well as preflight: a newly appeared file must not be overwritten by `skip` or `error`.
+If composition is needed, all [export-eligibility](#d25-export-eligibility-and-publication) checks
+apply. Once the selected plan passes its collision checks, target-specific failures do not prevent
+independent eligible targets from publishing. The overall operation reports failure when any target
+fails. Intentional skips are not failures; manifest failures have the destination-root scope defined
+under [publication bookkeeping](#publication-bookkeeping-and-failures).
+
+### Output manifest
+
+Maintain one manifest at `<outputDir>/.stem/outputs.json` per resolved output root, shared by the
+producers writing there. Each record identifies the producer's durable project ID, output-set
+association, root-relative destination path and SHA-256 hash of the last successfully generated
+bytes. The manifest has an explicit format version. Store no machine-specific absolute root,
+source ranges, document copies or content-version history. Its location binds paths to that root;
+concrete record member names and decoding declarations belong to the publication implementation
+slice, not a new public domain type.
+
+An existing file merely skipped, even if its bytes match a possible result, is not newly adopted.
+Preserve previous ownership records for skipped targets.
+If another set in the same producer writes the same file in a separate run, update its last-write
+association and hash; [cleanup](#obsolete-output-cleanup) checks all current sets before deletion.
+Paths with known ownership by other producers remain protected.
+
+Keep the manifest with persistent outputs: commit it with intentionally versioned outputs, or
+preserve it with a reused output workspace. It is not a disposable cache or proof of current source
+validity. Missing, corrupt and unsupported manifests have distinct behavior under
+[publication bookkeeping](#publication-bookkeeping-and-failures).
+
+Several projects may share a directory when their file ownership is disjoint. Serialize destination
+publication, manifest updates and cleanup across cooperating writers for that resolved root;
+preserve other producers' records. Project ID identifies the producer, not a checkout or lock:
+different checkouts/revisions may share it. This contract does not promise distributed coordination
+or safe concurrent writes through independently managed overlapping roots. Reject known collisions;
+do not infer global ownership of files absent from the available records.
+
+### Obsolete-output cleanup
+
+An obsolete output is a recorded generated file whose destination is no longer requested. A still
+targeted file containing older content needs regeneration, not cleanup. The set-wide `cleanup`
+policy is `keep` (default) or `prune`; other values are configuration errors. `keep` reports known
+obsolete files and preserves them. `prune` enables automatic selective deletion only after a
+successful run covering the complete selected set and satisfying the rules below. A read-only
+cleanup preview reports candidate deletions and conflicts using the same checks, without writing
+files or state.
+
+Before cleanup, validate the relevant configuration and resolve every current local set's target
+paths to protect destinations still requested anywhere in that producer. Unresolved protection
+information blocks cleanup rather than being treated as an empty set. Do not load or execute other
+projects' output configurations to guess their intent; their known manifest ownership is protected.
+
+A candidate must belong to the selected producer and set, no longer be targeted by any current
+local set, remain a regular file within the authorized root, and have bytes matching its recorded
+hash. Recheck path/type/hash before deletion. Line-ending conversions count as changes; do not
+normalize them away. Never delete directories recursively or adopt untracked files through name,
+extension, generated comments or matching content.
+
+| Observed state                                   | Cleanup result                                                                |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Recorded obsolete file; bytes unchanged          | Eligible for deletion under `prune`; retained under `keep`.                   |
+| Recorded obsolete file; bytes changed            | Preserve and report a cleanup conflict.                                       |
+| Untracked file or another producer's file        | Preserve.                                                                     |
+| Path still targeted by another current local set | Preserve, even if that set was not selected for generation.                   |
+| Recorded obsolete path already absent            | Remove its obsolete tracking entry when applying cleanup.                     |
+| Missing, corrupt or unsupported manifest         | No inferred ownership and no deletion based on that missing/invalid evidence. |
+
+A single-target or otherwise partial-set run never prunes unselected targets. A complete set whose
+targets all complete under `ifExists`, including intentional skips, may proceed to cleanup; skipped
+destinations remain desired and receive no freshness claim. A valid empty target list can make its
+previously recorded outputs obsolete; an unreadable/invalid configuration is never an empty list.
+
+Removing a whole set or changing its output directory does not authorize automatic cleanup in the
+former scope. Retain its old manifest records and require an explicit cleanup operation selecting
+the old root, producer and retired set, still protecting all current destinations. Explicit cleanup
+uses the same path, ownership, hash and valid-configuration checks without requiring regeneration
+of a retired set. Renaming a set does not create a new producer or authorize deleting paths used
+under the new name. Never reinterpret old relative records under a newly configured root or scan the filesystem for former
+destinations. Explicit relinquishment may stop tracking a file while preserving it; it is not a
+forced-deletion mechanism. CLI spellings remain an implementation-slice decision.
+
+### Publication bookkeeping and failures
+
+Validate each selected destination's manifest before publication or cleanup. A missing manifest
+permits tracking new successful writes but establishes no ownership of pre-existing untracked files;
+a fresh empty destination needs no prior records. A corrupt or unsupported manifest blocks all
+publication and cleanup for that output root. Preserve it and report the error without replacing
+it with an empty inventory. Independent roots with usable state may still publish; the overall
+operation reports failure.
+
+Prepare selected eligible outputs before pruning. Generation, publication or manifest-persistence
+errors suppress automatic pruning for that run, including when independent targets succeed.
+Record only confirmed successful writes, including during partial success; never report a failed
+write as generated.
+Preserve obsolete records until deletion is confirmed, absence is verified when applying cleanup,
+or ownership is explicitly relinquished. Failure to delete a candidate retains its record and is
+reported. Candidate eligibility and edited-file conflicts are owned by [cleanup](#obsolete-output-cleanup).
+
+Persist manifest changes through safe atomic replacement where supported. A failure after a file
+was published reports that actual outcome and the tracking failure; it does not claim the old file
+was preserved or a batch rollback occurred. Do not proceed with automatic pruning using uncertain
+tracking state. After a crash, unknown or hash-mismatched files stay preserved and may need explicit
+reconciliation. No full output backup, transaction journal, reverse synchronization or recovery
+service is required by this initial contract.
 
 ## Worked examples of the proposed rules
 
@@ -228,3 +448,26 @@ unless a row specifies otherwise.
 A cycle through several Blocks or aliases follows the same active-instance rule. Repeated use on
 separate completed paths is valid and charged for each occurrence. These examples illustrate the
 proposed contracts; they do not claim current renderer behavior.
+
+### Output publication examples
+
+For the configuration fragment above, assume a valid `project-readme` Block and a source file
+`blocks/start.md` containing `"Intro\n@stem:include(greeting)\n"`, where `greeting` resolves to a
+valid Block with body `"Hello"`. With sufficient budgets, the file target writes
+`"Intro\nHello\n"` to `docs/start.md`; that source file needs no Block of its own. The Block target
+uses only the selected subtree, independently of its containing source filename. These are proposed
+acceptance cases, not examples executable against today's CLI:
+
+| Scenario                                                                      | Expected behavior                                                                                                                                           |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `repository` and `bundle` both select `project-readme`                        | Publish independent results at each explicitly mapped `README.md`; track each destination locally.                                                          |
+| Two selected targets collide and a third has an independent destination       | Reject the entire selected plan before writes or cleanup; the third target is not published either.                                                         |
+| `repository` has a corrupt or unsupported manifest; `bundle` has usable state | Preserve `repository` files/state and block publication and cleanup there; `bundle` may publish. Report failure and suppress automatic pruning for the run. |
+| A target maps into `blocks/`, `.git/`, or the output manifest                 | Reject the protected destination, even with `replace`.                                                                                                      |
+| A target uses `../README.md` beneath its output root                          | Reject traversal; an external directory must be selected through `outputDir`.                                                                               |
+| An existing destination uses `skip`                                           | Preserve it without claiming current content or adopting new ownership; a missing destination is generated normally.                                        |
+| Remove `docs/start.md` from `repository`, retaining the set                   | `keep` reports and preserves its recorded file; `prune` deletes it only after a successful complete-set run and an unchanged-byte check.                    |
+| Edit that obsolete file, or remove its manifest                               | Preserve it: an edit is a cleanup conflict; missing records cannot establish ownership.                                                                     |
+| Another current set still targets `docs/start.md`                             | Preserve it during cleanup regardless of whether that set was selected for generation.                                                                      |
+| One selected output has an unresolved inclusion while another succeeds        | Publish the independent eligible output and record it; report failure and suppress automatic pruning for the run.                                           |
+| Move `bundle` to a different `outputDir`, or remove the set                   | Preserve the previous destination and its records until explicitly selected for retired-scope cleanup.                                                      |

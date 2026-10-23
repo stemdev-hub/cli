@@ -61,11 +61,23 @@ Status: proposed. [ADR-0005](decisions/0005-pure-block-model.md) and [ADR-0007](
 
 The draft model separates authored Block ownership and classification from source syntax and composition. Project connections supply source instances and their reference contexts to that evaluation. The existing package boundaries remain the framework for core contracts and adapter I/O; the documents below own the detailed working agreements.
 
+Ordinary Blocks and whole files provide document assembly through the same parser and composition
+engine. [Output sets](specs/composition.md#output-sets-and-targets) map those sources to named files;
+there is no separate Page primitive. Portable configuration validation and composition belong in
+core. Adapters resolve destinations, publish files, persist the
+[output manifest](specs/composition.md#output-manifest), and apply selective cleanup. Source connections
+provide content; they do not cause connected projects' output sets to execute.
+
+```text
+source files / selected Blocks -> core composition -> eligible Markdown
+output-set mappings + existing destination state  -> adapter publication / cleanup
+```
+
 | Specification                                           | Owns                                                                                                      | Original D-labels                                    |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | [Block model](specs/block-model.md)                     | Content, containment, identity, classification, selection, Tag equality, and schema-retirement transition | D1–D4, D4a–D4c, D6–D10, D22–D23, D29                 |
 | [Stem syntax](specs/stem-syntax.md)                     | Directives, metadata, escaping, boundaries, and syntax recovery                                           | D11 syntax; D26–D28                                  |
-| [Composition](specs/composition.md)                     | Substitution, cycles, diagnostics, evaluation, caches, resource limits, and publication                   | D11 behavior; D12–D14, D16–D21, D24–D25              |
+| [Composition](specs/composition.md)                     | Substitution, evaluation, budgets, output sets, destinations, publication, tracking and cleanup           | D11 behavior; D12–D14, D16–D21, D24–D25              |
 | [Project connections](specs/project-connections.md)     | Identity, aliases, sources, revisions, dependency resolution, refresh, and lifecycle                      | D5                                                   |
 | [Migration backlog](../roadmap.md#pure-block-migration) | Dependency-review deferral, schema retirement execution/deferral, and open mechanics                      | D15; D23 planning; deferred portions of D5, D24, D27 |
 
