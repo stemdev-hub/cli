@@ -11,7 +11,7 @@ content's interpretation.
 
 ## Parser contract
 
-The proposed public entry is `parse(SourceDocument): ParseResult`, directly replacing
+The proposed public entry is `parse(source: SourceDocument)`, directly replacing
 `parseBlockFile()` and `parseViewFile()` under ADR-0005. Do not retain parser aliases for the
 legacy file roles. Parsing interprets one supplied document without project resolution or I/O.
 
@@ -22,7 +22,8 @@ Core does not interpret it as a filesystem path. `SourceRange` has readonly nume
 and `endOffset`: zero-based UTF-16 code-unit offsets, with an exclusive end, into the original,
 unnormalized `content`. Adapters derive display locations; positions never enter persisted caches.
 
-`ParseResult` contains readonly `tree: SyntaxTree` and `diagnostics: readonly Diagnostic[]`.
+The returned object contains readonly `tree: SyntaxTree` and `diagnostics: readonly Diagnostic[]`.
+No separately named result type is required.
 Malformed authored syntax returns a recovered tree together with
 [diagnostics](composition.md#diagnostic-contract), rather than discarding the tree on the first
 error. A tree's existence does not establish validity or export eligibility.

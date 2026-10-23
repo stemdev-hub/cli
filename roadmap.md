@@ -103,7 +103,10 @@ Statuses remain proposed, with no runtime implementation authorized.
 
 Next is the bounded unified parser/model plan in the [migration sequence](#migration-sequence).
 Use the specifications' examples as acceptance cases, including the linked publication scenarios.
-Agreed names and working choices need no further review without conflicting evidence; actual
+API naming follow-up: the owner agreed to recheck remaining API/type names when their concrete
+contracts and callers need them, before implementing the corresponding slice. Update affected
+specifications at that point; the [parser contract](docs/specs/stem-syntax.md#parser-contract)
+already reflects the result-wrapper refinement. Agreed behavior remains unchanged, and actual
 decision/specification acceptance remains a separate step before implementation.
 
 Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.
