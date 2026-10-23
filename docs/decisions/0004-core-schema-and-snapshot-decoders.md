@@ -1,6 +1,6 @@
 # 0004. Core schema and snapshot decoders
 
-Status: accepted
+Status: accepted; partially superseded by [ADR-0005](0005-pure-block-model.md) (23 October 2026), only for Tag-schema decoder/export and preservation requirements. External-snapshot decoding, shape validation, permissive timestamp strings, and consumer-owned contextual handling remain binding. The decision body is preserved; runtime Tag-schema retirement is pending.
 
 ## Context
 

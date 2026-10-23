@@ -33,7 +33,7 @@ Install the CLI to manage a project, the extension for editor previews, or core 
 - Look up current format semantics and limitations: [shared reference](docs/reference.md).
 - Contribute or release: [contribution guide](CONTRIBUTING.md). Find active/deferred work in [roadmap](roadmap.md).
 
-Stem is beta, maintained by its owner. Current usage and proposed product design have separate reading routes; source package versions do not by themselves establish distribution or host acceptance.
+Stem is beta, maintained by its owner. Current usage and accepted design awaiting implementation have separate reading routes; source package versions do not by themselves establish distribution or host acceptance.
 
 ## Architecture
 
@@ -45,7 +45,7 @@ Rendered Markdown is generated under `rendered/` by default and should not be co
 
 See [docs/architecture.md](./docs/architecture.md) for package boundaries and data flow.
 
-The [Pure Block design](docs/architecture.md#proposed-pure-block-design) is proposed, not released behavior. Its specifications and migration work are separate from the current package usage guides.
+The [Pure Block design](docs/architecture.md#pure-block-design) is accepted, with implementation pending. Its specifications and migration work are separate from the current package usage guides and do not establish released behavior.
 
 ## Contributing
 

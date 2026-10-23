@@ -1,6 +1,6 @@
 # 0005. Pure Block model and composition
 
-Status: proposed. Product acceptance and implementation remain deferred.
+Status: accepted (23 October 2026). The owner explicitly accepted this decision and the model, syntax, composition, and project-connections specifications at revision `a56203e`, alongside ADR-0007. Open mechanics and deferred implementation work remain as recorded in the roadmap; acceptance does not establish implementation or distribution. The reviewed decision body below is preserved, including its pre-acceptance wording.
 
 ## Context
 

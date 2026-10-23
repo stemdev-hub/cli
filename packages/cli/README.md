@@ -81,7 +81,7 @@ stem preview view auth-service-view
 
 _(Note: For the best experience, use the [Stem VS Code Extension](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem) for live previews!)_
 
-For block/view frontmatter, section/tag selection, parameters, schemas and known rendering limits, see the [current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md). The proposed Pure Block notation is not implemented by this quickstart.
+For block/view frontmatter, section/tag selection, parameters, schemas and known rendering limits, see the [current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md). The accepted Pure Block notation is not yet implemented by this quickstart.
 
 ## Configuration
 

@@ -1,7 +1,8 @@
 # Stem source syntax
 
-Status: proposed. Working agreements, not accepted or implemented behavior. Governing decision:
-[ADR-0005](../decisions/0005-pure-block-model.md) (proposed). See
+Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
+Implementation remains pending. Governing decision:
+[ADR-0005](../decisions/0005-pure-block-model.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.
 
@@ -11,7 +12,7 @@ content's interpretation.
 
 ## Parser contract
 
-The proposed public entry is `parse(source: SourceDocument)`, directly replacing
+The replacement public entry is `parse(source: SourceDocument)`, directly replacing
 `parseBlockFile()` and `parseViewFile()` under ADR-0005. Do not retain parser aliases for the
 legacy file roles. Parsing interprets one supplied document without project resolution or I/O.
 
@@ -128,8 +129,8 @@ composition preserves them, while separately selecting a Block excludes them unl
 inside that Block. Uniform instruction recognition and escaping still apply there; frontmatter
 does not protect marker-shaped text from Stem grammar. Downstream tools may interpret the output.
 
-This proposed replacement requires the explicit retirement of
-[ADR-0002](../decisions/0002-frontmatter-yaml-core-schema.md)'s frontmatter policy under
+This replacement follows the retirement of
+[ADR-0002](../decisions/0002-frontmatter-yaml-core-schema.md)'s frontmatter policy under accepted
 [ADR-0005](../decisions/0005-pure-block-model.md); it does not describe current parsing behavior.
 
 ### Definition boundaries
@@ -286,7 +287,9 @@ invalidate a unique valid ID or independently bounded children; selection and di
 Single-Tag shorthand is tracked in the
 [deferred design work](../../roadmap.md#pure-block-open-and-deferred-work).
 
-## Worked examples of the proposed rules
+<a id="worked-examples-of-the-proposed-rules"></a>
+
+## Worked examples of the accepted rules
 
 These illustrate existing rules above; they are not examples for the current parser. The table uses JSON string notation so line endings and spaces are visible.
 

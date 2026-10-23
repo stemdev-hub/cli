@@ -1,7 +1,8 @@
 # Pure Block model
 
-Status: proposed. Working agreements, not accepted or implemented behavior. Governing decision:
-[ADR-0005](../decisions/0005-pure-block-model.md) (proposed). See
+Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
+Implementation remains pending. Governing decision:
+[ADR-0005](../decisions/0005-pure-block-model.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.
 
@@ -159,11 +160,11 @@ data alongside diagnostics rather than a single success/failure result.
 
 ## D23. Schema retirement transition
 
-This transition is proposed under [ADR-0005](../decisions/0005-pure-block-model.md); current Tag schemas remain supported until formal product acceptance and implementation.
+This transition is accepted under [ADR-0005](../decisions/0005-pure-block-model.md); current Tag-schema implementation remains until runtime retirement is carried out.
 
-Preserve user-authored schema files as ordinary files; do not automatically delete or convert them. Configuration still requesting the retired feature reports an unsupported-setting error with migration guidance rather than silently pretending the checks ran. This removal does not remove the grammar, identity, reference, or composition validation required by the proposed specifications.
+Preserve user-authored schema files as ordinary files; do not automatically delete or convert them. Configuration still requesting the retired feature reports an unsupported-setting error with migration guidance rather than silently pretending the checks ran. This removal does not remove the grammar, identity, reference, or composition validation required by the accepted specifications.
 
-[Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates) owns removal tasks, partial-supersession timing and deferral of replacement schemas/structural validation/templates. This section relocates the existing transition contract without accepting or extending it.
+[Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates) owns removal tasks and deferral of replacement schemas/structural validation/templates. ADR statuses record the completed partial supersession; runtime retirement remains pending.
 
 ## Worked examples of selection
 
@@ -172,4 +173,4 @@ Preserve user-authored schema files as ordinary files; do not automatically dele
 - Parent `p` has an invalid Tag list and contains a correctly bounded, valid child `c`. Previewing `p` preserves usable content with the error; normal export of `p` is blocked. Independently selecting `c` can be exported if its own subtree and references are valid and complete, and the parent's error does not affect its interpretation.
 - A recovered Tag list certainly contains `guide` but has an unreadable remainder. Selection for `guide` includes that known match with its diagnostics; selections whose additional matches may be unknown report incomplete classification.
 
-These examples describe the proposed contracts, not the current implementation.
+These examples describe the accepted contracts, not the current implementation.

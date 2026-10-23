@@ -76,7 +76,7 @@ For an audit, report the inspected scope and exclusions. For a bounded change, r
 
 ## Design documentation
 
-[Architecture](docs/architecture.md#current-decision-applicability) maps applicable decisions and proposed specifications. ADRs explain significant choices; specifications own precise contracts; the [current reference](docs/reference.md) describes implemented user semantics. Pure Block/connection drafts do not authorize runtime implementation.
+[Architecture](docs/architecture.md#current-decision-applicability) maps applicable decisions and specifications. ADRs explain significant choices; specifications own precise contracts; the [current reference](docs/reference.md) describes implemented user semantics. Pure Block/connection design is accepted; implementation still follows a bounded file scope and resolves the selected slice's open mechanics.
 
 Use [governance](docs/governance.md#decision-lifecycle) for acceptance, rejection, withdrawal and supersession. Review proposals, applicability and deferred triggers at releases, or quarterly when releases pause. Routine compatible API additions and editorial changes do not automatically need new ADRs; removals/renames of core exports still do.
 

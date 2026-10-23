@@ -1,7 +1,8 @@
 # Composition and publication
 
-Status: proposed. Working agreements, not accepted or implemented behavior. Governing decision:
-[ADR-0005](../decisions/0005-pure-block-model.md) (proposed). See
+Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
+Implementation remains pending. Governing decision:
+[ADR-0005](../decisions/0005-pure-block-model.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.
 
@@ -188,7 +189,7 @@ or all local sets; loading a connection never executes the connected project's o
 Set names and destination paths identify configured targets; no new durable target ID is required.
 Preview and stdout composition do not require an output set and never update destination ownership.
 
-This proposed configuration fragment shows both selector kinds and an external destination; it is
+This configuration fragment illustrates the accepted contract with both selector kinds and an external destination; it is
 not a complete project configuration or a claim of current CLI support:
 
 ```json
@@ -429,7 +430,9 @@ tracking state. After a crash, unknown or hash-mismatched files stay preserved a
 reconciliation. No full output backup, transaction journal, reverse synchronization or recovery
 service is required by this initial contract.
 
-## Worked examples of the proposed rules
+<a id="worked-examples-of-the-proposed-rules"></a>
+
+## Worked examples of the accepted rules
 
 The following table uses JSON string notation to make whitespace explicit. Budgets are sufficient
 unless a row specifies otherwise.
@@ -447,7 +450,7 @@ unless a row specifies otherwise.
 
 A cycle through several Blocks or aliases follows the same active-instance rule. Repeated use on
 separate completed paths is valid and charged for each occurrence. These examples illustrate the
-proposed contracts; they do not claim current renderer behavior.
+accepted contracts; they do not claim current renderer behavior.
 
 ### Output publication examples
 
@@ -455,7 +458,7 @@ For the configuration fragment above, assume a valid `project-readme` Block and 
 `blocks/start.md` containing `"Intro\n@stem:include(greeting)\n"`, where `greeting` resolves to a
 valid Block with body `"Hello"`. With sufficient budgets, the file target writes
 `"Intro\nHello\n"` to `docs/start.md`; that source file needs no Block of its own. The Block target
-uses only the selected subtree, independently of its containing source filename. These are proposed
+uses only the selected subtree, independently of its containing source filename. These are accepted
 acceptance cases, not examples executable against today's CLI:
 
 | Scenario                                                                      | Expected behavior                                                                                                                                           |

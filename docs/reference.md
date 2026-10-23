@@ -2,7 +2,7 @@
 
 This describes the implemented Markdown format in the checkout based on `64ad029a57a977be9dbfc46f73e86d4a3254fb2b` (20 October 2026): core 0.1.0, CLI 0.3.1, extension 0.4.1. These are source package versions, not verification of registry or Marketplace delivery. Keep this applicability statement with behavior changes.
 
-The [Pure Block specifications](architecture.md#proposed-pure-block-design) remain proposed. Their `@stem:block(...)` / `@stem:include(...)` notation is not the format described here. Accepted design and implementation can differ; [roadmap](../roadmap.md#current-behavior-and-policy) records unresolved choices.
+The [Pure Block specifications](architecture.md#pure-block-design) are accepted, with implementation pending. Their `@stem:block(...)` / `@stem:include(...)` notation is not the format described here. Accepted design and implementation can differ; [roadmap](../roadmap.md#pure-block-migration) records remaining implementation work and open mechanics.
 
 Use the [CLI guide](../packages/cli/README.md) for installation, configuration and commands, the [editor guide](../packages/vscode-stem/README.md) for preview/MCP setup, and the [core guide](../packages/core/README.md) for integration.
 

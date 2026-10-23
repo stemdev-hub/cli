@@ -2,7 +2,7 @@
 
 Stem has two domain primitives: **Block** and **Tag**. Views and rendering are layered on that model. The extracted monorepo implements the boundaries established by [ADR-0001](decisions/0001-extract-core-package.md); [rules](rules.md) remain the binding package constraints.
 
-The package and runtime descriptions below cover the current implementation. The [proposed Pure Block design](#proposed-pure-block-design) is a separate draft, not implemented behavior.
+The package and runtime descriptions below cover the current implementation. The [accepted Pure Block design](#pure-block-design) remains a separate implementation target, not current runtime behavior.
 
 ## Packages and dependencies
 
@@ -29,7 +29,7 @@ The CLI declares core as a runtime dependency. The extension bundles core for pr
 
 Consumers provide content and source identities. Core never opens a path, fetches a namespace, persists a cache, or reads the clock. Time-sensitive validation receives `nowMs`. These boundaries allow the same engine to process disk documents, unsaved editor buffers, or browser/worker inputs. Portability is a design contract, not a claim of exhaustive platform certification.
 
-Tag-schema and external-snapshot decoding are pure core operations under [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md). Consumers retain I/O, timestamps, fallback policy, and contextual errors. Outstanding policy decisions remain in [roadmap](../roadmap.md#current-behavior-and-policy), including namespace/snapshot questions; this guide does not settle them.
+The current implementation still provides pure Tag-schema and external-snapshot decoders introduced by [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md). [ADR-0005](decisions/0005-pure-block-model.md) supersedes only its Tag-schema requirements; runtime retirement is pending. External-snapshot decoding remains governed by ADR-0004, with consumers retaining I/O, timestamps, fallback policy, and contextual errors. Remaining work is tracked in [roadmap](../roadmap.md#current-behavior-and-policy).
 
 ## Node.js adapters
 
@@ -55,11 +55,13 @@ Use the [contribution guide](../CONTRIBUTING.md) for workspace commands and the 
 
 Core and CLI are independently published npm packages. Core is published before a CLI release that depends on it, as required by ADR-0001. The extension bundles core into a VSIX. Repository fixes and published-consumer verification are tracked separately in the [remediation backlog](../roadmap.md#repository-remediation).
 
-## Proposed Pure Block design
+<a id="proposed-pure-block-design"></a>
 
-Status: proposed. [ADR-0005](decisions/0005-pure-block-model.md) and [ADR-0007](decisions/0007-independent-project-connections.md) record the model and independent-connection choices. [ADR-0006](decisions/0006-documentation-ownership.md) accepts their documentation structure only; product acceptance and implementation remain deferred.
+## Pure Block design
 
-The draft model separates authored Block ownership and classification from source syntax and composition. Project connections supply source instances and their reference contexts to that evaluation. The existing package boundaries remain the framework for core contracts and adapter I/O; the documents below own the detailed working agreements.
+Status: accepted design; implementation pending. [ADR-0005](decisions/0005-pure-block-model.md) and [ADR-0007](decisions/0007-independent-project-connections.md) record the accepted model and independent-connection choices, with their four specifications. [ADR-0006](decisions/0006-documentation-ownership.md) governs documentation structure; the [roadmap](../roadmap.md#documentation-and-decision-review) records the acceptance checkpoint and remaining work.
+
+The accepted model separates authored Block ownership and classification from source syntax and composition. Project connections supply source instances and their reference contexts to that evaluation. The existing package boundaries remain the framework for core contracts and adapter I/O; the documents below own the detailed contracts.
 
 Ordinary Blocks and whole files provide document assembly through the same parser and composition
 engine. [Output sets](specs/composition.md#output-sets-and-targets) map those sources to named files;
@@ -81,7 +83,7 @@ output-set mappings + existing destination state  -> adapter publication / clean
 | [Project connections](specs/project-connections.md)     | Identity, aliases, sources, revisions, dependency resolution, refresh, and lifecycle                      | D5                                                   |
 | [Migration backlog](../roadmap.md#pure-block-migration) | Dependency-review deferral, schema retirement execution/deferral, and open mechanics                      | D15; D23 planning; deferred portions of D5, D24, D27 |
 
-D-labels are retained for traceability, not separate ADRs. D11 is split between syntax and substitution; D29 owns decoded Tag-name validation, with parsing linked from the syntax specification. Existing ADR dispositions and remaining acceptance work are tracked in the [decision review](../roadmap.md#documentation-and-decision-review).
+D-labels are retained for traceability, not separate ADRs. D11 is split between syntax and substitution; D29 owns decoded Tag-name validation, with parsing linked from the syntax specification. Existing ADR dispositions and remaining implementation prerequisites are tracked in the [decision review](../roadmap.md#documentation-and-decision-review).
 
 ## Current-decision applicability
 
@@ -90,12 +92,12 @@ ADR status is the canonical decision state; this map is navigation. Acceptance d
 | Topic                                                                        | Governing record                                                   | Applicability                                                                    |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
 | Package extraction, portability, public entries and core-first release order | [ADR-0001](decisions/0001-extract-core-package.md)                 | Applicable; API removals/renames require an ADR                                  |
-| Frontmatter schema                                                           | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)         | Applicable to portable parsing; Node-side helpers retain the recorded limitation |
+| Frontmatter schema                                                           | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)         | Superseded in full by ADR-0005; legacy runtime parsing remains until replacement |
 | Model versus core package                                                    | [ADR-0003](decisions/0003-clarify-axiom-4.md)                      | Applicable; completed clarification is not supersession                          |
-| Pure schema and external-snapshot decoders                                   | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)    | Applicable in full; proposed schema retirement has not superseded it             |
-| Pure Block model and composition                                             | [ADR-0005](decisions/0005-pure-block-model.md) and the specs above | Proposed; no runtime migration authorized                                        |
+| Pure schema and external-snapshot decoders                                   | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)    | Tag-schema requirements superseded by ADR-0005; external-snapshot requirements remain binding |
+| Pure Block model and composition                                             | [ADR-0005](decisions/0005-pure-block-model.md) and the specs above | Accepted; implementation pending, with open mechanics retained                   |
 | Separation of ADRs, specifications and navigation                            | [ADR-0006](decisions/0006-documentation-ownership.md)              | Remaining provisions apply; its blanket ADR triggers are superseded by ADR-0008  |
-| Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Proposed; existing namespace snapshots do not implement this contract            |
+| Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Accepted; existing namespace snapshots do not implement this contract            |
 | Documentation ownership and lifecycle                                        | [ADR-0008](decisions/0008-documentation-lifecycle.md)              | Applicable; operational policy lives in [governance](governance.md)              |
 | Retirement of the hard/soft-edge axiom                                       | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)          | Applicable; retires only the former axiom, with no runtime behavior change       |
 
@@ -103,8 +105,8 @@ ADR status is the canonical decision state; this map is navigation. Acceptance d
 
 - **Core model:** Block and Tag; **core package:** portable implementation, which may also contain layered rendering and validation.
 - **View:** current authored composition input; it is not a third core-model primitive.
-- **Section/tag fragment:** legacy authoring structures described by the [current reference](reference.md#body-markers-and-classification), not the proposed nested Block model.
-- **Namespace snapshot:** current structural metadata used for external checking; **project connection:** proposed independent source/revision context.
+- **Section/tag fragment:** legacy authoring structures described by the [current reference](reference.md#body-markers-and-classification), distinct from the accepted nested Block model awaiting implementation.
+- **Namespace snapshot:** current structural metadata used for external checking; **project connection:** accepted independent source/revision context awaiting implementation.
 - **Acceptance:** an owner design decision; **implementation/host acceptance/distribution:** separately evidenced work outcomes.
 
 ## Historical evidence

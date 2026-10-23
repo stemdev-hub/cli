@@ -1,6 +1,6 @@
 # 0002. Frontmatter YAML core schema
 
-Status: accepted (20 October 2026). Owner approved this policy and the scope clarification below in chat.
+Status: superseded by [ADR-0005](0005-pure-block-model.md) in full (23 October 2026): the frontmatter-parsing policy is retired for the replacement source parser. Originally accepted on 20 October 2026, with owner approval of the policy and scope clarification below in chat. The decision body remains historical; runtime replacement is pending.
 
 ## Context
 

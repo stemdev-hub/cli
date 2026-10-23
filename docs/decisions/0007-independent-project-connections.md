@@ -1,6 +1,6 @@
 # 0007. Independent project connections
 
-Status: proposed. Product acceptance and implementation remain deferred.
+Status: accepted (23 October 2026). The owner explicitly accepted this decision and the project-connections specification at revision `a56203e`, alongside ADR-0005 and its specifications. Open mechanics and deferred implementation work remain as recorded in the roadmap; acceptance does not establish implementation or distribution. The reviewed decision body below is preserved, including its pre-acceptance wording.
 
 ## Context
 

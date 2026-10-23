@@ -10,7 +10,7 @@ State: awaiting owner decisions; distribution not applicable.
 
 - Tag-only selection without a section remains an observed limitation; see the [current reference](docs/reference.md#references-and-selection).
 - Namespace identity in graph/rendering and the three legacy meanings of “tag” remain unresolved design questions. No tags-to-labels rename is approved. See [namespace work](#remaining-namespace-issues).
-- Current transclusion depth/cycle policy remains unresolved; proposed Pure Block rules do not establish current behavior.
+- Current transclusion depth/cycle policy remains unresolved; accepted Pure Block rules do not establish current behavior.
 - The owner's previous extension-remediation gate waiver remains evidence in [historical R01](docs/history/2026-10-repository-audit.md#r01-use-core-semantics-when-opening-a-view-preview); it is not a general implementation waiver.
 
 Acceptance: owner disposes of the remaining policy/gate questions. See [prior corrections](docs/history/2026-10-repository-audit.md#assessment-corrections) and [resolved decisions](docs/history/2026-10-repository-audit.md#follow-up-corrections-20-october-2026).
@@ -59,22 +59,32 @@ Select exact artifacts and obtain separate release authorization where publishin
 
 State: deferred design/implementation work under Remediation D07; trigger: selection of namespace/snapshot or Pure Block connection work.
 
-The local external-snapshot producer is absent; internal `graph.json` and external `stem-graph.json` are different formats. CLI/editor loading policy remains duplicated. Current graph/rendering identity does not consistently retain namespace context. External snapshot exports are provisional; stricter `fetchedAt` validation would change behavior preserved by ADR-0004. Resolve the governing design before a shared loader, new producer or decoder change. [Current reference](docs/reference.md#namespace-snapshots) owns observable limitations.
+The local external-snapshot producer is absent; internal `graph.json` and external `stem-graph.json` are different formats. CLI/editor loading policy remains duplicated. Current graph/rendering identity does not consistently retain namespace context. External snapshot exports are provisional; stricter `fetchedAt` validation would change behavior preserved by ADR-0004. Follow accepted ADR-0007 for project connections and resolve the selected slice's open mechanics before implementation; acceptance does not replace the retained external-snapshot contract. [Current reference](docs/reference.md#namespace-snapshots) owns observable limitations.
 
 ## Pure Block migration
 
-Status: design proposed; implementation and product acceptance remain deferred.
+Status: design accepted; runtime implementation remains pending, with open mechanics and deferred work retained below.
 Use the [design navigation and D-label map](docs/architecture.md#proposed-pure-block-design) for contracts. Pure Block D-labels and Remediation D-labels are distinct collections.
 
 ### Documentation and decision review
 
-Review ADR-0005/0007 with their four specifications before product acceptance. [ADR-0008](docs/decisions/0008-documentation-lifecycle.md) accepts documentation policy only; architecture owns the [current-decision map](docs/architecture.md#current-decision-applicability). [R00](#r00-establish-which-status-items-block-implementation) owns remaining policy/gate questions. ADR-0004 remains accepted in full until an accepted replacement names its superseded scope.
+On 23 October 2026, the owner explicitly accepted ADR-0005, ADR-0007, and all four specifications
+as recorded at revision `a56203e`, retaining their explicitly open mechanics and deferred work.
+ADR statuses record acceptance, ADR-0002's full supersession, and ADR-0004's partial Tag-schema
+supersession; its external-snapshot requirements remain binding. This checkpoint changes no runtime
+behavior and establishes neither host acceptance nor distribution.
+
+[ADR-0008](docs/decisions/0008-documentation-lifecycle.md) owns documentation policy; architecture
+owns the [current-decision map](docs/architecture.md#current-decision-applicability).
+[R00](#r00-establish-which-status-items-block-implementation) retains remaining legacy policy/gate
+questions. The protected [core instructions](packages/core/AGENTS.md) still need an owner update
+to replace the old frontmatter-policy pointer with the accepted decision applicability.
 
 ### Pure Block decisions to finalize
 
 Review checkpoint: 21 October 2026. The owner confirmed direct replacement under the [beta axiom](docs/axioms.md), replacing the review's earlier additive-parser recommendation. That direction and proposed policy retirements are now recorded in [ADR-0005](docs/decisions/0005-pure-block-model.md).
 
-Review items 3–7 below correspond to the design-review discussion, not new D-labels. All five were agreed in chat and incorporated into the proposals on 22 October 2026. ADR/specification statuses remain proposed; these revisions do not establish product acceptance or authorize implementation.
+Review items 3–7 below correspond to the design-review discussion, not new D-labels. All five were agreed in chat and incorporated into the proposals on 22 October 2026. Those revisions left statuses proposed and did not themselves establish product acceptance or authorize implementation; formal acceptance is recorded above.
 
 | Review item                     | Incorporated outcome                                                                                                                             | Owning contract                                                                                                                                                                                                                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -84,7 +94,7 @@ Review items 3–7 below correspond to the design-review discussion, not new D-l
 | 6. Resource budgets             | Logical work/UTF-8 accounting, cache invariance and deterministic exhaustion. Numeric defaults still await measurement in the composition slice. | [Composition D18/D24](docs/specs/composition.md#d24-resource-budgets)                                                                                                                                                                                                                             |
 | 7. Connection resolution        | Source-record precedence, regeneration/update scope and finite instance graphs.                                                                  | [Resolution lifecycle](docs/specs/project-connections.md#resolution-records-and-update-scope), [instance graph](docs/specs/project-connections.md#resolved-instance-graph), [ADR-0007](docs/decisions/0007-independent-project-connections.md)                                                    |
 
-API and representation review checkpoint: on 22 October 2026, the owner approved the naming/result recommendations and the six follow-up contracts for ordered syntax, explicit recovery, separate identity/context, operation-specific results, diagnostic ownership and fixed evaluation inputs. These working agreements are incorporated into the proposals below; ADR-0005/0007 and specification statuses remain proposed, and runtime implementation is not authorized.
+API and representation review checkpoint: on 22 October 2026, the owner approved the naming/result recommendations and the six follow-up contracts for ordered syntax, explicit recovery, separate identity/context, operation-specific results, diagnostic ownership and fixed evaluation inputs. These working agreements were incorporated into the proposals below without changing their statuses or authorizing runtime implementation at that checkpoint; formal acceptance is recorded above.
 
 - **Parsing and recovery:** [parser input/result contract](docs/specs/stem-syntax.md#parser-contract) and [syntax-tree representation](docs/specs/stem-syntax.md#syntax-tree-representation).
 - **Identity and analysis:** [temporary definition handles](docs/specs/block-model.md#definition-handles) and [project analysis](docs/specs/block-model.md#project-analysis).
@@ -94,7 +104,8 @@ API and representation review checkpoint: on 22 October 2026, the owner approved
 Output/publication review checkpoint: on 23 October 2026, the owner approved incorporating the
 document-assembly, output-set, external-destination and selective-cleanup working agreements into
 the proposals, including failure scope for invalid manifests and conflicting destinations.
-Statuses remain proposed, with no runtime implementation authorized.
+That checkpoint left statuses proposed and did not authorize runtime implementation; formal
+acceptance is recorded above.
 
 - **Assembly and configuration:** [output sets and explicit source selectors](docs/specs/composition.md#output-sets-and-targets), with [one source boundary and View retirement](docs/specs/composition.md#source-boundary-and-view-retirement).
 - **Publication:** [destination checks](docs/specs/composition.md#destination-paths-and-conflicts) and [existing-file policies](docs/specs/composition.md#existing-file-policy).
@@ -108,15 +119,18 @@ contracts and callers need them, before implementing the corresponding slice. Up
 specifications at that point; the [parser contract](docs/specs/stem-syntax.md#parser-contract) and
 [Tag-selection contract](docs/specs/block-model.md#selection-results) already reflect the
 result-wrapper refinement, with the approved Tag-query function and field names in the latter.
-Agreed behavior remains unchanged, and actual
-decision/specification acceptance remains a separate step before implementation.
+Agreed behavior remains unchanged; formal acceptance is recorded above. Finalize any remaining
+slice-specific declarations against their callers before implementing them.
+
+The parser/model slice must preserve accepted durable project identity. Resolve the identity
+mechanics it needs as prerequisites, without substituting a temporary local-only identity model.
 
 Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.
 
 ### Migration sequence
 
-1. Resolve the [open design work](#pure-block-open-and-deferred-work) and replacement API contracts needed for the selected implementation slice and explicitly accept its governing product decisions and contracts.
-2. At ADR-0005 acceptance, record ADR-0002's frontmatter-policy retirement and ADR-0004's partial Tag-schema supersession in their statuses, affected rules and architecture applicability map; preserve external-snapshot requirements and core/I/O boundaries.
+1. Resolve the [open design work](#pure-block-open-and-deferred-work) and replacement API contracts needed for the selected implementation slice within the accepted decisions and specifications.
+2. Acceptance bookkeeping is complete in ADR statuses, rules and the architecture applicability map. Carry out the corresponding runtime retirements in the selected implementation slice, preserving external-snapshot requirements and core/I/O boundaries.
 3. Prepare a bounded implementation plan for core model, syntax, composition, and public API changes, mapping contracts to core, CLI and editor callers and naming exact files. Begin with unified parsing/model prerequisites; use the specification examples as acceptance criteria, with obsolete-editor-result checks and representative large/deep inputs where relevant.
 4. Plan project-connection resolution and lifecycle across core and adapters under ADR-0007; resolve storage and transport mechanics before implementing those interfaces.
 5. Apply the schema retirement below alongside the migration, then update CLI/editor behavior and released-user guidance with targeted validation. Implementation order and files require the subsequent code plan.
@@ -133,11 +147,11 @@ Required composition refresh is specified in [D16](docs/specs/composition.md#d16
 Remove the existing Tag-schema feature as part of the Pure Block migration: its validation, schema loading and configuration, initialization templates, and feature-specific public types/decoders.
 The retirement choice and its rationale belong to [ADR-0005](docs/decisions/0005-pure-block-model.md#rejected).
 
-Implement the proposed [D23 transition contract](docs/specs/block-model.md#d23-schema-retirement-transition) alongside retirement; that specification owns file preservation, unsupported-setting errors and retained validation.
+Implement the accepted [D23 transition contract](docs/specs/block-model.md#d23-schema-retirement-transition) alongside retirement; that specification owns file preservation, unsupported-setting errors and retained validation.
 
 Defer replacement schemas, structural validation design, and template features; their future relationship to Tags remains open.
-Partial supersession and rule changes occur only on formal product acceptance as specified in
-[ADR-0005](docs/decisions/0005-pure-block-model.md#consequences); this roadmap authorizes no code changes.
+Partial supersession and rule changes are recorded following formal acceptance of
+[ADR-0005](docs/decisions/0005-pure-block-model.md#consequences); runtime retirement remains pending.
 
 ### Pure Block open and deferred work
 
@@ -201,7 +215,7 @@ The documentation migration is recorded in [dated verification evidence](docs/hi
 
 ### Human decisions
 
-Resolve the remaining R00 questions, product ADR-0005/0007 acceptance with their specifications, and the private reporting route independently. No publication or runtime change is authorized by this roadmap.
+Resolve the remaining R00 questions, slice-specific open mechanics, and the private reporting route independently. Product ADR-0005/0007 and their specifications are accepted as recorded above. No publication or runtime change is authorized by this roadmap.
 
 ## Historical navigation
 

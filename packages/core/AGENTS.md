@@ -17,6 +17,6 @@ Published to npm. Portable pure domain logic: Block/Tag model, graph, parser, va
 - Zero clock reads: time is passed in as `nowMs`. Zero I/O, filesystem access, or dynamic imports.
 - Enforced mechanically by ESLint AST rules and dependency-cruiser.
 - Portable ESM: must run in Node, browser, Web Workers, and Edge runtimes.
-- Frontmatter policy: ADR-0002. Pure decoders: ADR-0004. No gray-matter.
+- Parsing/decoder policy: [decision applicability](../../docs/architecture.md#current-decision-applicability). No gray-matter.
 - Never import from `packages/cli` or `packages/vscode-stem`.
 - Everything exported from `src/index.ts` is public API. Additions are cheap; renames and removals require an ADR.

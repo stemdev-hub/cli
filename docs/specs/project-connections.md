@@ -1,7 +1,8 @@
 # Project connections
 
-Status: proposed. Working agreements, not accepted or implemented behavior. Governing decision:
-[ADR-0007](../decisions/0007-independent-project-connections.md) (proposed). See
+Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
+Implementation remains pending. Governing decision:
+[ADR-0007](../decisions/0007-independent-project-connections.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.
 
@@ -328,5 +329,5 @@ If the resolved graph revisits the same source state with the same dependency co
 returns to that existing instance. A different context remains distinct. Whether that graph cycle
 causes a composition error depends on the selected Blocks' expansion paths.
 
-These examples illustrate the proposed D5 contract. They choose no connection-file syntax,
+These examples illustrate the accepted D5 contract. They choose no connection-file syntax,
 ID-generation scheme, storage layout or transport mechanism.
