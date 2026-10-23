@@ -77,8 +77,8 @@ behavior and establishes neither host acceptance nor distribution.
 [ADR-0008](docs/decisions/0008-documentation-lifecycle.md) owns documentation policy; architecture
 owns the [current-decision map](docs/architecture.md#current-decision-applicability).
 [R00](#r00-establish-which-status-items-block-implementation) retains remaining legacy policy/gate
-questions. The protected [core instructions](packages/core/AGENTS.md) still need an owner update
-to replace the old frontmatter-policy pointer with the accepted decision applicability.
+questions. The owner updated the protected [core instructions](packages/core/AGENTS.md) in
+`ea7584a` to point to the accepted decision applicability.
 
 ### Pure Block decisions to finalize
 
@@ -122,8 +122,15 @@ result-wrapper refinement, with the approved Tag-query function and field names 
 Agreed behavior remains unchanged; formal acceptance is recorded above. Finalize any remaining
 slice-specific declarations against their callers before implementing them.
 
-The parser/model slice must preserve accepted durable project identity. Resolve the identity
-mechanics it needs as prerequisites, without substituting a temporary local-only identity model.
+On 24 October 2026, the owner confirmed retaining durable project identity after reviewing its
+editing/copying tradeoffs. Its uses remain owned by the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle)
+and [output ownership contract](docs/specs/composition.md#output-manifest). The parser/model slice
+operates on supplied source and project/instance context; project-ID generation, persistence and
+initialization changes are not prerequisites for that bounded work. Implement the durable identity
+lifecycle before enabling connection identity checks or producer-owned publication/cleanup.
+This sequencing preserves the accepted identity contract; it introduces no dummy IDs, path-derived
+durable IDs or compatibility fallback. Incorporate the approved project-ID implementation
+recommendations into the owning specification when selecting that lifecycle slice, before code.
 
 Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.
 
@@ -155,12 +162,12 @@ Partial supersession and rule changes are recorded following formal acceptance o
 
 ### Pure Block open and deferred work
 
-- **D5 mechanics:** Concrete project/connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
+- **D5 mechanics:** Project-ID specification incorporation and implementation follow the [identity sequencing checkpoint](#pure-block-decisions-to-finalize). Connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
 - **D5 dependency policies:** User-configurable overrides of nested dependencies and explicit mechanisms for one connection to follow another remain deferred.
 - **D5 refresh scheduling:** Background polling and time-based refresh intervals remain deferred.
 - **D24 defaults:** Numeric work/output budget defaults await measurement; the required behavior is in [D24](docs/specs/composition.md#d24-resource-budgets).
 - **D27 shorthand:** Single-Tag shorthand is deferred pending demonstrated user need.
-- **Evaluation mechanics:** Cache format and algorithm, and ID generation mechanics remain deferred. Result and representation contracts are incorporated; caller/declaration mapping and bounded implementation planning are next in the [API review checkpoint](#pure-block-decisions-to-finalize).
+- **Evaluation mechanics:** Cache format and algorithm remain deferred; durable ID generation work follows D5 above. Result and representation contracts are incorporated; caller/declaration mapping and bounded implementation planning are next in the [API review checkpoint](#pure-block-decisions-to-finalize).
 - **Output/publication mechanics:** Concrete command spellings, public declarations, manifest record encoding/validation and local writer-coordination mechanics are required when selecting that slice; behavior is owned by the [publication contract](docs/specs/composition.md#d25-export-eligibility-and-publication).
 - **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed writer coordination are outside this initial contract. Reconsider only for a demonstrated consumer workflow; the output plan does not select them. Rejected assembly/profile alternatives remain owned by ADR-0005.
 - **Formatter:** An optional future feature; detailed design is deferred, and parsing, validation, and export do not require it.
