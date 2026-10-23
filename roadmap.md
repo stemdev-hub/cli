@@ -88,7 +88,7 @@ API and representation review checkpoint: on 22 October 2026, the owner approved
 
 - **Parsing and recovery:** [parser input/result contract](docs/specs/stem-syntax.md#parser-contract) and [syntax-tree representation](docs/specs/stem-syntax.md#syntax-tree-representation).
 - **Identity and analysis:** [temporary definition handles](docs/specs/block-model.md#definition-handles) and [project analysis](docs/specs/block-model.md#project-analysis).
-- **Resolution and selection:** [BlockResolution](docs/specs/project-connections.md#block-reference-resolution) and [TagSelection](docs/specs/block-model.md#selection-results).
+- **Resolution and selection:** [BlockResolution](docs/specs/project-connections.md#block-reference-resolution) and [findBlocksByTag() results](docs/specs/block-model.md#selection-results).
 - **Diagnostics and evaluation:** [diagnostic ownership](docs/specs/composition.md#diagnostic-contract), [CompositionResult](docs/specs/composition.md#d14-completeness-and-validity), and [input/result lifetime](docs/specs/composition.md#d20-evaluation-inputs).
 
 Output/publication review checkpoint: on 23 October 2026, the owner approved incorporating the
@@ -105,8 +105,10 @@ Next is the bounded unified parser/model plan in the [migration sequence](#migra
 Use the specifications' examples as acceptance cases, including the linked publication scenarios.
 API naming follow-up: the owner agreed to recheck remaining API/type names when their concrete
 contracts and callers need them, before implementing the corresponding slice. Update affected
-specifications at that point; the [parser contract](docs/specs/stem-syntax.md#parser-contract)
-already reflects the result-wrapper refinement. Agreed behavior remains unchanged, and actual
+specifications at that point; the [parser contract](docs/specs/stem-syntax.md#parser-contract) and
+[Tag-selection contract](docs/specs/block-model.md#selection-results) already reflect the
+result-wrapper refinement, with the approved Tag-query function and field names in the latter.
+Agreed behavior remains unchanged, and actual
 decision/specification acceptance remains a separate step before implementation.
 
 Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.

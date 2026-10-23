@@ -122,11 +122,15 @@ incomplete.
 
 ### Selection results
 
-`selectBlocksByTag()` returns `TagSelection` with readonly `matches`, `complete`, and `diagnostics`.
-Matches retain the definition and instance context described [above](#definition-handles), including
-known matches with definition errors. Here `complete` means that classification is exhaustive in the
-searched scope, not that the definitions are valid or their composed content is complete. An empty,
-exhaustive result is complete. The collection supplies no automatic assembly order under D10.
+`findBlocksByTag()` returns an object with readonly `blocks`, `classificationComplete`, and
+`diagnostics`. No separately named result type is required.
+The `blocks` collection contains known matches, retaining the definition and instance context
+described [above](#definition-handles), including Blocks with definition errors.
+The Boolean `classificationComplete` states whether classification is exhaustive in the searched
+scope, not whether the definitions are valid or their composed content is complete. An empty,
+exhaustive result has `classificationComplete: true`; known matches with potentially unknown
+additional matches have `classificationComplete: false` and an incomplete-classification diagnostic.
+The collection supplies no automatic assembly order under D10.
 ID-reference selection uses [BlockResolution](project-connections.md#block-reference-resolution).
 
 ## D29. Tag names and equality
