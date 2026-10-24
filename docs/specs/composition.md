@@ -231,8 +231,10 @@ from the source model to permit this overlap.
 
 Replace the legacy View role, its separate discovery/parser paths and `viewsDir` during the
 corresponding migration. Preserve authored View files; do not delete, move or convert them
-automatically. A remaining `viewsDir` setting reports an unsupported-setting error with guidance
-to select the unified source directory and explicit output mappings. Files outside that directory
+automatically. Remove `viewsDir` from the supported configuration fields; a remaining setting receives
+the existing generic unknown-field configuration error under the
+[configuration-validation policy](block-model.md#d23-schema-retirement-transition), with no
+retired-field lookup, compatibility path or migration-specific message. Files outside that directory
 remain ordinary files until the author deliberately includes them in the new source layout.
 The output manifest alone does not establish a Stem source project; source project identity and
 configuration remain governed by [D5](project-connections.md#project-identity).

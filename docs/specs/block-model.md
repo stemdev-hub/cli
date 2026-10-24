@@ -76,6 +76,23 @@ instance context. Equal source text may share parsed syntax while being interpre
 instances under [D5](project-connections.md#shared-content-and-duplicate-connections). Authored ID,
 temporary definition handle, and resolved-instance identity remain distinct.
 
+### Source editing
+
+Deleting a selected Block removes only its definition and contained subtree, preserving sibling
+definitions and surrounding text in the file. A Block deletion is not a file deletion. Reference
+checks cover the selected Block and its descendants, since each descendant is independently
+addressable. Existing reference-conflict safeguards must apply to that whole removed subtree.
+
+Renaming an ID edits its recognized definition token, matching labelled closer and references
+resolved to that definition in the supplied context. It preserves filenames, descendant IDs,
+unrelated references, literal examples and other authored text. An equal ID spelling in another
+instance is not sufficient to select a reference for rewriting. Use the parser's original-source
+token ranges rather than rewriting frontmatter or searching and replacing arbitrary text.
+
+Reject ambiguous selections. Refuse destructive edits when recovery leaves the affected ownership
+or edit boundaries uncertain; neither a guessed range nor a whole-file fallback is acceptable.
+Adapters own filesystem reads and writes; this contract does not introduce another parser in them.
+
 ## D6. Containment parenthood
 
 Each Block has at most one containment parent; containment is acyclic. Transclusion does not
@@ -158,6 +175,26 @@ make mutable index maps a public storage contract. Project checking can report t
 set, while selection and composition retain their own diagnostic scope. Analysis returns useful
 data alongside diagnostics rather than a single success/failure result.
 
+### Graph construction and checking
+
+Retain `buildGraph()`, `validateGraph()` and `detectCycles()` with replacement representations.
+Graph nodes distinguish recovered definitions by their analysis-local handle and supplied instance
+context, including definitions with duplicate or invalid IDs. Authored IDs remain lookup keys;
+they are not unique graph storage keys. Keep all duplicate candidates without selecting a winner.
+Public graph records and collections are readonly; mutable lookup indexes remain private.
+
+Graph relationships describe containment and inclusion, replacing View-use and legacy
+dependency-review edges. Unresolved inclusions retain their occurrence and diagnostic rather than
+an invented target. File-level inclusions remain represented without turning the file into a Block.
+Graph checking uses the shared core cycle mechanism under
+[D12](composition.md#d12-expansion-cycles); composition retains its own active-path traversal.
+
+The old warning for a Block unused by Views does not govern the replacement model. If
+`getOrphanedBlocks()` is retained, it reports unreferenced Blocks informationally within the supplied
+graph scope, with its concrete query contract finalized before implementation. Being unreferenced
+does not make a reusable Block invalid, establish that it is unused outside that scope, or authorize
+deletion. It is not an output-eligibility rule.
+
 ## D23. Schema retirement transition
 
 This transition is accepted under [ADR-0005](../decisions/0005-pure-block-model.md).
@@ -181,5 +218,7 @@ Markdown sources. Core exports and analysis inputs carry no retired Tag-schema t
 - A definition has `id:a id:b`. It remains visible in source preview but is addressable by neither ID.
 - Parent `p` has an invalid Tag list and contains a correctly bounded, valid child `c`. Previewing `p` preserves usable content with the error; normal export of `p` is blocked. Independently selecting `c` can be exported if its own subtree and references are valid and complete, and the parent's error does not affect its interpretation.
 - A recovered Tag list certainly contains `guide` but has an unreadable remainder. Selection for `guide` includes that known match with its diagnostics; selections whose additional matches may be unknown report incomplete classification.
+- A definition has `tags:[guide] tags:[api]`. Both fields remain in the syntax representation, but neither supplies a chosen or merged membership; Tag queries report incomplete classification for the affected scope.
+- A file contains sibling Blocks `a` and `b` with surrounding text. Deleting `a` preserves `b` and that text; renaming `b` changes its recognized identity/reference tokens without renaming the file.
 
 These examples describe the accepted contracts, not the current implementation.

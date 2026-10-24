@@ -112,7 +112,8 @@ acceptance is recorded above.
 - **Persistence and cleanup:** [destination-local manifest](docs/specs/composition.md#output-manifest), [obsolete-output rules](docs/specs/composition.md#obsolete-output-cleanup), and [failure handling](docs/specs/composition.md#publication-bookkeeping-and-failures).
 - **Acceptance examples:** [output publication scenarios](docs/specs/composition.md#output-publication-examples), alongside the existing syntax, selection and composition examples.
 
-Next is the bounded unified parser/model plan in the [migration sequence](#migration-sequence).
+The bounded unified parser/model plan now follows the [contract checkpoint](#parser-and-model-contract-checkpoint)
+and [migration sequence](#migration-sequence).
 Use the specifications' examples as acceptance cases, including the linked publication scenarios.
 API naming follow-up: the owner agreed to recheck remaining API/type names when their concrete
 contracts and callers need them, before implementing the corresponding slice. Update affected
@@ -152,13 +153,65 @@ compatibility alias, new public helper or persistent identity mechanism is part 
 
 Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.
 
+### Parser and model contract checkpoint
+
+On 24 October 2026, the owner approved the bounded plan against clean base `d775326`, including
+this five-document contract checkpoint. Runtime replacement, host acceptance and distribution remain
+pending. The accepted refinements are incorporated in their owning specifications:
+
+- [Syntax representation](docs/specs/stem-syntax.md#syntax-tree-representation) retains ordered metadata and precise token ranges; [Tag recovery](docs/specs/stem-syntax.md#d28-tag-diagnostics-and-recovery) resolves repeated-field handling.
+- [Source editing](docs/specs/block-model.md#source-editing) defines safe subtree deletion and identity-aware rename; [graph construction/checking](docs/specs/block-model.md#graph-construction-and-checking) defines identity and the disposition of View-based orphan warnings.
+- [Supplied evaluation context](docs/specs/project-connections.md#supplied-evaluation-context) separates temporary handles from durable identities without selecting connection persistence or transport.
+- [View retirement](docs/specs/composition.md#source-boundary-and-view-retirement) now follows the approved generic unknown-field configuration policy.
+
+Documentation verification on 24 October 2026: static links/anchors and canonical-owner checks,
+document budgets and `git diff --check` passed. Only these four specifications and this roadmap
+changed; no runtime tests or host/distribution checks were needed or claimed for this checkpoint.
+
+Next, complete concrete composition/rendering continuity plans before starting the runtime switch.
+Scanner, analysis/selection/graph, composition and caller replacement are successive review stages,
+not independently releasable parser-only checkpoints. Integrate replacements together without old
+parser aliases, View-shaped adapters, legacy-cache reconstruction or broken-workspace commits.
+Preserve authoring, checking/listing, sync, rendering, CLI/MCP and editor preview capabilities while
+retiring only the accepted concepts. Generated declarations and executable documentation follow the
+actual implementation, not this contract update.
+
+Composition is required for preview/render callers. File-export continuity additionally requires
+a bounded publication plan and its identity prerequisites; retaining the old filename-inference
+writer or withdrawing rendering is not an integration shortcut. Preserve ADR-0004's external-snapshot
+decoder contract; finalize the new-model publication projection separately rather than treating
+metadata as source content. Durable project-ID lifecycle work remains a prerequisite for connection
+identity checks and producer-owned publication, not for pure parsing of supplied source.
+
+Remaining integration decisions include concrete operation declarations/command mappings, the
+`getOrphanedBlocks()` query disposition, replacement derived-cache representation, measured composition
+budget defaults and the publication plan's open mechanics. The approved core file inventory below
+bounds that part of the work; dependent adapter changes still require concrete file plans.
+Acceptance uses specification examples plus multi-root/nested recovery, duplicate and instance
+identity, partial classification, safe edits, deep traversal, result-scoped diagnostics, stale-editor
+completion rejection and absence of legacy APIs. Run targeted checks per stage and the full workspace
+and artifact verification profile before declaring the coordinated integration ready to commit.
+
+Approved core inventory, relative to `packages/core/` (runtime edits remain pending):
+
+| Action                                                    | Files                                                                                                                                                                                                                                     |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Replace parser/model declarations and entry               | `src/parser/index.ts`, `src/types/ast.ts`, `src/types/block.ts`, `src/types/validation.ts`, `src/types/graph.ts`, `src/types/index.ts`, `src/index.ts`                                                                                    |
+| Replace semantic analysis and graph callers               | `src/project/types.ts`, `src/project/index.ts`, `src/graph/builder.ts`, `src/graph/types.ts`, `src/graph/traverser.ts`, `src/validator/rules.ts`                                                                                          |
+| Update existing acceptance coverage                       | `tests/parser/index.test.ts`, `tests/project/analyze.test.ts`, `tests/graph/builder.test.ts`, `tests/graph/traverser.test.ts`, `tests/validator/rules.test.ts`, `tests/portability/portability.test.ts`                                   |
+| Remove after caller replacement                           | `src/parser/frontmatter.ts`, `src/parser/stem-plugin.ts`, `src/parser/two-pass.ts`, `src/types/view.ts`, `src/types/position.ts`, `tests/parser/frontmatter.test.ts`, `tests/parser/stem-plugin.test.ts`, `tests/parser/two-pass.test.ts` |
+| Add scanner and selection modules with selection coverage | `src/parser/scanner.ts` (scanning/recovery behind the entry), `src/project/selection.ts` (shared ID/Tag lookup), `tests/project/selection.test.ts` (ambiguity, context and classification)                                                |
+
+Composition can reuse `src/renderer/index.ts`; its detailed plan and the CLI/editor integration
+inventory follow separately. No additional package or generic helper layer is selected here.
+
 ### Migration sequence
 
 1. Resolve the [open design work](#pure-block-open-and-deferred-work) and replacement API contracts needed for the selected implementation slice within the accepted decisions and specifications.
 2. Acceptance bookkeeping is complete in ADR statuses, rules and the architecture applicability map. Carry out the corresponding runtime retirements in the selected implementation slice, preserving external-snapshot requirements and core/I/O boundaries.
-3. Prepare a bounded implementation plan for core model, syntax, composition, and public API changes, mapping contracts to core, CLI and editor callers and naming exact files. Begin with unified parsing/model prerequisites; use the specification examples as acceptance criteria, with obsolete-editor-result checks and representative large/deep inputs where relevant.
+3. Complete the dependent composition/rendering and adapter file plans identified by the [parser/model checkpoint](#parser-and-model-contract-checkpoint), then implement its successive stages with coordinated caller replacement. Use specification examples, obsolete-editor-result checks and representative large/deep inputs as acceptance criteria.
 4. Plan project-connection resolution and lifecycle across core and adapters under ADR-0007; resolve storage and transport mechanics before implementing those interfaces.
-5. Apply the schema retirement below alongside the migration, then update CLI/editor behavior and released-user guidance with targeted validation. Implementation order and files require the subsequent code plan.
+5. Preserve the completed [Tag-schema retirement](#d23-schemas-structural-validation-and-templates) and generic configuration validation while replacing the remaining model and callers.
 6. Implement output selection and publication after their parsing/composition and identity prerequisites; establish manifest tracking before enabling pruning. Retire the legacy View role with authored-file preservation, then update current command/configuration guides. Resolve the slice's [open mechanics](#pure-block-open-and-deferred-work) in its bounded code plan.
 
 ### D15. Dependency review

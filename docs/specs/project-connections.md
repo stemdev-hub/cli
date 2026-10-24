@@ -166,6 +166,26 @@ Block ID is absent. `ambiguous` describes conflicting Block definitions, not an 
 choose among invalid alias bindings. Payloads are readonly and evaluation-local; this API does not
 choose connection serialization, durable ID encoding, transport or storage mechanics.
 
+### Supplied evaluation context
+
+The parser/model boundary consumes supplied documents and a finite set of instance contexts with
+their source-owned alias bindings. Analysis-local handles or object references distinguish those
+contexts; they are not durable project IDs, connection IDs, filesystem paths or a new serialized
+format. Targets retain their definition handle and instance context together. Definition identity
+uses that pair; private ID-lookup indexes are scoped by instance and retain all matching candidates,
+rather than selecting a definition by authored ID, alias or source spelling alone.
+
+Parsing can be shared for equal source inputs without merging their instance interpretations.
+An alias binding selects its supplied target context, including a revisit to an existing instance;
+the evaluator does not construct identity from an ever-growing traversal path. Public input/result
+records obey [D20](composition.md#d20-evaluation-inputs), and references cannot be carried between
+analyses as if their temporary handles were durable identities.
+
+This in-memory boundary does not generate or persist project IDs, resolve Git revisions or define
+connection storage. Those lifecycle requirements remain binding when their adapters are implemented.
+External metadata snapshots do not supply authored source bodies and cannot stand in for resolved
+source content during composition. Missing required context or source remains `unavailable`.
+
 ### Resolution records and update scope
 
 The selected source's configuration owns the meaning of its bindings. The consumer's recorded graph

@@ -52,6 +52,13 @@ parenthesis, so an unfinished header can preserve its visible error fragment und
 Do not collapse repeated metadata into a last-value-wins dictionary. Header information and error
 fragments describe the same original source where needed; they do not cause duplicate emission.
 
+Retain metadata occurrences in authored order, including each field's name and value ranges when
+those boundaries are known. Preserve the ID-token range of a syntactically parsed inclusion and
+labelled closer as well. These original-source ranges support precise authoring edits without
+searching ordinary text or reconstructing frontmatter. Recovery leaves unknown token boundaries
+unknown; it does not manufacture editable ranges. The model's
+[source-editing contract](block-model.md#source-editing) governs whether an edit is safe.
+
 `ending` distinguishes `marker` (an actual closing-marker range), `ancestor` (an implicit end at
 the ancestor's closing-marker start), and `eof` (an implicit end at the original content's end).
 Only `marker` supplies an actual closer for [boundary whitespace](#boundary-whitespace). Recovery
@@ -275,7 +282,9 @@ and recovery follow [D26](#d26-representation-grammar) and [D28](#d28-tag-diagno
 ## D28. Tag diagnostics and recovery
 
 Duplicate Tag names attach once with a warning; repeated `tags:` fields are definition errors, with
-no silent merge or choice of one field. Preserve authored source. Malformed-list recovery retains
+no silent merge or choice of one field. Retain their syntax occurrences, but derive no Tag membership
+from the repeated fields and mark that definition's classification incomplete. Preserve authored
+source. Malformed-list recovery for a single `tags:` field retains
 only unambiguously parsed Tags and reports incomplete classification. Recovery is bounded by the
 header's recognized termination, or by the opening line if the header is unfinished, so an
 unfinished quote cannot consume subsequent Markdown. Continue parsing the Block's body and children
