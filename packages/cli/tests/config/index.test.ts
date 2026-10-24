@@ -24,7 +24,6 @@ describe('config', () => {
       version: '1',
       blocksDir: 'docs/blocks',
       viewsDir: 'docs/views',
-      schemasDir: 'docs/schemas',
       cacheDir: '.stem/custom-cache'
     });
 
@@ -37,7 +36,6 @@ describe('config', () => {
         projectRoot: testRoot,
         blocksDir: 'docs/blocks',
         viewsDir: 'docs/views',
-        schemasDir: 'docs/schemas',
         cacheDir: '.stem/custom-cache',
         namespaces: {}
       });
@@ -50,6 +48,15 @@ describe('config', () => {
     expect(result).toEqual({ success: true, data: getDefaultStemConfig(testRoot) });
   });
 
+  it.each(['schemasDir', 'blocksdir', 'unknown'])('rejects unknown persisted field %s', async (field) => {
+    await writeConfig(testRoot, { [field]: 'value' });
+    const result = await loadStemConfig(testRoot);
+    expect(result).toMatchObject({ success: false, error: {
+      code: 'CONFIG_INVALID_SCHEMA', path: path.join(testRoot, '.stem/config.json')
+    } });
+    if (!result.success) expect(result.error.message).toBe(`Unknown Stem config field "${field}".`);
+  });
+
   it('applies defaults for omitted optional fields', () => {
     const result = resolveStemConfig({ version: '1', blocksDir: 'content/blocks' }, testRoot);
 
@@ -60,7 +67,6 @@ describe('config', () => {
         projectRoot: testRoot,
         blocksDir: 'content/blocks',
         viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
-        schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
         cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
         namespaces: {}
       });
@@ -205,11 +211,11 @@ describe('config', () => {
   });
 
   it('strips trailing slashes', () => {
-    const result = resolveStemConfig({ schemasDir: 'blocks/schemas///' }, testRoot);
+    const result = resolveStemConfig({ blocksDir: 'content/blocks///' }, testRoot);
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.schemasDir).toBe('blocks/schemas');
+      expect(result.data.blocksDir).toBe('content/blocks');
     }
   });
 
@@ -218,7 +224,6 @@ describe('config', () => {
       {
         blocksDir: 'content/blocks',
         viewsDir: 'content/views',
-        schemasDir: 'content/schemas',
         cacheDir: '.stem/state'
       },
       testRoot
@@ -228,7 +233,6 @@ describe('config', () => {
     if (result.success) {
       expect(result.data.blocksDir).toBe('content/blocks');
       expect(result.data.viewsDir).toBe('content/views');
-      expect(result.data.schemasDir).toBe('content/schemas');
       expect(result.data.cacheDir).toBe('.stem/state');
     }
   });
@@ -248,7 +252,6 @@ describe('config', () => {
       projectRoot: testRoot,
       blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
       viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
-      schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
       cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
       namespaces: {}
     });

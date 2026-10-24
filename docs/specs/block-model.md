@@ -160,11 +160,20 @@ data alongside diagnostics rather than a single success/failure result.
 
 ## D23. Schema retirement transition
 
-This transition is accepted under [ADR-0005](../decisions/0005-pure-block-model.md); current Tag-schema implementation remains until runtime retirement is carried out.
+This transition is accepted under [ADR-0005](../decisions/0005-pure-block-model.md).
 
-Preserve user-authored schema files as ordinary files; do not automatically delete or convert them. Configuration still requesting the retired feature reports an unsupported-setting error with migration guidance rather than silently pretending the checks ran. This removal does not remove the grammar, identity, reference, or composition validation required by the accepted specifications.
+Preserve user-authored schema files as ordinary files; do not automatically delete or convert them.
+Validate configuration keys against supported fields and reject unknown keys using the existing
+configuration-error code. This includes settings for removed features without maintaining a
+retired-field lookup, compatibility handling or migration-specific diagnostics. This removal does
+not remove the grammar, identity, reference, or composition validation required by the accepted specifications.
 
-[Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates) owns removal tasks and deferral of replacement schemas/structural validation/templates. ADR statuses record the completed partial supersession; runtime retirement remains pending.
+Initialization creates no schema directory or templates and preserves existing authored schema files,
+including under force.
+There is no special schema-directory exclusion from Markdown source discovery; YAML files are not
+Markdown sources. Core exports and analysis inputs carry no retired Tag-schema types or fields.
+
+[Roadmap D23](../../roadmap.md#d23-schemas-structural-validation-and-templates) owns implementation evidence and deferral of replacement schemas/structural validation/templates. ADR statuses record the completed partial supersession.
 
 ## Worked examples of selection
 

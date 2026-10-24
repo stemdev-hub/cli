@@ -9,7 +9,6 @@ export type {
   StemDepNode
 } from './ast.js';
 export type { StemConfig, NamespaceConfig } from './config.js';
-export type { TagSchema } from './schema.js';
 export type { DependencyRef, SourceRange, StemTag, StemSection, ParsedBlock } from './block.js';
 export type { BlockRef, ParsedView } from './view.js';
 export type {

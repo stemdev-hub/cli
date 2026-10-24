@@ -23,7 +23,6 @@ type FsResult<T> = { success: true; data: T } | { success: false; error: FsError
 
 const STEM_DIR = '.stem';
 const MARKDOWN_PATTERN = '**/*.md';
-const SCHEMA_PATTERN = '**/*.{yaml,yml}';
 const IGNORED_DIRECTORIES = ['**/.git/**', '**/node_modules/**', '**/dist/**', '**/.stem/cache/**', '**/.*/**'];
 
 export async function findProjectRoot(startDir: string): Promise<FsResult<string>> {
@@ -61,11 +60,7 @@ export async function findBlockFiles(
   projectRoot: string,
   config: ResolvedStemConfig
 ): Promise<FsResult<string[]>> {
-  const blocksDir = path.join(projectRoot, config.blocksDir);
-  const schemasDirName = toPosixPath(path.relative(blocksDir, path.join(projectRoot, config.schemasDir)));
-  const ignore = [...IGNORED_DIRECTORIES, `${schemasDirName}/**`];
-
-  return scanFiles(blocksDir, projectRoot, [MARKDOWN_PATTERN], ignore);
+  return scanFiles(path.join(projectRoot, config.blocksDir), projectRoot, [MARKDOWN_PATTERN], IGNORED_DIRECTORIES);
 }
 
 export async function findViewFiles(
@@ -73,13 +68,6 @@ export async function findViewFiles(
   config: ResolvedStemConfig
 ): Promise<FsResult<string[]>> {
   return scanFiles(path.join(projectRoot, config.viewsDir), projectRoot, [MARKDOWN_PATTERN], IGNORED_DIRECTORIES);
-}
-
-export async function findSchemaFiles(
-  projectRoot: string,
-  config: ResolvedStemConfig
-): Promise<FsResult<string[]>> {
-  return scanFiles(path.join(projectRoot, config.schemasDir), projectRoot, [SCHEMA_PATTERN], IGNORED_DIRECTORIES);
 }
 
 async function scanFiles(

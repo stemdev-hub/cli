@@ -1248,7 +1248,6 @@ describe('VS Code Stem extension helpers', () => {
     expect(stem.WATCH_PATTERNS).toEqual([
       'views/**/*.md',
       'blocks/**/*.md',
-      'blocks/schemas/**/*.{yaml,yml}',
       '.stem/config.json'
     ]);
   });

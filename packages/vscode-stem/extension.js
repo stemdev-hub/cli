@@ -17,7 +17,6 @@ const PREVIEW_EXEC_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 const WATCH_PATTERNS = [
   'views/**/*.md',
   'blocks/**/*.md',
-  'blocks/schemas/**/*.{yaml,yml}',
   '.stem/config.json'
 ];
 

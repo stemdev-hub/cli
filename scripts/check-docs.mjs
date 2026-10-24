@@ -214,9 +214,6 @@ async function checkExamples(documents) {
     assert.ok(result.success, JSON.stringify(result));
     assert.equal(result.markdown.trim(), snippets.get(name + '-output').trim());
   }
-  const schema = core.decodeTagSchemaYaml(snippets.get('schema'));
-  assert.ok(schema.success, 'Documented schema must decode');
-  assert.deepEqual(schema.data, { name: 'note', required: ['Context', 'Decision'] });
   console.log('Core README and current-reference examples passed.');
 }
 

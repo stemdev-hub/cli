@@ -9,7 +9,6 @@ export interface StemConfig {
   publishUrl?: string;
   blocksDir?: string;
   viewsDir?: string;
-  schemasDir?: string;
   cacheDir?: string;
   namespaces?: Record<string, NamespaceConfig>;
 }

@@ -13,7 +13,6 @@ function snapshot(overrides: Partial<ProjectSnapshot> = {}): ProjectSnapshot {
   return {
     blocks: [document('blocks/auth.md', '---\nid: auth\n---\nHello.')],
     views: [document('views/api.md', '---\nid: api\n---\n@stem[block:auth]')],
-    schemas: new Map(),
     configuredNamespaces: {},
     externalGraphs: new Map(),
     ...overrides
@@ -107,23 +106,18 @@ describe('analyzeProject', () => {
     });
   });
 
-  it('orders parser, build, external, graph and schema issues without sorting or deduplication', () => {
+  it('orders parser, build, external and graph issues without sorting or deduplication', () => {
     const input = snapshot({
       blocks: [document('blocks/auth.md', '---\nid: auth\n---\n@stem[tag:api section=missing]\nendpoint\n@stem[end]\n@stem[tag:api]\nendpoint\n@stem[end]'),
         document('blocks/duplicate.md', '---\nid: auth\n---\nDuplicate.')],
-      views: [document('views/api.md', '---\nid: api\n---\n@stem[block:missing]\n@stem[block:other:remote]\n@stem[block:auth]')],
-      schemas: new Map([['api', { name: 'api', required: ['endpoint', 'response'] }]])
+      views: [document('views/api.md', '---\nid: api\n---\n@stem[block:missing]\n@stem[block:other:remote]\n@stem[block:auth]')]
     });
     const result = analyzeProject(input, { nowMs: 0 });
     expect(result.validation.issues.map((issue) => issue.code)).toEqual([
       'EXTERNAL_TAG_MISSING_SECTION', 'DUPLICATE_ID', 'UNRESOLVED_NAMESPACE',
-      'BROKEN_BLOCK_REF', 'SCHEMA_VIOLATION', 'SCHEMA_VIOLATION'
+      'BROKEN_BLOCK_REF'
     ]);
-    expect(result.validation).toMatchObject({ errorCount: 5, warningCount: 1, hasErrors: true, hasWarnings: true });
-    expect(result.validation.issues.slice(-2)).toEqual([
-      expect.objectContaining({ context: { tagName: 'api', missingSections: 'response' } }),
-      expect.objectContaining({ context: { tagName: 'api', missingSections: 'response' } })
-    ]);
+    expect(result.validation).toMatchObject({ errorCount: 3, warningCount: 1, hasErrors: true, hasWarnings: true });
   });
 
   it.each([-1, 0, 1])('preserves the strict greater-than expiry boundary at expiry %i ms', (offset) => {
@@ -154,12 +148,10 @@ describe('analyzeProject', () => {
   it('does not mutate a deeply frozen input snapshot, including map entries', () => {
     const input = externalSnapshot();
     input.blocks[0]!.content += '\n@stem[tag:api]\nendpoint\n@stem[end]';
-    input.schemas.set('api', { name: 'api', required: ['endpoint', 'response'] });
     const before = structuredClone(input);
     deepFreeze(input);
     analyzeProject(input, { nowMs: expiryMs + 1, strictExternal: true });
     expect(input).toEqual(before);
-    expect(() => input.schemas.clear()).toThrow('Cannot mutate frozen snapshot map');
     expect(() => input.externalGraphs.clear()).toThrow('Cannot mutate frozen snapshot map');
   });
 

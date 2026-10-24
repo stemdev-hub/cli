@@ -1,6 +1,6 @@
 # Current Stem reference
 
-This describes the implemented Markdown format in the checkout based on `64ad029a57a977be9dbfc46f73e86d4a3254fb2b` (20 October 2026): core 0.1.0, CLI 0.3.1, extension 0.4.1. These are source package versions, not verification of registry or Marketplace delivery. Keep this applicability statement with behavior changes.
+This describes the implemented Markdown format in the checkout, updated on 24 October 2026 for Tag-schema retirement after `635e833`: core 0.1.0, CLI 0.3.1, extension 0.4.1. These are source package versions, not verification of registry or Marketplace delivery. Keep this applicability statement with behavior changes.
 
 The [Pure Block specifications](architecture.md#pure-block-design) are accepted, with implementation pending. Their `@stem:block(...)` / `@stem:include(...)` notation is not the format described here. Accepted design and implementation can differ; [roadmap](../roadmap.md#pure-block-migration) records remaining implementation work and open mechanics.
 
@@ -19,7 +19,7 @@ A current block file is Markdown with YAML frontmatter containing a nonempty str
 
 Frontmatter uses YAML 1.2 core semantics with merge and timestamp tags. Timestamp values do not become string IDs. Empty/comment-only/null YAML becomes an empty object; missing IDs and malformed YAML produce diagnostics. `---yaml` and `---yml` are recognized; other frontmatter engines are rejected by the portable parser.
 
-[ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md) governs this portable frontmatter policy. Node-side rename/render helpers still use gray-matter; acceptance does not establish identical parsing in every operation.
+[ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md) records this legacy portable frontmatter policy; ADR-0005 supersedes it for the replacement parser, which remains pending. Node-side rename/render helpers still use gray-matter; acceptance does not establish identical parsing in every operation.
 
 ## Body markers and classification
 
@@ -115,26 +115,44 @@ The extended/parameterized path uses Markdown AST composition: a reference must 
 
 ## Validation and diagnostics
 
-Run `stem check` before relying on rendered results. It reads project documents and reports parser/frontmatter issues, duplicate/missing targets, section/tag references, dependency/cycle issues, schema failures and external-snapshot issues. `--json` preserves structured issue information; `--strict-external` promotes external warnings to errors; `--use-remote` bypasses local namespace paths during checking.
+Run `stem check` before relying on rendered results. It reads project documents and reports parser/frontmatter issues, duplicate/missing targets, section/tag references, dependency/cycle issues and external-snapshot issues. `--json` preserves structured issue information; `--strict-external` promotes external warnings to errors; `--use-remote` bypasses local namespace paths during checking.
 
 Core callers use `analyzeProject(snapshot, { nowMs })` for full supplied-project validation. Calling the renderer or building a graph alone does not replace that validation. Public issue types and result shapes are generated from [core exports](../packages/core/src/index.ts) and [CLI declarations](../packages/cli/docs/stem-api.d.ts).
 
 Current transclusion depth/cycle policy and external graph identity have unresolved design questions. No proposed recursive-composition, complete-result publication, or connection-lifecycle guarantee is implied here.
 
-## Current Tag schemas
+<a id="current-tag-schemas"></a>
 
-Tag schemas still exist under [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md). The default schema directory is `blocks/schemas`. Schema YAML has a string `name` and an array of required strings; `description` is optional:
+## Tag-schema retirement
 
-```yaml stem-check=schema
-name: note
-required:
-  - Context
-  - Decision
-```
+Tag-schema validation has been removed under [ADR-0005](decisions/0005-pure-block-model.md).
+`schemasDir` is outside the supported configuration fields and receives the same
+[unknown-field error](#configuration-validation) as any other unknown key or typo.
 
-Validation finds tagged body fragments with that name and checks whether each required string occurs in the fragment's content. It is a substring-presence check, not a general Markdown structure validator, and frontmatter labels alone do not supply tagged content. Missing required text produces `SCHEMA_VIOLATION`.
+Existing schema YAML is preserved and no longer loaded or validated. `stem init` creates no schema
+templates, and `stem init --force` leaves existing schema files untouched. YAML files remain outside
+Markdown discovery; Markdown beneath former schema directories is discovered normally when inside
+the configured source directory. There is no remaining special schema-directory exclusion.
 
-The Pure Block proposal would retire this feature, but has not been accepted. Its [D23 transition contract](specs/block-model.md#d23-schema-retirement-transition) is a proposal, not a current removal instruction.
+Core no longer exports `decodeTagSchemaYaml()`, `validateSchemas()`, `TagSchema` or
+`TagSchemaDecodeResult`; analysis inputs no longer accept schema collections. No compatibility
+aliases are supplied. Grammar, identity, reference and graph checks continue. External-snapshot
+decoding remains supported under the unaffected portion of ADR-0004. The
+[D23 contract](specs/block-model.md#d23-schema-retirement-transition) owns the transition; replacement
+schema/template features remain deferred.
+
+## Configuration validation
+
+Configuration accepts only supported fields: `version`, `namespace`, `publishUrl`, `blocksDir`,
+`viewsDir`, `cacheDir` and `namespaces`. Namespace aliases are user-defined names subject to the
+namespace naming rules; each namespace entry accepts only `graphUrl` and `localPath`.
+
+Unknown keys, including typos, are rejected by core normalization with `CONFIG_INVALID_SCHEMA`
+and an error identifying the field, for example `Unknown Stem config field "blocksdir".` or
+`Unknown Stem config field "namespaces.shared.graphURL".` CLI operations wrap configuration failures
+as `CONFIG_ERROR`; editor preview uses the same core message, including for unsaved configuration.
+There is no retired-field lookup, automatic correction or migration-specific error path.
+Supported fields retain their existing value, version and path validation.
 
 ## Namespace snapshots
 

@@ -37,7 +37,7 @@ The [11 October investigation](docs/history/2026-10-repository-audit.md#r05-dete
 
 Remaining selection:
 
-- Evaluate literal schema-path treatment for the identified glob reachability; reproduce against current source before choosing a fix.
+- The identified schema-path glob is removed by [Tag-schema retirement](#d23-schemas-structural-validation-and-templates); that specific follow-up no longer applies. This is not a new dependency advisory audit.
 - Reassess production advisories in the exact selected packed consumer before a release.
 - Gray-matter removal or a scanner replacement needs a bounded proposal justified by actual behavior/API effects; no removal is authorized here.
 
@@ -63,7 +63,7 @@ The local external-snapshot producer is absent; internal `graph.json` and extern
 
 ## Pure Block migration
 
-Status: design accepted; runtime implementation remains pending, with open mechanics and deferred work retained below.
+Status: design accepted; parser/model and composition replacement remain pending. Shared cycle tracking and Tag-schema retirement are implemented as bounded prerequisites; open mechanics and deferred work remain below.
 Use the [design navigation and D-label map](docs/architecture.md#proposed-pure-block-design) for contracts. Pure Block D-labels and Remediation D-labels are distinct collections.
 
 ### Documentation and decision review
@@ -169,14 +169,32 @@ Required composition refresh is specified in [D16](docs/specs/composition.md#d16
 
 ### D23. Schemas, structural validation, and templates
 
-Remove the existing Tag-schema feature as part of the Pure Block migration: its validation, schema loading and configuration, initialization templates, and feature-specific public types/decoders.
-The retirement choice and its rationale belong to [ADR-0005](docs/decisions/0005-pure-block-model.md#rejected).
+State: implementation and local verification complete. Distribution and real-host acceptance are not established.
 
-Implement the accepted [D23 transition contract](docs/specs/block-model.md#d23-schema-retirement-transition) alongside retirement; that specification owns file preservation, unsupported-setting errors and retained validation.
+On 24 October 2026, the owner approved the bounded retirement under
+[ADR-0005](docs/decisions/0005-pure-block-model.md#rejected) and the
+[D23 transition contract](docs/specs/block-model.md#d23-schema-retirement-transition).
+Core decoder/validator exports and types, schema collections in analysis, CLI/editor schema loading,
+configuration/defaults, initialization templates and schema-specific watcher patterns are removed directly.
+The owner refined this plan to validate all configuration keys against supported fields, including
+namespace-entry fields, using existing configuration errors without retired-field lookups or
+migration-specific messages. Unknown fields and typos are rejected consistently in core, CLI and
+editor. The specification owns that policy, authored-file preservation and ordinary Markdown discovery.
+The existing authoring, graph, rendering, preview and external-snapshot workflows remain available.
+No replacement schema feature, parser change, compatibility stub or dependency change is included.
+
+Verification on 24 October 2026 against base `635e833` plus this working-tree change, on Windows
+with Node.js 26.12.1 and pnpm 11.25.0: build, typecheck, lint, dependency boundaries, built CLI smoke,
+documentation checks, budgets and whitespace checks passed. The sequential suite passed 280 core,
+247 CLI and 155 editor tests; documentation tests passed all 11. Local core/CLI tarball checks
+(publint, ESM declaration resolution and dependency specifiers) and VSIX bundle/exclusion inspection
+passed for source versions core 0.1.0, CLI 0.3.1 and extension 0.4.1. Earlier sandbox access and
+concurrent-rebuild failures were resolved before these passing runs. A clean installed consumer,
+real editor host and registry/Marketplace delivery remain unverified.
 
 Defer replacement schemas, structural validation design, and template features; their future relationship to Tags remains open.
 Partial supersession and rule changes are recorded following formal acceptance of
-[ADR-0005](docs/decisions/0005-pure-block-model.md#consequences); runtime retirement remains pending.
+[ADR-0005](docs/decisions/0005-pure-block-model.md#consequences); external-snapshot obligations remain binding.
 
 ### Pure Block open and deferred work
 

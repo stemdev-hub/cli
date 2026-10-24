@@ -1,4 +1,4 @@
-import type { ExternalSnapshotState, NamespaceConfig, ParsedBlock, ParsedView, StemGraph, TagSchema, ValidationIssue } from '../types/index.js';
+import type { ExternalSnapshotState, NamespaceConfig, ParsedBlock, ParsedView, StemGraph, ValidationIssue } from '../types/index.js';
 
 interface ValidatorBuildIssue {
   code: 'DUPLICATE_BLOCK_ID' | 'DUPLICATE_VIEW_ID';
@@ -12,7 +12,6 @@ export interface ValidatorInput {
   blocks: ParsedBlock[];
   views: ParsedView[];
   buildIssues: ValidatorBuildIssue[];
-  schemas: Map<string, TagSchema>;
   cycles: string[][];
   orphanedBlocks: string[];
   configuredNamespaces: Record<string, NamespaceConfig>;

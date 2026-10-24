@@ -17,8 +17,12 @@ Open previews refresh automatically when project files or unsaved buffers change
 
 - `views/**/*.md`
 - `blocks/**/*.md`
-- `blocks/schemas/**/*.{yaml,yml}`
 - `.stem/config.json`
+
+Tag-schema YAML is no longer loaded; the general project watcher remains. Unknown keys in saved or unsaved configuration must
+report the same core validation error as CLI configuration validation; correcting an unsaved buffer
+allows preview to resume. Existing YAML files remain untouched, and Markdown in former schema directories
+follows ordinary source discovery.
 
 Preview requires no CLI installation or path configuration. For the separate AI server, see [MCP setup and CLI discovery](README.md#ai-context-server-mcp).
 

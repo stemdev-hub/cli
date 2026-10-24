@@ -25,8 +25,7 @@ describe('initProject', () => {
       expect(result.data).toEqual({
         projectRoot: testRoot,
         blocksDir: path.join(testRoot, 'blocks'),
-        viewsDir: path.join(testRoot, 'views'),
-        schemasDir: path.join(testRoot, 'blocks/schemas')
+        viewsDir: path.join(testRoot, 'views')
       });
     }
 
@@ -34,11 +33,10 @@ describe('initProject', () => {
       version: '1',
       blocksDir: 'blocks',
       viewsDir: 'views',
-      schemasDir: 'blocks/schemas',
       cacheDir: '.stem/cache'
     });
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toContain('name: api');
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')).resolves.toContain('name: adr');
+    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
     await expect(readFile(path.join(testRoot, '.gitignore'), 'utf8')).resolves.toBe('.stem/cache/\nrendered/\n');
   });
 
@@ -56,16 +54,21 @@ describe('initProject', () => {
     });
   });
 
-  it('overwrites scaffold files when force is true', async () => {
-    await initProject({ startDir: testRoot });
+  it.each([false, true])('preserves existing schema files when force is %s', async (force) => {
+    await mkdir(path.join(testRoot, 'blocks/schemas'), { recursive: true });
     await writeFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'custom api schema\n', 'utf8');
+    await writeFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'custom adr schema\n', 'utf8');
+    if (force) {
+      await mkdir(path.join(testRoot, '.stem'), { recursive: true });
+      await writeFile(path.join(testRoot, '.stem/config.json'), '{"schemasDir":"blocks/schemas"}', 'utf8');
+    }
 
-    const result = await initProject({ startDir: testRoot, force: true });
+    const result = await initProject({ startDir: testRoot, force });
 
     expect(result.success).toBe(true);
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toContain(
-      'endpoint'
-    );
+    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toBe('custom api schema\n');
+    await expect(readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')).resolves.toBe('custom adr schema\n');
+    expect(await readJson(path.join(testRoot, '.stem/config.json'))).not.toHaveProperty('schemasDir');
   });
 
   it('adds the cache entry to an existing gitignore without duplicating it', async () => {

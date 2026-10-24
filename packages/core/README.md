@@ -64,7 +64,7 @@ console.log(result.markdown); // Welcome to Stem.
 
 `filePath` and `relativePath` identify supplied content; parsing does not read those paths. `renderView` above is a local alias for the public `renderViewMarkdown` export. Core has no export named `renderView`; the CLI exports a separate operation that loads project files.
 
-For full project validation, use `analyzeProject(snapshot, { nowMs })` with caller-supplied documents, schemas, namespace configuration, and external snapshots. Graph construction and rendering alone do not replace project validation. Public types and signatures ship with the package's declarations.
+For full project validation, use `analyzeProject(snapshot, { nowMs })` with caller-supplied documents, namespace configuration, and external snapshots. Graph construction and rendering alone do not replace project validation. Tag-schema validation and its decoder/types have been removed under ADR-0005; external-snapshot decoding remains supported. Public types and signatures ship with the package's declarations.
 
 ## Contributing
 

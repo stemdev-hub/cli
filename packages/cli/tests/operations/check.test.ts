@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -72,7 +72,7 @@ required:
     await expectPathMissing(path.join(testRoot, '.stem/cache'));
   });
 
-  it('merges parser, graph validation, and schema validation issues', async () => {
+  it('merges parser and graph issues without running retired Tag-schema validation', async () => {
     await createStemProject(testRoot);
     await writeProjectFile(
       testRoot,
@@ -115,11 +115,9 @@ required:
     if (result.success) {
       expect(result.data.validation.issues.map((issue) => issue.code)).toEqual([
         'EXTERNAL_TAG_MISSING_SECTION',
-        'BROKEN_BLOCK_REF',
-        'SCHEMA_VIOLATION',
-        'SCHEMA_VIOLATION'
+        'BROKEN_BLOCK_REF'
       ]);
-      expect(result.data.validation.errorCount).toBe(4);
+      expect(result.data.validation.errorCount).toBe(2);
       expect(result.data.validation.warningCount).toBe(0);
     }
   });
@@ -135,7 +133,7 @@ required:
     });
   });
 
-  it('returns an operation error for invalid schema files', async () => {
+  it('ignores and preserves existing schema YAML, including invalid files', async () => {
     await createStemProject(testRoot);
     await writeProjectFile(
       testRoot,
@@ -150,12 +148,23 @@ Plain block.
 
     const result = await checkProject({ startDir: testRoot });
 
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'SCHEMA_LOAD_ERROR'
-      }
-    });
+    expect(result).toMatchObject({ success: true, data: { validation: { hasErrors: false } } });
+    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toBe('required: endpoint\n');
+  });
+
+  it('rejects unknown configuration before validating source and preserves configuration', async () => {
+    await createStemProject(testRoot);
+    const config = '{"schemasDir":"blocks/schemas"}';
+    await writeProjectFile(testRoot, '.stem/config.json', config);
+    const result = await checkProject({ startDir: testRoot });
+    expect(result).toMatchObject({ success: false, error: {
+      code: 'CONFIG_ERROR'
+    } });
+    if (!result.success) {
+      expect(result.error.message).toBe('Unknown Stem config field "schemasDir".');
+      expect(result.error.cause).toMatchObject({ code: 'CONFIG_INVALID_SCHEMA' });
+    }
+    await expect(readFile(path.join(testRoot, '.stem/config.json'), 'utf8')).resolves.toBe(config);
   });
 
   describe('external references (Phase 1+2 features)', () => {

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
-import { findBlockFiles, findProjectRoot, findSchemaFiles, findViewFiles } from '../../src/runtime/fs/finder.js';
+import { findBlockFiles, findProjectRoot, findViewFiles } from '../../src/runtime/fs/finder.js';
 import { toRelativePath } from '../../src/runtime/fs/reader.js';
 
 describe('finder', () => {
@@ -60,17 +60,17 @@ describe('finder', () => {
     }
   });
 
-  it('excludes schema files from block file results', async () => {
+  it('discovers Markdown in the former schema directory while ignoring YAML', async () => {
     const config = createConfig(testRoot);
     await writeProjectFile(testRoot, 'blocks/auth.md', '');
     await writeProjectFile(testRoot, 'blocks/schemas/api.yaml', '');
-    await writeProjectFile(testRoot, 'blocks/schemas/not-a-block.md', '');
+    await writeProjectFile(testRoot, 'blocks/schemas/ordinary.md', '');
 
     const result = await findBlockFiles(testRoot, config);
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(toRelativePaths(result.data, testRoot)).toEqual(['blocks/auth.md']);
+      expect(toRelativePaths(result.data, testRoot)).toEqual(['blocks/auth.md', 'blocks/schemas/ordinary.md']);
     }
   });
 
@@ -134,23 +134,6 @@ describe('finder', () => {
     }
   });
 
-  it('finds all YAML schema files recursively', async () => {
-    const config = createConfig(testRoot);
-    await writeProjectFile(testRoot, 'blocks/schemas/api.yaml', '');
-    await writeProjectFile(testRoot, 'blocks/schemas/nested/summary.yml', '');
-    await writeProjectFile(testRoot, 'blocks/schemas/readme.md', '');
-
-    const result = await findSchemaFiles(testRoot, config);
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(toRelativePaths(result.data, testRoot)).toEqual([
-        'blocks/schemas/api.yaml',
-        'blocks/schemas/nested/summary.yml'
-      ]);
-    }
-  });
-
   it('returns an empty array when block and view folders are empty', async () => {
     const config = createConfig(testRoot);
     await mkdir(path.join(testRoot, 'blocks'), { recursive: true });
@@ -170,7 +153,6 @@ function createConfig(projectRoot: string): ResolvedStemConfig {
     blocksDir: 'blocks',
     viewsDir: 'views',
     projectRoot,
-    schemasDir: 'blocks/schemas',
     cacheDir: '.stem/cache',
     namespaces: {}
   };

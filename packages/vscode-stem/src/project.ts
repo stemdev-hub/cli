@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type * as vscode from 'vscode';
 import {
-  analyzeProject, decodeExternalSnapshotEnvelope, decodeTagSchemaYaml, getDefaultPortableConfig,
+  analyzeProject, decodeExternalSnapshotEnvelope, getDefaultPortableConfig,
   isExternalStemGraphShape, normalizeStemConfig, parseConfigJson, renderViewMarkdown, STEM_CONFIG_FILE
 } from '@stemdev/core';
 import type { PortableStemConfig, ProjectSnapshot, SourceDocument, ValidationIssue } from '@stemdev/core';
@@ -94,11 +94,10 @@ async function loadConfig(api: ProjectApi, root: vscode.Uri, signal?: AbortSigna
 
 /** Walk the scan root, following symlinks just as fast-glob does by default. */
 async function discover(
-  api: ProjectApi, root: vscode.Uri, directory: string, schema: boolean, excludedSubtree: string | undefined, signal?: AbortSignal
+  api: ProjectApi, root: vscode.Uri, directory: string, signal?: AbortSignal
 ): Promise<vscode.Uri[]> {
   const scanRoot = api.Uri.joinPath(root, directory);
   const found: vscode.Uri[] = [];
-  const excluded = excludedSubtree === undefined ? undefined : api.Uri.joinPath(root, excludedSubtree);
   async function walk(uri: vscode.Uri): Promise<void> {
     signal?.throwIfAborted();
     let entries: [string, vscode.FileType][];
@@ -119,9 +118,8 @@ async function discover(
       }
       if (type & 2) {
         if (name === 'node_modules' || name === 'dist') continue;
-        if (excluded !== undefined && relativePath(excluded.fsPath, child.fsPath) === '') continue;
         await walk(child);
-      } else if ((type & 1) && (schema ? /\.(yaml|yml)$/.test(name) : name.endsWith('.md'))) {
+      } else if ((type & 1) && name.endsWith('.md')) {
         found.push(child);
       }
     }
@@ -136,8 +134,8 @@ export async function loadProjectSnapshot(
   requireFile(root);
   const { signal } = options;
   const config = await loadConfig(api, root, signal);
-  const blockFiles = await discover(api, root, config.blocksDir, false, config.schemasDir, signal);
-  const viewFiles = await discover(api, root, config.viewsDir, false, undefined, signal);
+  const blockFiles = await discover(api, root, config.blocksDir, signal);
+  const viewFiles = await discover(api, root, config.viewsDir, signal);
   async function documents(files: vscode.Uri[]): Promise<SourceDocument[]> {
     const result: SourceDocument[] = [];
     for (const uri of files) {
@@ -150,22 +148,9 @@ export async function loadProjectSnapshot(
     return result;
   }
   const snapshot: ProjectSnapshot = {
-    blocks: await documents(blockFiles), views: await documents(viewFiles), schemas: new Map(),
+    blocks: await documents(blockFiles), views: await documents(viewFiles),
     configuredNamespaces: config.namespaces, externalGraphs: new Map()
   };
-  for (const uri of await discover(api, root, config.schemasDir, true, undefined, signal)) {
-    let text: string;
-    try { text = await readText(api, uri, signal); }
-    catch (error) {
-      signal?.throwIfAborted();
-      throw ioFailure(error, uri.fsPath, missing(error) ? `File not found: ${uri.fsPath}.` : `Failed to read file: ${uri.fsPath}.`);
-    }
-    const decoded = decodeTagSchemaYaml(text);
-    if (!decoded.success) throw new PreviewFailure(decoded.error.kind === 'yaml'
-      ? `Failed to parse schema YAML at ${uri.fsPath}.`
-      : `Schema file ${uri.fsPath} must define a string name and a required string array.`);
-    snapshot.schemas.set(decoded.data.name, decoded.data);
-  }
   const warnings: string[] = [];
   for (const [namespace, namespaceConfig] of Object.entries(config.namespaces)) {
     if (!options.useRemote && namespaceConfig.localPath !== undefined) {

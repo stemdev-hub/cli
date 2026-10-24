@@ -27,7 +27,6 @@ export async function initProject(
     version: STEM_CONFIG_DEFAULTS.version,
     blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
     viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
-    schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
     cacheDir: STEM_CONFIG_DEFAULTS.cacheDir
   };
 
@@ -45,17 +44,6 @@ export async function initProject(
     return configWriteResult;
   }
 
-  for (const schema of BUILT_IN_SCHEMAS) {
-    const schemaWriteResult = await writeProjectFile(
-      path.join(projectRoot, config.schemasDir, schema.fileName),
-      schema.content,
-      options.force ?? false
-    );
-    if (!schemaWriteResult.success) {
-      return schemaWriteResult;
-    }
-  }
-
   const gitignoreResult = await ensureGitignoreCacheEntry(projectRoot);
   if (!gitignoreResult.success) {
     return gitignoreResult;
@@ -66,8 +54,7 @@ export async function initProject(
     data: {
       projectRoot,
       blocksDir: path.join(projectRoot, config.blocksDir),
-      viewsDir: path.join(projectRoot, config.viewsDir),
-      schemasDir: path.join(projectRoot, config.schemasDir)
+      viewsDir: path.join(projectRoot, config.viewsDir)
     }
   };
 }
@@ -75,38 +62,9 @@ export async function initProject(
 interface InitConfigPaths {
   blocksDir: string;
   viewsDir: string;
-  schemasDir: string;
-}
-
-interface BuiltInSchema {
-  fileName: string;
-  content: string;
 }
 
 const GITIGNORE_ENTRIES = ['.stem/cache/', 'rendered/'];
-
-const BUILT_IN_SCHEMAS: BuiltInSchema[] = [
-  {
-    fileName: 'api.yaml',
-    content: `name: api
-required:
-  - endpoint
-  - request
-  - response
-description: API documentation must describe endpoint, request, and response details.
-`
-  },
-  {
-    fileName: 'adr.yaml',
-    content: `name: adr
-required:
-  - context
-  - decision
-  - consequences
-description: Architecture decision records must describe context, decision, and consequences.
-`
-  }
-];
 
 async function ensureProjectDirs(
   projectRoot: string,
@@ -115,8 +73,7 @@ async function ensureProjectDirs(
   for (const dirPath of [
     path.join(projectRoot, '.stem'),
     path.join(projectRoot, config.blocksDir),
-    path.join(projectRoot, config.viewsDir),
-    path.join(projectRoot, config.schemasDir)
+    path.join(projectRoot, config.viewsDir)
   ]) {
     const result = await ensureDir(dirPath);
     if (!result.success) {

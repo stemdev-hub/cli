@@ -81,7 +81,7 @@ stem preview view auth-service-view
 
 _(Note: For the best experience, use the [Stem VS Code Extension](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem) for live previews!)_
 
-For block/view frontmatter, section/tag selection, parameters, schemas and known rendering limits, see the [current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md). The accepted Pure Block notation is not yet implemented by this quickstart.
+For block/view frontmatter, section/tag selection, parameters and known rendering limits, see the [current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md). The accepted Pure Block notation is not yet implemented by this quickstart.
 
 ## Configuration
 
@@ -92,12 +92,15 @@ Stem projects are rooted by a `.stem/` directory. Project settings live in `.ste
   "version": "1",
   "blocksDir": "blocks",
   "viewsDir": "views",
-  "schemasDir": "blocks/schemas",
   "cacheDir": ".stem/cache"
 }
 ```
 
 All directory fields are project-relative and optional. Paths are normalized to POSIX `/` separators so cache keys stay stable across operating systems.
+
+Unknown configuration keys and typos are errors, including inside namespace entries. See the
+[supported configuration fields](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#configuration-validation).
+Tag-schema validation has been removed; existing schema files are preserved and no longer loaded as schemas.
 
 `cacheDir` controls the internal `index.json` and `graph.json` files; its default is `.stem/cache`. Namespace snapshots use the fixed locations documented in the [shared reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#namespace-snapshots); changing `cacheDir` does not relocate them.
 
@@ -105,7 +108,7 @@ All directory fields are project-relative and optional. Paths are normalized to 
 
 | Command                                                        | Purpose                                                                                   |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `stem init [--force]`                                          | Create the project scaffold, built-in schemas, and `.stem/cache/` gitignore entry         |
+| `stem init [--force]`                                          | Create the project scaffold and `.stem/cache/` gitignore entry                            |
 | `stem create block <name> [--tag <tag>]`                       | Create a Markdown block, optionally scaffolded with a tag                                 |
 | `stem create view <name> [--group <path>]`                     | Create a view file, optionally inside a view group                                        |
 | `stem create group <path>`                                     | Create a view group directory                                                             |

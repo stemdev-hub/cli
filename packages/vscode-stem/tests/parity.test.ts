@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, symlink } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
@@ -98,8 +98,22 @@ describe('built CLI preview parity', () => {
     await expectPreviewParity();
   });
 
-  it.each(['', '# comment', 'null', 'name: api\nrequired: 1'])('matches schema errors for %j', async (content) => {
+  it.each(['', '# comment', 'null', 'name: api\nrequired: 1'])('ignores retired schema YAML containing %j', async (content) => {
     await writeProjectFile(root, 'blocks/schemas/api.yaml', content);
+    expect((await cli('preview', 'view', 'api')).code).toBe(0);
+    await expectPreviewParity();
+    await expect(readFile(path.join(root, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toBe(content);
+  });
+
+  it.each([
+    [{ schemasDir: 'blocks/schemas' }, 'schemasDir'],
+    [{ blocksdir: 'content' }, 'blocksdir'],
+    [{ namespaces: { shared: { graphURL: 'https://example.com/graph.json' } } }, 'namespaces.shared.graphURL']
+  ])('reports the same unknown-field error for %j in CLI and editor preview', async (config, field) => {
+    await writeProjectFile(root, '.stem/config.json', JSON.stringify(config));
+    const result = await cli('preview', 'view', 'api');
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(`Unknown Stem config field "${field}".`);
     await expectPreviewParity();
   });
 
@@ -138,33 +152,28 @@ describe('recursive discovery against built CLI', () => {
     await expectDiscoveryParity();
   });
 
-  it('excludes the configured schema subtree from blocks with Windows-safe relative paths', async () => {
-    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ blocksDir: 'custom\\blocks', viewsDir: 'custom\\views', schemasDir: 'custom\\blocks\\definitions' }));
+  it('discovers Markdown in former schema directories with Windows-safe configured paths', async () => {
+    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ blocksDir: 'custom\\blocks', viewsDir: 'custom\\views' }));
     await writeProjectFile(root, 'custom/blocks/a.md', '---\nid: auth\n---\nCustom.');
     await writeProjectFile(root, 'custom/views/api.md', '---\nid: api\n---\n@stem[block:auth]');
-    await writeProjectFile(root, 'custom/blocks/definitions/excluded.md', '---\nid: excluded\n---\nIgnored.');
+    await writeProjectFile(root, 'custom/blocks/schemas/included.md', '---\nid: included\n---\nOrdinary Markdown.');
     const { snapshot } = await stem.loadProjectSnapshot(mockApi().api, fileUri(root));
-    expect(snapshot.blocks.map((doc) => doc.relativePath)).toEqual(['custom/blocks/a.md']);
+    expect(snapshot.blocks.map((doc) => doc.relativePath)).toEqual(['custom/blocks/a.md', 'custom/blocks/schemas/included.md']);
     expect(snapshot.views.map((doc) => doc.relativePath)).toEqual(['custom/views/api.md']);
     await expectDiscoveryParity();
   });
 
-  it.each(['.hidden/bad.yaml', '.secret.yaml', '.git/bad.yml', 'node_modules/bad.yaml', 'dist/bad.yml', '.stem/cache/bad.yaml', 'bad.YAML', 'bad.YML', 'bad.txt'])('excludes schema %s', async (file) => {
-    await writeProjectFile(root, `blocks/schemas/${file}`, 'name: [');
-    const { snapshot } = await stem.loadProjectSnapshot(mockApi().api, fileUri(root));
-    expect(snapshot.schemas.size).toBe(0);
-    expect((await cli('preview', 'view', 'api')).code).toBe(0);
-    await expectPreviewParity();
-  });
-
-  it.each(['yaml', 'yml'])('loads lowercase nested schema .%s despite .gitignore', async (extension) => {
+  it.each(['yaml', 'yml'])('does not load or enforce nested schema .%s files', async (extension) => {
     await writeProjectFile(root, '.gitignore', 'blocks/schemas/');
     await writeProjectFile(root, `blocks/schemas/nested/api.${extension}`, 'name: api\nrequired: [endpoint]');
     await writeProjectFile(root, 'blocks/auth.md', '---\nid: auth\n---\n@stem[section:summary]\n@stem[tag:api]\nRequired content absent.\n@stem[end]\n@stem[end]');
-    const { snapshot } = await stem.loadProjectSnapshot(mockApi().api, fileUri(root));
-    expect([...snapshot.schemas.values()]).toEqual([{ name: 'api', required: ['endpoint'] }]);
+    const { api, raw } = mockApi();
+    const { snapshot } = await stem.loadProjectSnapshot(api, fileUri(root));
+    expect(snapshot).not.toHaveProperty('schemas');
+    expect(raw.workspace.fs.readFile.mock.calls.map(([target]) => target.fsPath)).not.toContain(path.join(root, `blocks/schemas/nested/api.${extension}`));
     const result = await cli('preview', 'view', 'api');
-    expect(result.stderr).toContain('SCHEMA_VIOLATION');
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe('');
     await expectPreviewParity();
   });
 

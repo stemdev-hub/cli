@@ -29,7 +29,7 @@ The CLI declares core as a runtime dependency. The extension bundles core for pr
 
 Consumers provide content and source identities. Core never opens a path, fetches a namespace, persists a cache, or reads the clock. Time-sensitive validation receives `nowMs`. These boundaries allow the same engine to process disk documents, unsaved editor buffers, or browser/worker inputs. Portability is a design contract, not a claim of exhaustive platform certification.
 
-The current implementation still provides pure Tag-schema and external-snapshot decoders introduced by [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md). [ADR-0005](decisions/0005-pure-block-model.md) supersedes only its Tag-schema requirements; runtime retirement is pending. External-snapshot decoding remains governed by ADR-0004, with consumers retaining I/O, timestamps, fallback policy, and contextual errors. Remaining work is tracked in [roadmap](../roadmap.md#current-behavior-and-policy).
+The pure external-snapshot decoder introduced by [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) remains supported, with consumers retaining I/O, timestamps, fallback policy, and contextual errors. [ADR-0005](decisions/0005-pure-block-model.md) supersedes only its Tag-schema requirements; that decoder and the Tag-schema validation/loading paths have been removed. The [transition contract](specs/block-model.md#d23-schema-retirement-transition) owns configuration rejection and file preservation. Remaining work is tracked in [roadmap](../roadmap.md#current-behavior-and-policy).
 
 ## Node.js adapters
 
@@ -37,7 +37,7 @@ The current implementation still provides pure Tag-schema and external-snapshot 
 
 The CLI's public types describe its adapter inputs and results. Portable domain/configuration types belong to core; consumers of the pre-extraction CLI type surface must use the current public entries rather than source paths or compatibility re-exports.
 
-For `stem check`, the Node adapter discovers and reads documents, loads schemas and external snapshots, and supplies them to core analysis with the current time. The operation returns validation results; the command formats output and sets the exit status. MCP's reference-checking tool uses that operation as well.
+For `stem check`, the Node adapter discovers and reads documents, loads external snapshots, and supplies them to core analysis with the current time. The operation returns validation results; the command formats output and sets the exit status. MCP's reference-checking tool uses that operation as well.
 
 For `stem sync`, the adapter scans documents, checks cache invalidation, parses changed content through core, builds the graph, and persists cache records. Parse-time positions stay out of persisted cache records. The internal `.stem/cache/graph.json` snapshot and external namespace snapshot are distinct formats; see the [remaining namespace issues](../roadmap.md#remaining-namespace-issues).
 
@@ -89,17 +89,17 @@ D-labels are retained for traceability, not separate ADRs. D11 is split between 
 
 ADR status is the canonical decision state; this map is navigation. Acceptance does not establish implementation, host acceptance or distribution. [Roadmap](../roadmap.md) owns those work states, and the [current reference](reference.md) describes observed user behavior.
 
-| Topic                                                                        | Governing record                                                   | Applicability                                                                    |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| Package extraction, portability, public entries and core-first release order | [ADR-0001](decisions/0001-extract-core-package.md)                 | Applicable; API removals/renames require an ADR                                  |
-| Frontmatter schema                                                           | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)         | Superseded in full by ADR-0005; legacy runtime parsing remains until replacement |
-| Model versus core package                                                    | [ADR-0003](decisions/0003-clarify-axiom-4.md)                      | Applicable; completed clarification is not supersession                          |
+| Topic                                                                        | Governing record                                                   | Applicability                                                                                 |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Package extraction, portability, public entries and core-first release order | [ADR-0001](decisions/0001-extract-core-package.md)                 | Applicable; API removals/renames require an ADR                                               |
+| Frontmatter schema                                                           | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)         | Superseded in full by ADR-0005; legacy runtime parsing remains until replacement              |
+| Model versus core package                                                    | [ADR-0003](decisions/0003-clarify-axiom-4.md)                      | Applicable; completed clarification is not supersession                                       |
 | Pure schema and external-snapshot decoders                                   | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)    | Tag-schema requirements superseded by ADR-0005; external-snapshot requirements remain binding |
-| Pure Block model and composition                                             | [ADR-0005](decisions/0005-pure-block-model.md) and the specs above | Accepted; implementation pending, with open mechanics retained                   |
-| Separation of ADRs, specifications and navigation                            | [ADR-0006](decisions/0006-documentation-ownership.md)              | Remaining provisions apply; its blanket ADR triggers are superseded by ADR-0008  |
-| Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Accepted; existing namespace snapshots do not implement this contract            |
-| Documentation ownership and lifecycle                                        | [ADR-0008](decisions/0008-documentation-lifecycle.md)              | Applicable; operational policy lives in [governance](governance.md)              |
-| Retirement of the hard/soft-edge axiom                                       | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)          | Applicable; retires only the former axiom, with no runtime behavior change       |
+| Pure Block model and composition                                             | [ADR-0005](decisions/0005-pure-block-model.md) and the specs above | Accepted; implementation pending, with open mechanics retained                                |
+| Separation of ADRs, specifications and navigation                            | [ADR-0006](decisions/0006-documentation-ownership.md)              | Remaining provisions apply; its blanket ADR triggers are superseded by ADR-0008               |
+| Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Accepted; existing namespace snapshots do not implement this contract                         |
+| Documentation ownership and lifecycle                                        | [ADR-0008](decisions/0008-documentation-lifecycle.md)              | Applicable; operational policy lives in [governance](governance.md)                           |
+| Retirement of the hard/soft-edge axiom                                       | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)          | Applicable; retires only the former axiom, with no runtime behavior change                    |
 
 ## Terms used in this guide
 

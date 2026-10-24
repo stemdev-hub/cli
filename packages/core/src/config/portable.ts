@@ -6,7 +6,6 @@ export interface PortableStemConfig {
   publishUrl?: string;
   blocksDir: string;
   viewsDir: string;
-  schemasDir: string;
   cacheDir: string;
   namespaces: Record<string, NamespaceConfig>;
 }
@@ -33,12 +32,13 @@ export const STEM_CONFIG_DEFAULTS = {
   version: '1',
   blocksDir: 'blocks',
   viewsDir: 'views',
-  schemasDir: 'blocks/schemas',
   cacheDir: '.stem/cache'
 } as const;
 
 const SUPPORTED_CONFIG_VERSION = '1';
-const CONFIG_PATH_FIELDS = ['blocksDir', 'viewsDir', 'schemasDir', 'cacheDir'] as const;
+const CONFIG_PATH_FIELDS = ['blocksDir', 'viewsDir', 'cacheDir'] as const;
+const CONFIG_FIELDS = ['version', 'namespace', 'publishUrl', ...CONFIG_PATH_FIELDS, 'namespaces'];
+const NAMESPACE_FIELDS = ['graphUrl', 'localPath'];
 
 type ConfigPathField = (typeof CONFIG_PATH_FIELDS)[number];
 
@@ -71,15 +71,6 @@ export function normalizeStemConfig(
   const viewsDirResult = normalizeConfigPath(raw.viewsDir ?? STEM_CONFIG_DEFAULTS.viewsDir, 'viewsDir', configPath);
   if (!viewsDirResult.success) {
     return viewsDirResult;
-  }
-
-  const schemasDirResult = normalizeConfigPath(
-    raw.schemasDir ?? STEM_CONFIG_DEFAULTS.schemasDir,
-    'schemasDir',
-    configPath
-  );
-  if (!schemasDirResult.success) {
-    return schemasDirResult;
   }
 
   const cacheDirResult = normalizeConfigPath(raw.cacheDir ?? STEM_CONFIG_DEFAULTS.cacheDir, 'cacheDir', configPath);
@@ -124,7 +115,6 @@ export function normalizeStemConfig(
       ...(raw.publishUrl !== undefined ? { publishUrl: raw.publishUrl } : {}),
       blocksDir: blocksDirResult.data,
       viewsDir: viewsDirResult.data,
-      schemasDir: schemasDirResult.data,
       cacheDir: cacheDirResult.data,
       namespaces: namespacesResult.data
     }
@@ -136,7 +126,6 @@ export function getDefaultPortableConfig(): PortableStemConfig {
     version: STEM_CONFIG_DEFAULTS.version,
     blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
     viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
-    schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
     cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
     namespaces: {}
   };
@@ -171,6 +160,9 @@ export function parseConfigJson(content: string, configPath: string): ConfigResu
 }
 
 function validateRawConfig(raw: Partial<StemConfig>, configPath: string): ConfigResult<Partial<StemConfig>> {
+  const fieldError = validateConfigFields(raw, CONFIG_FIELDS, configPath);
+  if (fieldError !== undefined) return { success: false, error: fieldError };
+
   if (!isOptionalString(raw.version)) {
     return invalidSchema('version', configPath);
   }
@@ -190,6 +182,21 @@ function validateRawConfig(raw: Partial<StemConfig>, configPath: string): Config
   }
 
   return { success: true, data: raw };
+}
+
+function validateConfigFields(
+  value: object,
+  supported: readonly string[],
+  configPath: string,
+  prefix = ''
+): ConfigError | undefined {
+  const field = Object.keys(value).find((key) => !supported.includes(key));
+  if (field === undefined) return undefined;
+  return {
+    code: 'CONFIG_INVALID_SCHEMA',
+    message: `Unknown Stem config field "${prefix}${field}".`,
+    path: configPath
+  };
 }
 
 function normalizeConfigPath(
@@ -325,6 +332,9 @@ function validateAndNormalizeNamespaces(
         }
       };
     }
+
+    const fieldError = validateConfigFields(value, NAMESPACE_FIELDS, configPath, `namespaces.${key}.`);
+    if (fieldError !== undefined) return { success: false, error: fieldError };
 
     const { graphUrl, localPath } = value as Record<string, unknown>;
 

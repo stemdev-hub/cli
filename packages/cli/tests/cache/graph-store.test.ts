@@ -99,7 +99,6 @@ function createConfig(projectRoot: string): ResolvedStemConfig {
     projectRoot,
     blocksDir: 'blocks',
     viewsDir: 'views',
-    schemasDir: 'schemas',
     cacheDir: '.stem/cache',
     namespaces: {}
   };

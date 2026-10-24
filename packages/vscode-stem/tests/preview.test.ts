@@ -49,15 +49,21 @@ describe('built extension preview', () => {
     expect(result).toContain('Frontmatter could not be parsed.');
   });
 
-  it('prefers open config and schemas and preserves duplicate-name overwrite', async () => {
+  it('rejects unknown fields in unsaved configuration before loading sources', async () => {
     await writeProjectFile(root, '.stem/config.json', '{}');
-    await writeProjectFile(root, 'custom/schemas/a.yaml', 'invalid');
-    await writeProjectFile(root, 'custom/schemas/z.yml', 'name: api\nrequired: [last]');
-    const { api, documents } = mockApi();
+    const { api, documents, raw } = mockApi();
     documents.push(openDocument(path.join(root, '.stem/config.json'), () => '{"schemasDir":"custom/schemas"}'));
-    documents.push(openDocument(path.join(root, 'custom/schemas/a.yaml'), () => 'name: api\nrequired: [first]'));
-    const loaded = await stem.loadProjectSnapshot(api, fileUri(root));
-    expect([...loaded.snapshot.schemas.values()]).toEqual([{ name: 'api', required: ['last'] }]);
+    await expect(stem.loadProjectSnapshot(api, fileUri(root))).rejects.toThrow('Unknown Stem config field "schemasDir".');
+    expect(raw.workspace.fs.readDirectory).not.toHaveBeenCalled();
+  });
+
+  it('allows an unsaved correction of configuration and never reads schema YAML', async () => {
+    await writeProjectFile(root, '.stem/config.json', '{"schemasDir":"blocks/schemas"}');
+    await writeProjectFile(root, 'blocks/schemas/a.yaml', 'name: [');
+    const { api, documents, raw } = mockApi();
+    documents.push(openDocument(path.join(root, '.stem/config.json'), () => '{}'));
+    expect(await stem.renderProjectPreview(api, fileUri(root), 'api')).toBe('Disk.\n');
+    expect(raw.workspace.fs.readFile.mock.calls.map(([target]) => target.fsPath)).not.toContain(path.join(root, 'blocks/schemas/a.yaml'));
   });
 
   it('rejects a non-file project or source before reading', async () => {

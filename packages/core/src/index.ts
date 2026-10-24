@@ -1,7 +1,5 @@
 export type { BlockParameter, BlockRefSyntax } from './types/ast.js';
 export { analyzeProject } from './project/index.js';
-export { decodeTagSchemaYaml } from './project/schema.js';
-export type { TagSchemaDecodeResult } from './project/schema.js';
 export { decodeExternalSnapshotEnvelope } from './project/external.js';
 export type { SourceDocument, ProjectSnapshot, AnalysisOptions, ProjectAnalysis } from './project/types.js';
 export { buildGraph } from './graph/builder.js';
@@ -31,7 +29,5 @@ export type { ParsedView } from './types/view.js';
 export type { Position } from './types/position.js';
 export { renderViewMarkdown } from './renderer/index.js';
 export type { StemConfig } from './types/config.js';
-export type { TagSchema } from './types/schema.js';
 export { validateGraph } from './validator/rules.js';
-export { validateSchemas } from './validator/schema.js';
 export type { ValidationIssue, ValidationResult } from './types/validation.js';

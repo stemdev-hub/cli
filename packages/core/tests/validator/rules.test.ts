@@ -458,7 +458,6 @@ function createInput(overrides: Partial<Parameters<typeof validateGraph>[0]> = {
     blocks: [],
     views: [],
     buildIssues: [],
-    schemas: new Map(),
     cycles: [],
     orphanedBlocks: [],
     configuredNamespaces: {},

@@ -196,7 +196,6 @@ export declare interface InitResult {
     projectRoot: string;
     blocksDir: string;
     viewsDir: string;
-    schemasDir: string;
 }
 
 export declare function listBlocks(options?: ListBlocksOptions): Promise<OperationResult<ListBlocksResult>>;
@@ -243,7 +242,7 @@ export declare interface OperationError {
     cause?: unknown;
 }
 
-export declare type OperationErrorCode = 'PROJECT_ROOT_NOT_FOUND' | 'CONFIG_ERROR' | 'FS_ERROR' | 'CACHE_ERROR' | 'SCHEMA_LOAD_ERROR' | 'INVALID_OPERATION' | 'CONFLICT' | 'NETWORK_ERROR' | 'AUTH_ERROR';
+export declare type OperationErrorCode = 'PROJECT_ROOT_NOT_FOUND' | 'CONFIG_ERROR' | 'FS_ERROR' | 'CACHE_ERROR' | 'INVALID_OPERATION' | 'CONFLICT' | 'NETWORK_ERROR' | 'AUTH_ERROR';
 
 export declare type OperationResult<T> = {
     success: true;

@@ -5,7 +5,6 @@ import type { ParsedBlock } from '../types/block.js';
 import type { ValidationIssue } from '../types/validation.js';
 import type { ParsedView } from '../types/view.js';
 import { validateGraph } from '../validator/rules.js';
-import { validateSchemas } from '../validator/schema.js';
 import type { AnalysisOptions, ProjectAnalysis, ProjectSnapshot } from './types.js';
 
 export function analyzeProject(snapshot: ProjectSnapshot, options: AnalysisOptions): ProjectAnalysis {
@@ -34,14 +33,12 @@ export function analyzeProject(snapshot: ProjectSnapshot, options: AnalysisOptio
       blocks,
       views,
       buildIssues,
-      schemas: snapshot.schemas,
       cycles: detectCycles(graph),
       orphanedBlocks: getOrphanedBlocks(graph),
       configuredNamespaces: snapshot.configuredNamespaces,
       externalGraphs: snapshot.externalGraphs,
       ...(options.strictExternal !== undefined ? { strictExternal: options.strictExternal } : {})
-    }),
-    ...validateSchemas(blocks, snapshot.schemas)
+    })
   ];
   const errorCount = issues.filter((issue) => issue.severity === 'error').length;
   const warningCount = issues.filter((issue) => issue.severity === 'warning').length;

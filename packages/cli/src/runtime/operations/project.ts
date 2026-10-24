@@ -7,7 +7,6 @@ import { loadStemConfig } from '../config/index.js';
 import { findBlockFiles, findProjectRoot, findViewFiles } from '../fs/finder.js';
 import { readFile, toRelativePath } from '../fs/reader.js';
 import { fromConfigError, fromFsError } from './errors.js';
-import { loadSchemas } from './schemas.js';
 import { loadExternalGraphs } from './external.js';
 
 export interface LoadedProject {
@@ -30,18 +29,13 @@ export async function loadProjectForCheck(
   }
 
   const project = graphResult.data;
-  const schemasResult = await loadSchemas(project.projectRoot, project.config);
-  if (!schemasResult.success) {
-    return schemasResult;
-  }
-
   const externalGraphs = await loadExternalGraphs(project.config, options);
 
   return {
     success: true,
     data: {
       ...project,
-      snapshot: { ...project.snapshot, schemas: schemasResult.data, externalGraphs }
+      snapshot: { ...project.snapshot, externalGraphs }
     }
   };
 }
@@ -86,7 +80,6 @@ export async function loadProjectGraph(
   const snapshot: ProjectSnapshot = {
     blocks: blocksResult.data,
     views: viewsResult.data,
-    schemas: new Map(),
     configuredNamespaces: config.namespaces,
     externalGraphs: new Map()
   };

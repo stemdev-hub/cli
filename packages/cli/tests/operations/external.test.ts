@@ -30,7 +30,6 @@ describe('loadExternalGraphs', () => {
       projectRoot: testRoot,
       blocksDir: 'blocks',
       viewsDir: 'views',
-      schemasDir: 'blocks/schemas',
       cacheDir: '.stem/cache',
       namespaces: {
         'test-api': {

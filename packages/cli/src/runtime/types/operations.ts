@@ -5,7 +5,6 @@ export type OperationErrorCode =
   | 'CONFIG_ERROR'
   | 'FS_ERROR'
   | 'CACHE_ERROR'
-  | 'SCHEMA_LOAD_ERROR'
   | 'INVALID_OPERATION'
   | 'CONFLICT'
   | 'NETWORK_ERROR'
@@ -73,7 +72,6 @@ export interface InitResult {
   projectRoot: string;
   blocksDir: string;
   viewsDir: string;
-  schemasDir: string;
 }
 
 export interface CreateBlockResult {
