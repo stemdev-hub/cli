@@ -132,6 +132,24 @@ This sequencing preserves the accepted identity contract; it introduces no dummy
 durable IDs or compatibility fallback. Incorporate the approved project-ID implementation
 recommendations into the owning specification when selecting that lifecycle slice, before code.
 
+On 24 October 2026, the owner approved preserving useful workflows during replacement, superseding
+the chat proposal to withdraw commands and editor preview to shrink the parser/model checkpoint.
+Retain graph construction, validation and cycle detection, including their existing public names
+where the responsibilities still apply; replace obsolete representations and rules directly.
+Core owns the [shared cycle mechanism](docs/specs/composition.md#d12-expansion-cycles).
+The revised implementation plan must map each affected workflow to its working replacement before
+integration, retaining only the explicitly accepted concept retirements. A parser/model-only
+integration cannot promise full workflow continuity without its dependent replacement work.
+
+The first bounded preparation updates the existing core cycle detector: preserves its public contract,
+extracts reusable internal active-path tracking, and uses iterative traversal for deep graphs.
+Verified on 24 October 2026: workspace build, typecheck, lint, dependency boundaries, 294 core,
+267 CLI and 160 editor tests, built-CLI smoke, documentation checks and whitespace checks passed.
+Sandbox access failures and timed-out integration files passed on isolated unrestricted reruns;
+test limits were unchanged. This does not implement Pure Block graph identity, parsing or composition;
+the composition caller will reuse the mechanism when that slice is implemented. No command removal,
+compatibility alias, new public helper or persistent identity mechanism is part of this checkpoint.
+
 Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.
 
 ### Migration sequence

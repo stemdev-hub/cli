@@ -62,6 +62,13 @@ distinctions account for selected source state and dependency bindings, independ
 storage or computation sharing. A connection-graph cycle alone is not an expansion cycle unless
 Block expansion re-enters an active Block instance.
 
+Core owns the shared Block-instance identity and active-path cycle checks used by graph checking
+and composition; CLI, MCP and editor adapters consume its results without duplicating those checks.
+Each operation retains its own traversal and diagnostic scope. Composition checks entry into its
+current expansion path rather than rescanning the entire graph for every occurrence; completed
+visits on other paths are not active entries. A graph-wide check does not replace this expansion
+guard or the work/output budgets in D24.
+
 ## D13. Localized recovery
 
 Throughout processing, confine recoverable errors to the smallest affected region, including regions

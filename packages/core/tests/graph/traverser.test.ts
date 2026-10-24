@@ -2,7 +2,36 @@ import { describe, expect, it } from 'vitest';
 
 import type { BlockRef, DependencyRef, ParsedBlock, ParsedView, Position, StemGraph } from '../../src/types/index.js';
 import { buildGraph } from '../../src/graph/builder.js';
-import { detectCycles, getBlockDependencies, getBlockDependents, getDependencyChain, getOrphanedBlocks, getViewsUsingBlock } from '../../src/graph/traverser.js';
+import { createActivePath, detectCycles, getBlockDependencies, getBlockDependents, getDependencyChain, getOrphanedBlocks, getViewsUsingBlock } from '../../src/graph/traverser.js';
+
+describe('active paths', () => {
+  it('rejects a revisit without entering it and permits later independent reuse', () => {
+    const path = createActivePath<string>();
+    path.enter('parent');
+    path.enter('child');
+    const cycle = path.enter('parent');
+    expect(cycle).toEqual(['parent', 'child', 'parent']);
+
+    path.leave();
+    expect(path.enter('child')).toBeUndefined();
+    expect(path.enter('child')).toEqual(['child', 'child']);
+    path.leave();
+    path.leave();
+    expect(path.enter('parent')).toBeUndefined();
+    expect(cycle).toEqual(['parent', 'child', 'parent']);
+  });
+
+  it('distinguishes stable instance handles even when authored IDs are equal', () => {
+    const first = { id: 'a', instance: {} };
+    const second = { id: 'a', instance: {} };
+    const path = createActivePath<typeof first>();
+
+    expect(path.enter(first)).toBeUndefined();
+    expect(path.enter(second)).toBeUndefined();
+    expect(path.enter(first)).toEqual([first, second, first]);
+    expect(createActivePath<typeof first>().enter(first)).toBeUndefined();
+  });
+});
 
 describe('traverser', () => {
   it('getViewsUsingBlock returns view IDs for a used block', () => {
@@ -112,6 +141,52 @@ describe('traverser', () => {
     const cycle = detectCycles(graph)[0];
 
     expect(cycle?.[0]).toBe(cycle?.[cycle.length - 1]);
+  });
+
+  it('does not treat converging independent paths as a cycle', () => {
+    const graph = createGraph([
+      createBlock('root'),
+      createBlock('left', [createDependency('root')]),
+      createBlock('right', [createDependency('root')]),
+      createBlock('shared', [createDependency('left'), createDependency('right')])
+    ]);
+
+    expect(detectCycles(graph)).toEqual([]);
+  });
+
+  it('finds self-cycles and independent cycles without retaining traversal state', () => {
+    const graph = createGraph([
+      createBlock('self', [createDependency('self')]),
+      createBlock('a', [createDependency('b')]),
+      createBlock('b', [createDependency('a')])
+    ]);
+    const original = structuredClone(graph);
+    const expected = [['self', 'self'], ['a', 'b', 'a']];
+
+    expect(detectCycles(graph)).toEqual(expected);
+    expect(detectCycles(graph)).toEqual(expected);
+    expect(graph).toEqual(original);
+  });
+
+  it('checks a deep acyclic graph without exhausting the call stack', () => {
+    const graph = createGraph(Array.from({ length: 20000 }, (_, index) =>
+      createBlock(`node-${index}`, index === 0 ? [] : [createDependency(`node-${index - 1}`)])
+    ));
+
+    expect(detectCycles(graph)).toEqual([]);
+  });
+
+  it('reports a long cycle without materializing every rotation', () => {
+    const count = 12000;
+    const graph = createGraph(Array.from({ length: count }, (_, index) =>
+      createBlock(`node-${index}`, [createDependency(`node-${(index + count - 1) % count}`)])
+    ));
+    const cycles = detectCycles(graph);
+
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0]).toEqual([
+      ...Array.from({ length: count }, (_, index) => `node-${index}`), 'node-0'
+    ]);
   });
 
   it('getOrphanedBlocks returns block IDs with no view references', () => {
