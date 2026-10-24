@@ -69,6 +69,11 @@ current expansion path rather than rescanning the entire graph for every occurre
 visits on other paths are not active entries. A graph-wide check does not replace this expansion
 guard or the work/output budgets in D24.
 
+Use an explicit traversal stack and the shared internal active-path helper. Active entries identify
+the recovered definition together with its resolved instance, not just its authored ID. Process
+each occurrence in authored order; completed occurrences leave the active path and may be expanded
+again with their own logical charges under D24.
+
 ## D13. Localized recovery
 
 Throughout processing, confine recoverable errors to the smallest affected region, including regions
@@ -110,6 +115,33 @@ Derive normal-export eligibility from completeness and applicable blocking diagn
 [D25](#d25-export-eligibility-and-publication); do not maintain an independent writable `exportable`
 flag. The parser's and selector's result contracts remain owned by their respective specifications.
 
+### Composition invocation
+
+The public operation is `compose(analysis, target, limits)`. It consumes a supplied
+`ProjectAnalysis`; it performs no source discovery, file reads, connection retrieval or publication.
+The target explicitly distinguishes a Block reference resolved from a supplied instance from a
+source document selected by `sourceId` within a supplied instance. Never infer the selector kind
+from a string's spelling. Instance and source handles belong to that analysis under
+[D20](#d20-evaluation-inputs) and the [supplied-context contract](project-connections.md#supplied-evaluation-context).
+Configured output selectors retain the adapter-facing path and local-file restrictions below.
+
+The operation uses the shared core reference resolver and returns the result described in D14.
+One implementation replaces `renderViewMarkdown()` and both legacy rendering branches directly;
+retain no old renderer alias, View-shaped adapter or alternate parser/rendering fallback.
+Limits follow [D24](#d24-resource-budgets); declaration details belong in implementation types/TSDoc.
+
+### Preview and output adapters
+
+Preview exposes current partial content and applicable diagnostics separately. CLI, MCP and editor
+adapters must not inject error messages into composed Markdown, reconstruct frontmatter, trim
+content or append a newline. Normal export, including stdout, checks D25 eligibility before
+publishing content; preview does not require export eligibility. Neither mode rejects a selected
+result solely because analysis reports unrelated project errors.
+
+Editor file preview selects the active source document, including supplied unsaved content, without
+requiring a frontmatter ID. Diagnostics use a separate diagnostic surface. Rejection of obsolete
+evaluations follows D20 for all relevant supplied inputs, not only the active document.
+
 ## D16. Affected results
 
 Block-content changes refresh affected Block results and their dependent ancestor/inclusion results;
@@ -130,6 +162,11 @@ Computation caches are disposable derived data: identical supplied source conten
 must yield identical content, diagnostics, and completeness with or without a cache. Missing,
 corrupt, or incompatible caches trigger recomputation; external source content is an input whose
 availability is separately required.
+
+The initial replacement analyzes freshly parsed supplied current sources and does not cache
+composition results. Do not persist syntax trees or reconstruct parsed records from cached metadata
+with fabricated source positions. This leaves later computation reuse possible subject to D16-D18
+and D24; it does not turn external source content or output ownership into disposable computation.
 
 The [output manifest](#output-manifest) is separate operational state: recomputing current content
 cannot recover which obsolete files Stem previously wrote. Clearing computation caches must not
@@ -245,6 +282,14 @@ Each requested output has a finite, configurable work budget and output budget, 
 nested expansions. Independent requested outputs have separate allowances. Cycle detection remains
 required: cycle-free repetition can still multiply output exponentially, and empty expansions can
 consume substantial work without producing text.
+
+The `limits` input has `maxWork` and `maxOutputBytes`. Both are required nonnegative safe integers;
+zero is valid. Reject missing, negative, fractional, non-finite or unsafe values before traversal,
+returning empty `content`, `complete: false` and an error diagnostic rather than silently clamping,
+defaulting or starting unbounded evaluation. These are invocation checks, separate from exhaustion
+of a valid allowance. Initial core implementation and tests supply explicit limits. Shared defaults
+must be selected from measurements before user-facing callers are integrated; no numeric defaults
+are established by this contract checkpoint.
 
 Charge one work unit for each attempted Block entry and one for each inclusion attempt, including
 the selected root Block, contained Blocks, repeated occurrences, failed inclusions and cycle

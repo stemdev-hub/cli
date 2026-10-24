@@ -168,8 +168,9 @@ Documentation verification on 24 October 2026: static links/anchors and canonica
 document budgets and `git diff --check` passed. Only these four specifications and this roadmap
 changed; no runtime tests or host/distribution checks were needed or claimed for this checkpoint.
 
-The shared-writer prerequisite below is the next independent code checkpoint. Complete concrete
-composition/rendering continuity plans before starting the runtime switch.
+The shared-writer prerequisite below is complete. Continue the
+[composition and adapter contract checkpoint](#composition-and-adapter-contract-checkpoint) before
+starting the runtime switch.
 Scanner, analysis/selection/graph, composition and caller replacement are successive review stages,
 not independently releasable parser-only checkpoints. Integrate replacements together without old
 parser aliases, View-shaped adapters, legacy-cache reconstruction or broken-workspace commits.
@@ -185,7 +186,7 @@ metadata as source content. Durable project-ID lifecycle work remains a prerequi
 identity checks and producer-owned publication, not for pure parsing of supplied source.
 
 Remaining integration decisions include concrete operation declarations/command mappings, the
-`getOrphanedBlocks()` query disposition, replacement derived-cache representation, measured composition
+`getOrphanedBlocks()` query disposition, position-free derived-cache records for sync, measured composition
 budget defaults and the publication plan's open mechanics. The approved core file inventory below
 bounds that part of the work; dependent adapter changes still require concrete file plans.
 Acceptance uses specification examples plus multi-root/nested recovery, duplicate and instance
@@ -203,8 +204,10 @@ Approved core inventory, relative to `packages/core/` (runtime edits remain pend
 | Remove after caller replacement                           | `src/parser/frontmatter.ts`, `src/parser/stem-plugin.ts`, `src/parser/two-pass.ts`, `src/types/view.ts`, `src/types/position.ts`, `tests/parser/frontmatter.test.ts`, `tests/parser/stem-plugin.test.ts`, `tests/parser/two-pass.test.ts` |
 | Add scanner and selection modules with selection coverage | `src/parser/scanner.ts` (scanning/recovery behind the entry), `src/project/selection.ts` (shared ID/Tag lookup), `tests/project/selection.test.ts` (ambiguity, context and classification)                                                |
 
-Composition can reuse `src/renderer/index.ts`; its detailed plan and the CLI/editor integration
-inventory follow separately. No additional package or generic helper layer is selected here.
+Composition will reuse `src/renderer/index.ts` and `tests/renderer/index.test.ts`; the
+[composition checkpoint](#composition-and-adapter-contract-checkpoint) records the approved caller
+direction. Detailed adapter file plans remain required. No additional package or generic helper
+layer is selected here.
 
 ### Shared file-writer prerequisite
 
@@ -215,8 +218,8 @@ codes while replacing fixed temporary filenames and check-then-rename creation. 
 and limits are owned by [architecture](docs/architecture.md#nodejs-adapters).
 
 This is an independently buildable prerequisite for the later publisher, with no parser, command,
-configuration, dependency, ADR-status or protected-file changes. The accompanying composition/adapter
-recommendations remain review proposals; approval selected only this writer checkpoint. Output-set
+configuration, dependency, ADR-status or protected-file changes. Its approval selected only this
+writer checkpoint; the later composition approval is recorded separately below. Output-set
 publication, project identity, destination validation, manifests, writer coordination and cleanup
 remain pending under their existing contracts.
 
@@ -228,6 +231,54 @@ unrestricted rerun. The final writer suite passed after making concurrent-replac
 order deterministic (Windows can reject simultaneous replacement renames); final targeted lint and
 CLI typechecking also passed. No filesystem-wide, crash-durability or released-consumer certification
 is implied by these local checks.
+
+### Composition and adapter contract checkpoint
+
+On 24 October 2026, the owner approved five composition/adapter decisions and a two-file
+documentation scope against clean base `cdd1389`: `docs/specs/composition.md` and this roadmap.
+Runtime replacement, host acceptance and distribution remain pending. This approval refines the
+accepted ADR-0005 contracts without changing ADR statuses, rules or protected files.
+
+The specification owns [explicit composition inputs](docs/specs/composition.md#composition-invocation),
+the existing [result](docs/specs/composition.md#d14-completeness-and-validity),
+[limit validation](docs/specs/composition.md#d24-resource-budgets),
+[iterative traversal and shared active-path checks](docs/specs/composition.md#d12-expansion-cycles),
+and the [initial uncached evaluation approach](docs/specs/composition.md#d18-disposable-computation-caches).
+[Preview/output separation](docs/specs/composition.md#preview-and-output-adapters) governs exact
+content and diagnostic presentation. Approved caller direction for the coordinated replacement:
+
+| Current caller/API                                     | Replacement direction                                                                                                                           |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core `renderViewMarkdown()` and both renderer branches | One `compose()` implementation; remove the old export, result type and obsolete branches directly.                                              |
+| CLI `previewView()`                                    | `previewSource()` with an explicit Block/file selector, returning content and diagnostics separately.                                           |
+| CLI `renderView()` / `renderAll()`                     | `renderOutputs()` for selected output-set targets; its concrete publication declaration remains a separate prerequisite.                        |
+| Editor `stem.previewToSide`                            | Retain the command; select the active source file and unsaved content without a frontmatter ID.                                                 |
+| MCP View composition                                   | Read-only composition with an explicit selector and structured completeness/diagnostics; finalize the protocol declaration in its adapter plan. |
+| Cached `ParsedBlock` / `ParsedView` reconstruction     | Fresh source analysis; remove `ZERO_POSITION` reconstruction rather than converting old records into parsed sources.                            |
+
+Implement and review scanner, analysis/selection/graph, composition, then coordinated callers in
+that order. Extend core's existing renderer tests; first exercise explicit limits, then measure
+representative large/deep inputs to select shared defaults before integrating user-facing callers.
+Acceptance includes exact whitespace/frontmatter preservation, partial recovery, unrelated-error
+isolation, duplicate IDs, instance-aware cycles, repeated noncyclic inclusion, deep nesting, invalid
+limits, zero and exact budget boundaries, Unicode output limits, input/result immutability and stale
+editor-result rejection. Verify removal of old APIs and rendering branches alongside replacement
+coverage. Follow the full workspace and artifact profile before the coordinated runtime commit.
+
+This checkpoint adds no runtime files or new package. Concrete adapter edit inventories, remaining
+operation/command/protocol declarations, position-free sync records and the orphan query still need
+bounded plans. File-export continuity additionally requires the identity/publication plan, including
+destination validation, manifest encoding, local writer coordination and cleanup. Retain ADR-0004's
+external-snapshot decoder obligations and finalize its new-model publication projection separately.
+Do not commit an isolated parser switch with broken callers, retain legacy behavior to bridge it,
+or withdraw rendering. Connection transport/storage and explicitly deferred features remain outside
+this checkpoint.
+
+Documentation verification on 24 October 2026: static checks passed for 41 Markdown files,
+537 local/repository links and 32 canonical Pure Block labels; document budgets and
+`git diff --check` passed. Reviewed affected specification links, roadmap state and current guides;
+current guides continue to describe the unchanged runtime. Only the two approved documents changed.
+No runtime tests, artifact checks, host acceptance or distribution checks were needed or claimed.
 
 ### Migration sequence
 
@@ -280,7 +331,7 @@ Partial supersession and rule changes are recorded following formal acceptance o
 - **D5 refresh scheduling:** Background polling and time-based refresh intervals remain deferred.
 - **D24 defaults:** Numeric work/output budget defaults await measurement; the required behavior is in [D24](docs/specs/composition.md#d24-resource-budgets).
 - **D27 shorthand:** Single-Tag shorthand is deferred pending demonstrated user need.
-- **Evaluation mechanics:** Cache format and algorithm remain deferred; durable ID generation work follows D5 above. Result and representation contracts are incorporated; caller/declaration mapping and bounded implementation planning are next in the [API review checkpoint](#pure-block-decisions-to-finalize).
+- **Evaluation mechanics:** The [composition checkpoint](#composition-and-adapter-contract-checkpoint) selects fresh parsing and no composition cache initially. Position-free sync records still need a bounded plan; later computation caching requires the accepted invariance contracts. Durable ID generation follows D5 above. Complete concrete caller declarations and adapter file plans before runtime replacement.
 - **Output/publication mechanics:** Concrete command spellings, public declarations, manifest record encoding/validation and local writer-coordination mechanics are required when selecting that slice; behavior is owned by the [publication contract](docs/specs/composition.md#d25-export-eligibility-and-publication).
 - **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed writer coordination are outside this initial contract. Reconsider only for a demonstrated consumer workflow; the output plan does not select them. Rejected assembly/profile alternatives remain owned by ADR-0005.
 - **Formatter:** An optional future feature; detailed design is deferred, and parsing, validation, and export do not require it.
