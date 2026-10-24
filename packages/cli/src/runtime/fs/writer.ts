@@ -1,4 +1,5 @@
-import { mkdir, rename, stat, unlink, writeFile as writeTextFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { link, mkdir, open, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
 export type FsErrorCode =
@@ -15,14 +16,11 @@ export interface FsError {
   path: string;
 }
 
-type FsResult<T> = { success: true; data: T } | { success: false; error: FsError };
 type FsEmptyResult = { success: true } | { success: false; error: FsError };
 
 interface WriteFileOptions {
   overwrite?: boolean;
 }
-
-const TEMP_FILE_SUFFIX = '.stem-tmp';
 
 export async function writeFile(
   filePath: string,
@@ -31,25 +29,8 @@ export async function writeFile(
 ): Promise<FsEmptyResult> {
   const overwrite = options.overwrite ?? false;
   const targetPath = path.resolve(filePath);
-  const tempPath = `${targetPath}${TEMP_FILE_SUFFIX}`;
-
-  if (!overwrite) {
-    const existingFileResult = await fileExists(targetPath);
-    if (existingFileResult.success && existingFileResult.data) {
-      return {
-        success: false,
-        error: {
-          code: 'ALREADY_EXISTS',
-          message: `File already exists: ${targetPath}. Pass overwrite: true to replace it.`,
-          path: targetPath
-        }
-      };
-    }
-
-    if (!existingFileResult.success && existingFileResult.error.code !== 'NOT_FOUND') {
-      return existingFileResult;
-    }
-  }
+  const tempPath = `${targetPath}.${randomUUID()}.stem-tmp`;
+  let ownsTempFile = false;
 
   const ensureDirResult = await ensureDir(path.dirname(targetPath));
   if (!ensureDirResult.success) {
@@ -57,16 +38,33 @@ export async function writeFile(
   }
 
   try {
-    await writeTextFile(tempPath, content, 'utf8');
-    await rename(tempPath, targetPath);
+    const file = await open(tempPath, 'wx');
+    ownsTempFile = true;
+    try {
+      await file.writeFile(content, 'utf8');
+    } finally {
+      await file.close();
+    }
+
+    if (overwrite) {
+      await rename(tempPath, targetPath);
+      ownsTempFile = false;
+    } else {
+      // Linking the prepared file fails if the destination appeared meanwhile.
+      // Do not fall back to a rename or copy that could overwrite that file.
+      await link(tempPath, targetPath);
+    }
     return { success: true };
   } catch (error) {
-    await cleanupTempFile(tempPath);
-
     return {
       success: false,
       error: toFsError(error, 'WRITE_FAILED', targetPath, `Failed to write file: ${targetPath}.`)
     };
+  } finally {
+    // Cleanup is best-effort; failure cannot undo a confirmed publication or
+    // replace the original preparation/publication error. Never unlink a path
+    // whose exclusive creation failed or whose file was already renamed away.
+    if (ownsTempFile) await cleanupTempFile(tempPath);
   }
 }
 
@@ -92,18 +90,6 @@ export async function deleteFile(filePath: string): Promise<FsEmptyResult> {
     return {
       success: false,
       error: toFsError(error, 'WRITE_FAILED', targetPath, `Failed to delete file: ${targetPath}.`)
-    };
-  }
-}
-
-async function fileExists(filePath: string): Promise<FsResult<boolean>> {
-  try {
-    const stats = await stat(filePath);
-    return { success: true, data: stats.isFile() };
-  } catch (error) {
-    return {
-      success: false,
-      error: toFsError(error, 'NOT_FOUND', filePath, `File not found: ${filePath}.`)
     };
   }
 }

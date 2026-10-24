@@ -43,6 +43,16 @@ For `stem sync`, the adapter scans documents, checks cache invalidation, parses 
 
 For rendering, the adapter loads project documents and delegates Markdown composition to core. The CLI either writes output under `rendered/` by default or returns Markdown for stdout/preview. Generated output should be committed only when the project intentionally publishes it.
 
+The shared CLI file writer exclusively creates a unique sibling temporary file and finishes writing
+and closing it before publication. Create mode uses a hard link that fails if the destination already
+exists, including when another writer creates it during preparation. Replace mode renames the
+prepared file into place. Unsupported or failed publication returns an error without a copy or
+delete-and-replace fallback. Concurrent replacements may each succeed; this is not writer coordination
+or a compare-and-swap operation. Only invocation-owned temporary files are cleaned up, on a best-effort
+basis; cleanup failure preserves the original write outcome and may leave a temporary file. This
+provides no crash-durability, output-ownership, destination-containment or manifest guarantee; those
+belong to the accepted publication contract and remain implementation work.
+
 ## Editor adapter
 
 `packages/vscode-stem/extension.js` manages the preview and workspace commands; `src/project.ts` supplies project documents and unsaved buffers to bundled core. VS Code provides the editor and filesystem APIs. The build produces a CommonJS extension bundle while leaving the host's `vscode` module external.

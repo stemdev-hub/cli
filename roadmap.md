@@ -168,7 +168,8 @@ Documentation verification on 24 October 2026: static links/anchors and canonica
 document budgets and `git diff --check` passed. Only these four specifications and this roadmap
 changed; no runtime tests or host/distribution checks were needed or claimed for this checkpoint.
 
-Next, complete concrete composition/rendering continuity plans before starting the runtime switch.
+The shared-writer prerequisite below is the next independent code checkpoint. Complete concrete
+composition/rendering continuity plans before starting the runtime switch.
 Scanner, analysis/selection/graph, composition and caller replacement are successive review stages,
 not independently releasable parser-only checkpoints. Integrate replacements together without old
 parser aliases, View-shaped adapters, legacy-cache reconstruction or broken-workspace commits.
@@ -204,6 +205,29 @@ Approved core inventory, relative to `packages/core/` (runtime edits remain pend
 
 Composition can reuse `src/renderer/index.ts`; its detailed plan and the CLI/editor integration
 inventory follow separately. No additional package or generic helper layer is selected here.
+
+### Shared file-writer prerequisite
+
+On 24 October 2026, the owner approved this four-file implementation scope against clean base
+`0632938`: CLI `src/runtime/fs/writer.ts`, its `tests/fs/writer.test.ts`, architecture and this roadmap.
+State: implementation and local verification complete. The writer retains its signature and error
+codes while replacing fixed temporary filenames and check-then-rename creation. Its current guarantees
+and limits are owned by [architecture](docs/architecture.md#nodejs-adapters).
+
+This is an independently buildable prerequisite for the later publisher, with no parser, command,
+configuration, dependency, ADR-status or protected-file changes. The accompanying composition/adapter
+recommendations remain review proposals; approval selected only this writer checkpoint. Output-set
+publication, project identity, destination validation, manifests, writer coordination and cleanup
+remain pending under their existing contracts.
+
+Verified on 24 October 2026 on Windows with Node.js 26.12.1 and pnpm 11.25.0: workspace build,
+typecheck, lint, dependency boundaries, built-CLI smoke, full documentation checks, budgets and
+whitespace checks passed. CLI coverage totals 257 tests, including 20 writer tests: the full run
+passed 256 and encountered one fixture-write `EPERM`; all 22 tests in that file passed on an
+unrestricted rerun. The final writer suite passed after making concurrent-replacement publication
+order deterministic (Windows can reject simultaneous replacement renames); final targeted lint and
+CLI typechecking also passed. No filesystem-wide, crash-durability or released-consumer certification
+is implied by these local checks.
 
 ### Migration sequence
 
