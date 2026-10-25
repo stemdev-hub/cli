@@ -394,9 +394,40 @@ Maintain one manifest at `<outputDir>/.stem/outputs.json` per resolved output ro
 producers writing there. Each record identifies the producer's durable project ID, output-set
 association, root-relative destination path and SHA-256 hash of the last successfully generated
 bytes. The manifest has an explicit format version. Store no machine-specific absolute root,
-source ranges, document copies or content-version history. Its location binds paths to that root;
-concrete record member names and decoding declarations belong to the publication implementation
-slice, not a new public domain type.
+source ranges, document copies or content-version history. Its location binds paths to that root.
+The encoding below is adapter bookkeeping, not a new public domain type.
+
+#### Manifest encoding and validation
+
+Encode UTF-8 JSON with the envelope `{ "version": 1, "outputs": [...] }`. Each output record has
+exactly these required members:
+
+| Member      | Value                                                                                                                        |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `projectId` | Producer identity using the [project-ID format](project-connections.md#project-identity-configuration).                      |
+| `outputSet` | Nonempty, case-sensitive set name; it may name a retired set.                                                                |
+| `path`      | Canonical root-relative file path using `/` separators, with no empty, `.` or `..` components, backslashes or absolute form. |
+| `sha256`    | Exactly 64 lowercase hexadecimal characters hashing the last successfully generated file bytes.                              |
+
+An empty `outputs` array is valid. Reject missing members, wrong types, unknown members and invalid
+values; do not coerce, trim, repair, drop records or substitute an empty inventory. A missing or
+noninteger format version is corrupt; an integer version other than `1` is unsupported and its
+records are not interpreted. This version belongs to the manifest format, independently of package
+versions and the version-free project configuration. Both corrupt and unsupported manifests have
+the root-wide failure scope specified below.
+
+For version `1`, reject duplicate destination records, including identical records, case-only
+paths, resolved aliases and file/directory-prefix collisions. Different producers cannot own the
+same destination. Pure decoding checks record shape and lexical paths; the adapter additionally
+applies [destination validation](#destination-paths-and-conflicts) against the actual root and
+filesystem before mutation. Invalid or unresolvable ownership evidence blocks mutation of that
+root, rather than authorizing partial use of its inventory. Manifest and lock paths receive the
+same containment and file-symlink protections as output paths; authored targets cannot overwrite
+either. A missing recorded output is not corrupt: cleanup already defines its treatment.
+
+Hash exact bytes without line-ending or Unicode normalization. Update only confirmed changes and
+preserve every unrelated valid record, including those belonging to other producers and retired
+sets. Decoding does not require loading those producers or locating their source projects.
 
 An existing file merely skipped, even if its bytes match a possible result, is not newly adopted.
 Preserve previous ownership records for skipped targets.
@@ -415,6 +446,37 @@ preserve other producers' records. Project ID identifies the producer, not a che
 different checkouts/revisions may share it. This contract does not promise distributed coordination
 or safe concurrent writes through independently managed overlapping roots. Reject known collisions;
 do not infer global ownership of files absent from the available records.
+
+#### Local writer coordination
+
+Use `<outputDir>/.stem/outputs.lock` for each resolved output root. Acquire it by exclusive creation
+with Node's `open(path, "wx")`, without a preceding existence check. An existing entry or acquisition
+failure blocks mutation of that root and reports failure; there is no unlocked fallback or automatic
+wait/retry. Independent usable roots may still publish, subject to the run-wide pruning gate below.
+Resolve root aliases to the same coordination scope and validate containment of bookkeeping paths
+before creating directories or acquiring a lock. Reject known conflicts among selected destinations
+before publishing any target; lock creation establishes no output ownership.
+
+Acquire selected root locks in a deterministic order, once per resolved root. Hold acquired locks
+across authoritative manifest loading, destination revalidation, publication, manifest persistence
+and any cleanup. Complete publication/tracking attempts across selected roots before deciding
+whether automatic pruning is permitted. Recheck paths and ownership under the lock; preliminary
+reads alone do not authorize mutation. Reuse the existing safe file writer for per-file publication
+and manifest replacement; it does not replace this coordination protocol.
+
+Retain evidence of each invocation's lock ownership and release only its own lock in finalization,
+including after errors. Never remove an entry whose acquisition failed or whose ownership can no
+longer be established. Report release failure and preserve the actual publication/tracking outcomes;
+do not describe it as a rollback. A remaining lock blocks later writers. Neither age nor a PID
+authorizes automatic lock stealing. After a crash, manual removal requires confirming that writers
+have stopped; removal grants no ownership and the next run still validates manifest and file state.
+
+Read-only cleanup preview creates no directories, lock, manifest or other state. If it observes an
+active lock or inconsistent reads, report that the root cannot be assessed reliably. Its observations
+are advisory, not a reserved snapshot; applying cleanup always reacquires coordination and repeats
+the checks. Locking coordinates cooperating local writers, not arbitrary filesystem mutation or
+distributed writers. Node documents that exclusive creation may not work on network filesystems;
+this protocol makes no stronger guarantee. See [Node filesystem flags](https://nodejs.org/api/fs.html#file-system-flags).
 
 ### Obsolete-output cleanup
 
@@ -471,6 +533,8 @@ operation reports failure.
 
 Prepare selected eligible outputs before pruning. Generation, publication or manifest-persistence
 errors suppress automatic pruning for that run, including when independent targets succeed.
+Lock acquisition or loss of ownership also suppresses automatic pruning for the run. A release
+failure after completed mutations is reported as such; it cannot undo publication or cleanup.
 Record only confirmed successful writes, including during partial success; never report a failed
 write as generated.
 Preserve obsolete records until deletion is confirmed, absence is verified when applying cleanup,

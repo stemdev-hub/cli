@@ -63,138 +63,35 @@ The local external-snapshot producer is absent; internal `graph.json` and extern
 
 ## Pure Block migration
 
-Status: design accepted; parser/model and composition replacement remain pending. Shared cycle tracking and Tag-schema retirement are implemented as bounded prerequisites; open mechanics and deferred work remain below.
-Use the [design navigation and D-label map](docs/architecture.md#proposed-pure-block-design) for contracts. Pure Block D-labels and Remediation D-labels are distinct collections.
+State: design accepted; coordinated parser/model, composition and adapter replacement remains pending.
+Shared cycle tracking, Tag-schema retirement, safe file writing and durable project identity are
+implemented and locally verified. Host/consumer/distribution gaps remain under R01, R02 and R10.
+[Architecture](docs/architecture.md#proposed-pure-block-design) maps the contracts; the
+[checkpoint record](docs/history/2026-10-pure-block-checkpoints.md) preserves acceptance and verification evidence.
 
 ### Documentation and decision review
 
-On 23 October 2026, the owner explicitly accepted ADR-0005, ADR-0007, and all four specifications
-as recorded at revision `a56203e`, retaining their explicitly open mechanics and deferred work.
-ADR statuses record acceptance, ADR-0002's full supersession, and ADR-0004's partial Tag-schema
-supersession; its external-snapshot requirements remain binding. This checkpoint changes no runtime
-behavior and establishes neither host acceptance nor distribution.
-
-[ADR-0008](docs/decisions/0008-documentation-lifecycle.md) owns documentation policy; architecture
-owns the [current-decision map](docs/architecture.md#current-decision-applicability).
-[R00](#r00-establish-which-status-items-block-implementation) retains remaining legacy policy/gate
-questions. The owner updated the protected [core instructions](packages/core/AGENTS.md) in
-`ea7584a` to point to the accepted decision applicability.
+ADR-0005, ADR-0007 and all four specifications were accepted at `a56203e` on 23 October 2026.
+Later approved refinements are recorded in [history](docs/history/2026-10-pure-block-checkpoints.md#acceptance-and-scope).
+The [decision map](docs/architecture.md#current-decision-applicability) owns applicability;
+[R00](#r00-establish-which-status-items-block-implementation) retains unresolved legacy policy questions.
 
 ### Pure Block decisions to finalize
 
-Review checkpoint: 21 October 2026. The owner confirmed direct replacement under the [beta axiom](docs/axioms.md), replacing the review's earlier additive-parser recommendation. That direction and proposed policy retirements are now recorded in [ADR-0005](docs/decisions/0005-pure-block-model.md).
-
-Review items 3–7 below correspond to the design-review discussion, not new D-labels. All five were agreed in chat and incorporated into the proposals on 22 October 2026. Those revisions left statuses proposed and did not themselves establish product acceptance or authorize implementation; formal acceptance is recorded above.
-
-| Review item                     | Incorporated outcome                                                                                                                             | Owning contract                                                                                                                                                                                                                                                                                   |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3. Parser recovery              | Header, EOF and ancestor recovery, with exact examples and whitespace treatment.                                                                 | [Syntax recovery](docs/specs/stem-syntax.md#invalid-headers-and-ownership-recovery), [boundary whitespace](docs/specs/stem-syntax.md#boundary-whitespace)                                                                                                                                         |
-| 4. Invalid-definition selection | Explicit ambiguity, diagnostic scope and partial Tag classification.                                                                             | [Model D4c](docs/specs/block-model.md#d4c-duplicate-and-missing-ids), [D10](docs/specs/block-model.md#d10-id-and-tag-selection), [syntax D28](docs/specs/stem-syntax.md#d28-tag-diagnostics-and-recovery), [export eligibility](docs/specs/composition.md#d25-export-eligibility-and-publication) |
-| 5. Composition output           | Definition emission, failed-occurrence output and ordinary-text frontmatter.                                                                     | [Composition D11–D14](docs/specs/composition.md#d11-inclusion), [frontmatter](docs/specs/stem-syntax.md#file-level-frontmatter), [proposed retirement](docs/decisions/0005-pure-block-model.md#consequences)                                                                                      |
-| 6. Resource budgets             | Logical work/UTF-8 accounting, cache invariance and deterministic exhaustion. Numeric defaults still await measurement in the composition slice. | [Composition D18/D24](docs/specs/composition.md#d24-resource-budgets)                                                                                                                                                                                                                             |
-| 7. Connection resolution        | Source-record precedence, regeneration/update scope and finite instance graphs.                                                                  | [Resolution lifecycle](docs/specs/project-connections.md#resolution-records-and-update-scope), [instance graph](docs/specs/project-connections.md#resolved-instance-graph), [ADR-0007](docs/decisions/0007-independent-project-connections.md)                                                    |
-
-API and representation review checkpoint: on 22 October 2026, the owner approved the naming/result recommendations and the six follow-up contracts for ordered syntax, explicit recovery, separate identity/context, operation-specific results, diagnostic ownership and fixed evaluation inputs. These working agreements were incorporated into the proposals below without changing their statuses or authorizing runtime implementation at that checkpoint; formal acceptance is recorded above.
-
-- **Parsing and recovery:** [parser input/result contract](docs/specs/stem-syntax.md#parser-contract) and [syntax-tree representation](docs/specs/stem-syntax.md#syntax-tree-representation).
-- **Identity and analysis:** [temporary definition handles](docs/specs/block-model.md#definition-handles) and [project analysis](docs/specs/block-model.md#project-analysis).
-- **Resolution and selection:** [BlockResolution](docs/specs/project-connections.md#block-reference-resolution) and [findBlocksByTag() results](docs/specs/block-model.md#selection-results).
-- **Diagnostics and evaluation:** [diagnostic ownership](docs/specs/composition.md#diagnostic-contract), [CompositionResult](docs/specs/composition.md#d14-completeness-and-validity), and [input/result lifetime](docs/specs/composition.md#d20-evaluation-inputs).
-
-Output/publication review checkpoint: on 23 October 2026, the owner approved incorporating the
-document-assembly, output-set, external-destination and selective-cleanup working agreements into
-the proposals, including failure scope for invalid manifests and conflicting destinations.
-That checkpoint left statuses proposed and did not authorize runtime implementation; formal
-acceptance is recorded above.
-
-- **Assembly and configuration:** [output sets and explicit source selectors](docs/specs/composition.md#output-sets-and-targets), with [one source boundary and View retirement](docs/specs/composition.md#source-boundary-and-view-retirement).
-- **Publication:** [destination checks](docs/specs/composition.md#destination-paths-and-conflicts) and [existing-file policies](docs/specs/composition.md#existing-file-policy).
-- **Persistence and cleanup:** [destination-local manifest](docs/specs/composition.md#output-manifest), [obsolete-output rules](docs/specs/composition.md#obsolete-output-cleanup), and [failure handling](docs/specs/composition.md#publication-bookkeeping-and-failures).
-- **Acceptance examples:** [output publication scenarios](docs/specs/composition.md#output-publication-examples), alongside the existing syntax, selection and composition examples.
-
-The bounded unified parser/model plan now follows the [contract checkpoint](#parser-and-model-contract-checkpoint)
-and [migration sequence](#migration-sequence).
-Use the specifications' examples as acceptance cases, including the linked publication scenarios.
-API naming follow-up: the owner agreed to recheck remaining API/type names when their concrete
-contracts and callers need them, before implementing the corresponding slice. Update affected
-specifications at that point; the [parser contract](docs/specs/stem-syntax.md#parser-contract) and
-[Tag-selection contract](docs/specs/block-model.md#selection-results) already reflect the
-result-wrapper refinement, with the approved Tag-query function and field names in the latter.
-Agreed behavior remains unchanged; formal acceptance is recorded above. Finalize any remaining
-slice-specific declarations against their callers before implementing them.
-
-On 24 October 2026, the owner confirmed retaining durable project identity after reviewing its
-editing/copying tradeoffs. Its uses remain owned by the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle)
-and [output ownership contract](docs/specs/composition.md#output-manifest). The parser/model slice
-operates on supplied source and project/instance context; project-ID generation, persistence and
-initialization changes are not prerequisites for that bounded work. Implement the durable identity
-lifecycle before enabling connection identity checks or producer-owned publication/cleanup.
-This sequencing preserves the accepted identity contract; it introduces no dummy IDs, path-derived
-durable IDs or compatibility fallback. The [identity checkpoint](#durable-project-identity-checkpoint)
-now records the approved specification refinements and bounded implementation plan.
-
-On 24 October 2026, the owner approved preserving useful workflows during replacement, superseding
-the chat proposal to withdraw commands and editor preview to shrink the parser/model checkpoint.
-Retain graph construction, validation and cycle detection, including their existing public names
-where the responsibilities still apply; replace obsolete representations and rules directly.
-Core owns the [shared cycle mechanism](docs/specs/composition.md#d12-expansion-cycles).
-The revised implementation plan must map each affected workflow to its working replacement before
-integration, retaining only the explicitly accepted concept retirements. A parser/model-only
-integration cannot promise full workflow continuity without its dependent replacement work.
-
-The first bounded preparation updates the existing core cycle detector: preserves its public contract,
-extracts reusable internal active-path tracking, and uses iterative traversal for deep graphs.
-Verified on 24 October 2026: workspace build, typecheck, lint, dependency boundaries, 294 core,
-267 CLI and 160 editor tests, built-CLI smoke, documentation checks and whitespace checks passed.
-Sandbox access failures and timed-out integration files passed on isolated unrestricted reruns;
-test limits were unchanged. This does not implement Pure Block graph identity, parsing or composition;
-the composition caller will reuse the mechanism when that slice is implemented. No command removal,
-compatibility alias, new public helper or persistent identity mechanism is part of this checkpoint.
-
-Budget defaults are needed for composition, not an earlier parser/model slice. Connection formats, storage and transport are needed only when selecting that implementation slice; dependency review, replacement schemas/templates, shorthand, formatting and background refresh remain deferred below.
+Select the next bounded implementation scope from the [open work](#pure-block-open-and-deferred-work).
+Resolve remaining declarations against their callers without reopening agreed names or behavior.
+Replacement must preserve useful authoring, checking/listing, sync, rendering and CLI/MCP/editor
+preview workflows. Retain graph construction, validation and cycle detection responsibilities;
+retire only accepted concepts. Do not integrate a parser-only switch with broken callers,
+compatibility aliases, legacy-cache reconstruction or withdrawn rendering.
 
 ### Parser and model contract checkpoint
 
-On 24 October 2026, the owner approved the bounded plan against clean base `d775326`, including
-this five-document contract checkpoint. Runtime replacement, host acceptance and distribution remain
-pending. The accepted refinements are incorporated in their owning specifications:
-
-- [Syntax representation](docs/specs/stem-syntax.md#syntax-tree-representation) retains ordered metadata and precise token ranges; [Tag recovery](docs/specs/stem-syntax.md#d28-tag-diagnostics-and-recovery) resolves repeated-field handling.
-- [Source editing](docs/specs/block-model.md#source-editing) defines safe subtree deletion and identity-aware rename; [graph construction/checking](docs/specs/block-model.md#graph-construction-and-checking) defines identity and the disposition of View-based orphan warnings.
-- [Supplied evaluation context](docs/specs/project-connections.md#supplied-evaluation-context) separates temporary handles from durable identities without selecting connection persistence or transport.
-- [View retirement](docs/specs/composition.md#source-boundary-and-view-retirement) now follows the approved generic unknown-field configuration policy.
-
-Documentation verification on 24 October 2026: static links/anchors and canonical-owner checks,
-document budgets and `git diff --check` passed. Only these four specifications and this roadmap
-changed; no runtime tests or host/distribution checks were needed or claimed for this checkpoint.
-
-The shared-writer prerequisite below is complete. Continue the
-[composition and adapter contract checkpoint](#composition-and-adapter-contract-checkpoint) before
-starting the runtime switch.
-Scanner, analysis/selection/graph, composition and caller replacement are successive review stages,
-not independently releasable parser-only checkpoints. Integrate replacements together without old
-parser aliases, View-shaped adapters, legacy-cache reconstruction or broken-workspace commits.
-Preserve authoring, checking/listing, sync, rendering, CLI/MCP and editor preview capabilities while
-retiring only the accepted concepts. Generated declarations and executable documentation follow the
-actual implementation, not this contract update.
-
-Composition is required for preview/render callers. File-export continuity additionally requires
-a bounded publication plan and its identity prerequisites; retaining the old filename-inference
-writer or withdrawing rendering is not an integration shortcut. Preserve ADR-0004's external-snapshot
-decoder contract; finalize the new-model publication projection separately rather than treating
-metadata as source content. Durable project-ID lifecycle work remains a prerequisite for connection
-identity checks and producer-owned publication, not for pure parsing of supplied source.
-
-Remaining integration decisions include concrete operation declarations/command mappings, the
-`getOrphanedBlocks()` query disposition, position-free derived-cache records for sync, measured composition
-budget defaults and the publication plan's open mechanics. The approved core file inventory below
-bounds that part of the work; dependent adapter changes still require concrete file plans.
-Acceptance uses specification examples plus multi-root/nested recovery, duplicate and instance
-identity, partial classification, safe edits, deep traversal, result-scoped diagnostics, stale-editor
-completion rejection and absence of legacy APIs. Run targeted checks per stage and the full workspace
-and artifact verification profile before declaring the coordinated integration ready to commit.
-
-Approved core inventory, relative to `packages/core/` (runtime edits remain pending):
+Contracts are complete; runtime replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
+[analysis/editing contracts](docs/specs/block-model.md#project-analysis) and
+[supplied context](docs/specs/project-connections.md#supplied-evaluation-context).
+The approved core inventory remains active below; it does not cover the still-unplanned adapter changes.
+Paths are relative to `packages/core/`:
 
 | Action                                                    | Files                                                                                                                                                                                                                                     |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -204,250 +101,95 @@ Approved core inventory, relative to `packages/core/` (runtime edits remain pend
 | Remove after caller replacement                           | `src/parser/frontmatter.ts`, `src/parser/stem-plugin.ts`, `src/parser/two-pass.ts`, `src/types/view.ts`, `src/types/position.ts`, `tests/parser/frontmatter.test.ts`, `tests/parser/stem-plugin.test.ts`, `tests/parser/two-pass.test.ts` |
 | Add scanner and selection modules with selection coverage | `src/parser/scanner.ts` (scanning/recovery behind the entry), `src/project/selection.ts` (shared ID/Tag lookup), `tests/project/selection.test.ts` (ambiguity, context and classification)                                                |
 
-Composition will reuse `src/renderer/index.ts` and `tests/renderer/index.test.ts`; the
-[composition checkpoint](#composition-and-adapter-contract-checkpoint) records the approved caller
-direction. Detailed adapter file plans remain required. No additional package or generic helper
-layer is selected here.
+Reuse `src/renderer/index.ts` and `tests/renderer/index.test.ts` for composition. Scanner,
+analysis/selection/graph, composition and coordinated callers are successive review stages of a
+working replacement. Use specification examples and integration cases for deep traversal,
+instance-aware identity/cycles, safe edits, diagnostic scope and rejection of stale editor results.
+Run targeted checks per stage and the full workspace/artifact profile before integration is ready.
 
 ### Shared file-writer prerequisite
 
-On 24 October 2026, the owner approved this four-file implementation scope against clean base
-`0632938`: CLI `src/runtime/fs/writer.ts`, its `tests/fs/writer.test.ts`, architecture and this roadmap.
-State: implementation and local verification complete. The writer retains its signature and error
-codes while replacing fixed temporary filenames and check-then-rename creation. Its current guarantees
-and limits are owned by [architecture](docs/architecture.md#nodejs-adapters).
-
-This is an independently buildable prerequisite for the later publisher, with no parser, command,
-configuration, dependency, ADR-status or protected-file changes. Its approval selected only this
-writer checkpoint; the later composition approval is recorded separately below. Output-set
-publication, project identity, destination validation, manifests, writer coordination and cleanup
-remain pending under their existing contracts.
-
-Verified on 24 October 2026 on Windows with Node.js 26.12.1 and pnpm 11.25.0: workspace build,
-typecheck, lint, dependency boundaries, built-CLI smoke, full documentation checks, budgets and
-whitespace checks passed. CLI coverage totals 257 tests, including 20 writer tests: the full run
-passed 256 and encountered one fixture-write `EPERM`; all 22 tests in that file passed on an
-unrestricted rerun. The final writer suite passed after making concurrent-replacement publication
-order deterministic (Windows can reject simultaneous replacement renames); final targeted lint and
-CLI typechecking also passed. No filesystem-wide, crash-durability or released-consumer certification
-is implied by these local checks.
+Complete in `cdd1389`. Reuse the writer under its [documented guarantees](docs/architecture.md#nodejs-adapters);
+publication ownership and coordination remain separate work. [Verification evidence](docs/history/2026-10-pure-block-checkpoints.md#verification-evidence).
 
 ### Composition and adapter contract checkpoint
 
-On 24 October 2026, the owner approved five composition/adapter decisions and a two-file
-documentation scope against clean base `cdd1389`: `docs/specs/composition.md` and this roadmap.
-Runtime replacement, host acceptance and distribution remain pending. This approval refines the
-accepted ADR-0005 contracts without changing ADR statuses, rules or protected files.
+Contracts are complete in `72b3862`; runtime replacement remains pending. The
+[composition specification](docs/specs/composition.md#composition-invocation) owns inputs, results,
+budgets and [preview/output separation](docs/specs/composition.md#preview-and-output-adapters).
+Approved caller direction to preserve in the concrete adapter plans:
 
-The specification owns [explicit composition inputs](docs/specs/composition.md#composition-invocation),
-the existing [result](docs/specs/composition.md#d14-completeness-and-validity),
-[limit validation](docs/specs/composition.md#d24-resource-budgets),
-[iterative traversal and shared active-path checks](docs/specs/composition.md#d12-expansion-cycles),
-and the [initial uncached evaluation approach](docs/specs/composition.md#d18-disposable-computation-caches).
-[Preview/output separation](docs/specs/composition.md#preview-and-output-adapters) governs exact
-content and diagnostic presentation. Approved caller direction for the coordinated replacement:
+| Caller                                        | Replacement                                                                                               |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Core `renderViewMarkdown()` and both branches | One `compose()` implementation.                                                                           |
+| CLI `previewView()`                           | `previewSource()` with explicit Block/file selector and separate content/diagnostics.                     |
+| CLI `renderView()` / `renderAll()`            | `renderOutputs()` for selected output-set targets; publication declarations still needed.                 |
+| Editor `stem.previewToSide`                   | Retain command; compose active source and unsaved content without a frontmatter ID.                       |
+| MCP View composition                          | Read-only explicit selection with structured completeness/diagnostics; protocol declaration still needed. |
+| Cached parsed Block/View reconstruction       | Fresh source analysis; remove `ZERO_POSITION` reconstruction.                                             |
 
-| Current caller/API                                     | Replacement direction                                                                                                                           |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Core `renderViewMarkdown()` and both renderer branches | One `compose()` implementation; remove the old export, result type and obsolete branches directly.                                              |
-| CLI `previewView()`                                    | `previewSource()` with an explicit Block/file selector, returning content and diagnostics separately.                                           |
-| CLI `renderView()` / `renderAll()`                     | `renderOutputs()` for selected output-set targets; its concrete publication declaration remains a separate prerequisite.                        |
-| Editor `stem.previewToSide`                            | Retain the command; select the active source file and unsaved content without a frontmatter ID.                                                 |
-| MCP View composition                                   | Read-only composition with an explicit selector and structured completeness/diagnostics; finalize the protocol declaration in its adapter plan. |
-| Cached `ParsedBlock` / `ParsedView` reconstruction     | Fresh source analysis; remove `ZERO_POSITION` reconstruction rather than converting old records into parsed sources.                            |
-
-Implement and review scanner, analysis/selection/graph, composition, then coordinated callers in
-that order. Extend core's existing renderer tests; first exercise explicit limits, then measure
-representative large/deep inputs to select shared defaults before integrating user-facing callers.
-Acceptance includes exact whitespace/frontmatter preservation, partial recovery, unrelated-error
-isolation, duplicate IDs, instance-aware cycles, repeated noncyclic inclusion, deep nesting, invalid
-limits, zero and exact budget boundaries, Unicode output limits, input/result immutability and stale
-editor-result rejection. Verify removal of old APIs and rendering branches alongside replacement
-coverage. Follow the full workspace and artifact profile before the coordinated runtime commit.
-
-This checkpoint adds no runtime files or new package. Concrete adapter edit inventories, remaining
-operation/command/protocol declarations, position-free sync records and the orphan query still need
-bounded plans. File-export continuity additionally requires the identity/publication plan, including
-destination validation, manifest encoding, local writer coordination and cleanup. Retain ADR-0004's
-external-snapshot decoder obligations and finalize its new-model publication projection separately.
-Do not commit an isolated parser switch with broken callers, retain legacy behavior to bridge it,
-or withdraw rendering. Connection transport/storage and explicitly deferred features remain outside
-this checkpoint.
-
-Documentation verification on 24 October 2026: static checks passed for 41 Markdown files,
-537 local/repository links and 32 canonical Pure Block labels; document budgets and
-`git diff --check` passed. Reviewed affected specification links, roadmap state and current guides;
-current guides continue to describe the unchanged runtime. Only the two approved documents changed.
-No runtime tests, artifact checks, host acceptance or distribution checks were needed or claimed.
+Start core composition with explicit limits; measure representative large/deep inputs before
+choosing shared defaults for user-facing callers. Keep ADR-0004's external-snapshot decoder
+obligations; the new-model snapshot projection needs a separate plan.
 
 ### Durable project identity checkpoint
 
-On 25 October 2026, the owner approved the lifecycle/API decisions and four-file documentation
-scope against clean base `72b3862`: `docs/specs/project-connections.md`,
-`docs/decisions/0010-project-identity-configuration.md`, `docs/architecture.md` and this roadmap.
-The owner refined the plan to remove project configuration `version`, rather than retain `"1"`.
-State: implementation and local verification complete. Host acceptance and distribution are not
-established. The owner subsequently authorized committing the documentation checkpoint and proceeding
-with its implementation inventory; documentation was committed as `32fbf66` before runtime edits.
+Complete in `225fdc8`, following documentation commit `32fbf66` and ADR-0010. The
+[identity lifecycle](docs/specs/project-connections.md#project-identity-configuration) is now available
+for later connection checks and producer-owned publication. [Verification evidence](docs/history/2026-10-pure-block-checkpoints.md#verification-evidence).
 
-[ADR-0010](docs/decisions/0010-project-identity-configuration.md) covers the public configuration/API
-changes required by ADR-0001. The specification owns [identity representation and configuration](docs/specs/project-connections.md#project-identity-configuration),
-[read/initialization behavior](docs/specs/project-connections.md#configuration-reads-and-initialization)
-and [deliberate identity changes](docs/specs/project-connections.md#deliberate-identity-changes).
-The 23 October acceptance established the durable-identity principles; the 24 October checkpoint
-established sequencing. UUID spelling, constructor retirement, initialization behavior and removal
-of configuration `version` are the 25 October refinements, not backdated approvals.
+### Publication bookkeeping and coordination checkpoint
 
-This can be an independently buildable runtime prerequisite: change configuration admission and
-creation together across core, CLI and editor while retaining current parsing, graph, authoring,
-checking/listing, sync, rendering, MCP and preview workflows for valid projects. Pure parsing and
-supplied-source analysis need no durable-ID dependency. Implement identity before connection identity
-checks and producer-owned output publication/cleanup. No parser/model switch, connection storage,
-Git transport, output manifest, cleanup, new command, dependency or deferred feature is included.
-Keep the existing writer; its create-only publication already supplies the required non-overwrite
-guarantee. Its temporary-file UUIDs are unrelated to durable project identity.
+Documentation complete; runtime implementation pending. The specification owns
+[manifest encoding/validation](docs/specs/composition.md#manifest-encoding-and-validation),
+[local coordination](docs/specs/composition.md#local-writer-coordination) and
+[cleanup](docs/specs/composition.md#obsolete-output-cleanup). No new ADR or protected-file edit is required
+for these refinements of ADR-0005.
 
-Implementation inventory approved by that follow-up instruction:
+Next: define a bounded private Node-adapter scope for manifest loading/persistence, root/path checks
+and locking, reusing the shared writer. Supplied roots, identities and prepared bytes permit isolated
+verification before parser/composition integration; no runtime file inventory is approved yet.
+Then finalize publication/result/command declarations and explicit retired-scope cleanup. Current
+`OperationResult<T>` failure has no typed successful-output summary: the replacement must retain
+confirmed partial publication and distinguish later tracking failures. Keep stdout/preview read-only.
 
-| Area / path base                         | Exact files and purpose                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/core/` runtime                 | `src/types/config.ts`, `src/config/portable.ts`, `src/index.ts`: required identity, pure validation, removal of configuration version/default/error and identity-free constructor export.                                                                                                                                                                                                                                            |
-| `packages/cli/` runtime                  | `src/runtime/config/index.ts`, `src/runtime/operations/init.ts`, `src/cli/commands/init.ts`, `src/index.ts`: strict loading, create-only identity establishment, preserving force behavior/help and constructor retirement.                                                                                                                                                                                                          |
-| `packages/cli/` diagnostic               | `src/runtime/operations/publish.ts`: only correct the message calling missing `namespace` project identity; retain snapshot publication behavior and format.                                                                                                                                                                                                                                                                         |
-| `packages/vscode-stem/` runtime          | `src/project.ts`: remove missing-config fallback and retain shared validation of saved/unsaved configuration.                                                                                                                                                                                                                                                                                                                        |
-| `packages/core/` tests                   | `tests/config/portable.test.ts`, `tests/portability/portability.test.ts`: format/error/default coverage, removed exports and portable execution without randomness or I/O.                                                                                                                                                                                                                                                           |
-| `packages/cli/` lifecycle/command tests  | `tests/config/index.test.ts`, `tests/operations/init.test.ts`, `tests/cli/index.test.ts`, `tests/smoke/built-cli-smoke.mjs`: creation, preservation, errors, force, concurrent creation and representative built workflows.                                                                                                                                                                                                          |
-| `packages/cli/` operation fixtures       | `tests/operations/add.test.ts`, `tests/operations/check.test.ts`, `tests/operations/create.test.ts`, `tests/operations/delete.test.ts`, `tests/operations/list.test.ts`, `tests/operations/preview.test.ts`, `tests/operations/rename.test.ts`, `tests/operations/render.test.ts`, `tests/operations/sync.test.ts`: replace implicit missing-config success fixtures with explicit valid configuration; preserve operation coverage. |
-| `packages/cli/` resolved-config fixtures | `tests/fs/finder.test.ts`, `tests/cache/index-store.test.ts`, `tests/cache/graph-store.test.ts`, `tests/operations/external.test.ts`, `tests/operations/fetch.test.ts`, `tests/operations/publish.test.ts`: add valid project identity and remove project-config version, preserving independently versioned cache/snapshot records.                                                                                                 |
-| `packages/cli/` MCP tests                | `tests/mcp/server.test.ts`: configuration-error propagation through existing operation results; no protocol replacement.                                                                                                                                                                                                                                                                                                             |
-| `packages/vscode-stem/` tests            | `tests/preview.test.ts`, `tests/parity.test.ts`: valid config fixtures, CLI/editor failure parity, unsaved corrections and absence of read-time writes.                                                                                                                                                                                                                                                                              |
-| Current guidance and generated reference | `packages/cli/README.md`, `docs/reference.md`, `packages/vscode-stem/README.md`, `packages/vscode-stem/CONTRIBUTING.md`, generated `packages/cli/docs/stem-api.d.ts`: update only with runtime implementation, including configuration examples, force semantics, namespace terminology and host checks.                                                                                                                             |
-| Implementation bookkeeping               | `docs/architecture.md` and this roadmap: update applicability and verification evidence when implemented.                                                                                                                                                                                                                                                                                                                            |
-
-`ResolvedStemConfig` inherits the required field without an independent declaration change.
-Retain `normalizeStemConfig()`, `parseConfigJson()`, `resolveStemConfig()`, `loadStemConfig()` and
-`initProject()`; raw parsing does not substitute for semantic validation. The existing config loader
-supplies operation callers, so their runtime files need no parallel identity implementation.
-Keep `InitProjectOptions` and `InitResult` shapes. Existing MCP setup and editor activation remain
-separate from project creation; their tests remain regression checks, not permission to initialize.
-No tracked project-config fixture files were found; affected fixtures are embedded in tests.
-Use explicit valid UUIDs for valid fixtures; preserve intentional invalid inputs and give tests of
-other rules valid identity so they still exercise the intended error. Remove configuration `version`
-from valid examples, including partial configuration snippets. Preserve historical observations and
-package/cache/snapshot format versions. No protected-file proposals are needed.
-
-Acceptance for implementation:
-
-- Fresh initialization persists valid UUIDv4 identity; independent creations receive different IDs.
-  Repeated initialization, force, moves/renames and copied checkouts preserve established identity.
-- Missing config, missing/invalid identity, invalid JSON, unreadable config, unsupported keys and
-  typos use existing configuration errors. `version` is an ordinary unknown key, with no special
-  unsupported-version error, retired-field lookup or compatibility fallback.
-- Cover wrong types, empty strings, whitespace including trailing line endings, uppercase, braces,
-  URNs, wrong length/grouping, nonhex digits, incorrect UUID versions/variants and nil/max UUIDs.
-  Validation preserves supplied values; it neither mutates inputs nor supplies identity defaults.
-- Valid and invalid config reads, checking and preview never write configuration or establish
-  identity. Editor unsaved corrections remain unsaved; activation performs no identity repair.
-  Verify bytes and absence of files/write calls rather than relying only on successful return values.
-- Ordinary repeated init conflicts before scaffold writes; force preserves complete valid config
-  bytes and honors configured paths. Invalid existing config fails before writes in either mode.
-  Preserve authored schema/Markdown files. Independent identity edits require explicit author intent.
-- Concurrent fresh creation never overwrites another established ID, including under force.
-  Inject generation/publication and later scaffold failures; report actual outcomes and preserve an
-  already published identity through retry. No whole-scaffold transaction guarantee is implied.
-- Preserve CLI/MCP/editor workflows for valid projects, with configuration-error parity and pure
-  parsing independent of identity. Verify removal of both default constructors and configuration
-  version handling from declarations and callers, without changing other format versions.
-
-Implementation verification: run targeted configuration/init/CLI/MCP/editor parity and portability
-coverage, then the [full workspace profile](CONTRIBUTING.md#verification), generated-reference
-freshness, core/CLI package checks and temporary VSIX bundle/exclusion inspection. Record real-host
-acceptance and distribution separately. The preceding documentation-only checkpoint used static documentation,
-budget and whitespace checks plus ownership/applicability review; runtime/artifact tests are not
-evidence required for unchanged code.
-
-Documentation-only verification on 25 October 2026, before `32fbf66`: static checks passed for 42 Markdown files,
-549 local/repository links and 32 canonical Pure Block labels; document budgets and whitespace
-checks passed. Reviewed the affected specification, decision applicability, roadmap checkpoints,
-current configuration/CLI/editor guidance and scoped agent instructions. At that checkpoint, current
-guides continued to describe unchanged runtime behavior; the inventory above recorded their future updates.
-Only the four approved documents changed. No unresolved authority conflict or protected-file change
-was found in this scope; no runtime tests, artifact checks, host acceptance or distribution is claimed.
-
-Runtime verification on 25 October 2026 against `32fbf66` plus this working-tree change, on Windows
-with Node.js 26.12.1 and pnpm 11.25.0: build, typecheck, lint, dependency boundaries, built-CLI smoke,
-full documentation checks, budgets and whitespace checks passed. The sequential workspace suite
-passed 309 core, 276 CLI and 163 editor tests; all 11 documentation tests passed. Lifecycle coverage
-includes custom-path force preservation, invalid/unreadable config, copied/moved projects, deliberate
-identity changes, concurrent creation, generation/publication failure and retry after scaffold failure.
-Read-only and unsaved-buffer cases passed without configuration repair. Initial test-only lint issues
-were corrected before the passing lint run; no runtime test failures occurred.
-
-Local core 0.1.0 and CLI 0.3.1 tarballs passed strict publint (core), ESM declaration-resolution (core)
-and dependency-specifier checks. The extension 0.4.1 VSIX passed bundle/exclusion inspection,
-including bundled identity validation and absence of removed configuration helpers/errors.
-Current CLI/editor/reference guidance and generated CLI declarations now match implementation;
-package/cache/snapshot versions, dependencies, accepted ADR bodies and protected files are unchanged.
-API Extractor reported its existing TypeScript compiler-version warning but completed successfully.
-A clean installed consumer, real editor host and registry/Marketplace delivery remain unverified.
-Connection identity checks and producer-owned publication/cleanup remain separate pending work.
+Tests must exercise real competing processes, root aliases/protected paths, other-producer records,
+crash leftovers, injected write/tracking failures and absence of read-time writes, alongside the
+specification's cleanup/publication cases. Establish tracking before enabling pruning; preserve
+current rendering until coordinated replacement supplies the complete workflow.
 
 ### Migration sequence
 
-1. Resolve the [open design work](#pure-block-open-and-deferred-work) and replacement API contracts needed for the selected implementation slice within the accepted decisions and specifications.
-2. Acceptance bookkeeping is complete in ADR statuses, rules and the architecture applicability map. Carry out the corresponding runtime retirements in the selected implementation slice, preserving external-snapshot requirements and core/I/O boundaries.
-3. Complete the dependent composition/rendering and adapter file plans identified by the [parser/model checkpoint](#parser-and-model-contract-checkpoint), then implement its successive stages with coordinated caller replacement. Use specification examples, obsolete-editor-result checks and representative large/deep inputs as acceptance criteria.
-4. Plan project-connection resolution and lifecycle across core and adapters under ADR-0007; resolve storage and transport mechanics before implementing those interfaces.
-5. Preserve the completed [Tag-schema retirement](#d23-schemas-structural-validation-and-templates) and generic configuration validation while replacing the remaining model and callers.
-6. Implement output selection and publication after their parsing/composition and identity prerequisites; establish manifest tracking before enabling pruning. Retire the legacy View role with authored-file preservation, then update current command/configuration guides. Resolve the slice's [open mechanics](#pure-block-open-and-deferred-work) in its bounded code plan.
+1. Finalize the remaining caller declarations, edit inventories, sync representation and publication scope listed below.
+2. Implement scanner, analysis/selection/graph and composition in review stages; measure composition defaults before user-facing integration.
+3. Coordinate adapter replacement with working file export, manifest tracking and then selective cleanup. Update current guides and generated declarations with runtime behavior; preserve authored View files under the source-transition contract.
+4. Plan connection resolution separately under ADR-0007, resolving storage and transport before implementing those interfaces.
 
 ### D15. Dependency review
 
-Defer implementation and detailed design of the dependency review feature entirely from this migration. Preserve its intent: a changed target indicates that dependent authored content may need review. Deferred feature notes, not migration requirements: dependency review inserts no content, allows cycles, and reports missing targets without itself making content incomplete; a review signal does not rewrite content or automatically make it invalid or incomplete.
-
-Required composition refresh is specified in [D16](docs/specs/composition.md#d16-affected-results).
+Deferred entirely from this migration. Reconsider when users need a signal that changed content may
+require review of dependent authored material. Such a signal inserts no content, permits cycles and
+does not itself make content incomplete or invalid. Missing targets are reported without rewriting
+content. Required composition refresh remains governed by [D16](docs/specs/composition.md#d16-affected-results).
 
 ### D23. Schemas, structural validation, and templates
 
-State: implementation and local verification complete. Distribution and real-host acceptance are not established.
-
-On 24 October 2026, the owner approved the bounded retirement under
-[ADR-0005](docs/decisions/0005-pure-block-model.md#rejected) and the
+Tag-schema retirement and generic unknown-field validation are complete in `d775326` under the
 [D23 transition contract](docs/specs/block-model.md#d23-schema-retirement-transition).
-Core decoder/validator exports and types, schema collections in analysis, CLI/editor schema loading,
-configuration/defaults, initialization templates and schema-specific watcher patterns are removed directly.
-The owner refined this plan to validate all configuration keys against supported fields, including
-namespace-entry fields, using existing configuration errors without retired-field lookups or
-migration-specific messages. Unknown fields and typos are rejected consistently in core, CLI and
-editor. The specification owns that policy, authored-file preservation and ordinary Markdown discovery.
-The existing authoring, graph, rendering, preview and external-snapshot workflows remain available.
-No replacement schema feature, parser change, compatibility stub or dependency change is included.
-
-Verification on 24 October 2026 against base `635e833` plus this working-tree change, on Windows
-with Node.js 26.12.1 and pnpm 11.25.0: build, typecheck, lint, dependency boundaries, built CLI smoke,
-documentation checks, budgets and whitespace checks passed. The sequential suite passed 280 core,
-247 CLI and 155 editor tests; documentation tests passed all 11. Local core/CLI tarball checks
-(publint, ESM declaration resolution and dependency specifiers) and VSIX bundle/exclusion inspection
-passed for source versions core 0.1.0, CLI 0.3.1 and extension 0.4.1. Earlier sandbox access and
-concurrent-rebuild failures were resolved before these passing runs. A clean installed consumer,
-real editor host and registry/Marketplace delivery remain unverified.
-
-Defer replacement schemas, structural validation design, and template features; their future relationship to Tags remains open.
-Partial supersession and rule changes are recorded following formal acceptance of
-[ADR-0005](docs/decisions/0005-pure-block-model.md#consequences); external-snapshot obligations remain binding.
+[Verification evidence](docs/history/2026-10-pure-block-checkpoints.md#verification-evidence) is historical.
+Replacement schemas, structural validation and templates remain deferred; reconsider for a concrete
+validation/authoring need, including their relationship to Tags. ADR-0004's external-snapshot contract remains binding.
 
 ### Pure Block open and deferred work
 
-- **D5 mechanics:** Project-ID lifecycle implementation and local verification are complete in the [identity checkpoint](#durable-project-identity-checkpoint). Connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
-- **D5 dependency policies:** User-configurable overrides of nested dependencies and explicit mechanisms for one connection to follow another remain deferred.
-- **D5 refresh scheduling:** Background polling and time-based refresh intervals remain deferred.
-- **D24 defaults:** Numeric work/output budget defaults await measurement; the required behavior is in [D24](docs/specs/composition.md#d24-resource-budgets).
-- **D27 shorthand:** Single-Tag shorthand is deferred pending demonstrated user need.
-- **Evaluation mechanics:** The [composition checkpoint](#composition-and-adapter-contract-checkpoint) selects fresh parsing and no composition cache initially. Position-free sync records still need a bounded plan; later computation caching requires the accepted invariance contracts. Durable ID generation follows D5 above. Complete concrete caller declarations and adapter file plans before runtime replacement.
-- **Output/publication mechanics:** Concrete command spellings, public declarations, manifest record encoding/validation and local writer-coordination mechanics are required when selecting that slice; behavior is owned by the [publication contract](docs/specs/composition.md#d25-export-eligibility-and-publication).
-- **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed writer coordination are outside this initial contract. Reconsider only for a demonstrated consumer workflow; the output plan does not select them. Rejected assembly/profile alternatives remain owned by ADR-0005.
-- **Formatter:** An optional future feature; detailed design is deferred, and parsing, validation, and export do not require it.
-- Dependency review and replacement validation/templates remain owned by D15 and D23 above.
+- **Adapter/evaluation contracts:** Concrete operation/command/MCP declarations and edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
+- **Publication implementation:** Follow the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint); encoding and coordination decisions are settled, implementation and adapter declarations are not.
+- **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
+- **D5 deferred features:** Machine-local path overrides, nested-dependency overrides, connection-following mechanisms and background/time-based refresh remain deferred until a concrete workflow requires them.
+- **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed coordination remain outside the initial contract; reconsider for demonstrated consumer needs.
+- **D27 shorthand and formatter:** Defer shorthand until demonstrated demand and formatting until a concrete authoring need; neither blocks parsing, validation or export.
+- Dependency review and replacement validation/templates remain tracked only in D15 and D23 above.
 
 ## Deferred and rejected suggestions
 
@@ -504,70 +246,36 @@ Resolve the remaining R00 questions, slice-specific open mechanics, and the priv
 
 These forwarding links preserve old section URLs. They carry no independent task state.
 
-<a id="phase-1-foundational-core-updates"></a>
+<a id="phase-1-foundational-core-updates"></a> [Phase 1: Foundational Core Updates](docs/history/2026-10-repository-audit.md#phase-1-foundational-core-updates)
 
-- [Phase 1: Foundational Core Updates](docs/history/2026-10-repository-audit.md#phase-1-foundational-core-updates)
+<a id="phase-2-major-integrations"></a> [Phase 2: Major Integrations](docs/history/2026-10-repository-audit.md#phase-2-major-integrations)
 
-<a id="phase-2-major-integrations"></a>
+<a id="phase-3-publishing-and-user-interface"></a> [Phase 3: Publishing and User Interface](docs/history/2026-10-repository-audit.md#phase-3-publishing-and-user-interface)
 
-- [Phase 2: Major Integrations](docs/history/2026-10-repository-audit.md#phase-2-major-integrations)
+<a id="phase-4-advanced-graph-features"></a> [Phase 4: Advanced Graph Features](docs/history/2026-10-repository-audit.md#phase-4-advanced-graph-features)
 
-<a id="phase-3-publishing-and-user-interface"></a>
+<a id="audit-baseline"></a> [Audit baseline](docs/history/2026-10-repository-audit.md#audit-baseline)
 
-- [Phase 3: Publishing and User Interface](docs/history/2026-10-repository-audit.md#phase-3-publishing-and-user-interface)
+<a id="finding-disposition-map"></a> [Finding disposition map](docs/history/2026-10-repository-audit.md#finding-disposition-map)
 
-<a id="phase-4-advanced-graph-features"></a>
+<a id="execution-order"></a> [Execution order](#repository-remediation)
 
-- [Phase 4: Advanced Graph Features](docs/history/2026-10-repository-audit.md#phase-4-advanced-graph-features)
+<a id="shared-task-requirements-and-validation"></a> [Shared task requirements and validation](CONTRIBUTING.md#verification)
 
-<a id="audit-baseline"></a>
+<a id="r03-resolve-the-configured-or-installed-cli-without-relying-on-version"></a> [R03: Resolve the configured or installed CLI without relying on version](docs/history/2026-10-repository-audit.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version)
 
-- [Audit baseline](docs/history/2026-10-repository-audit.md#audit-baseline)
+<a id="r04-correct-cli-runtime-dependency-ownership"></a> [R04: Correct CLI runtime dependency ownership](docs/history/2026-10-repository-audit.md#r04-correct-cli-runtime-dependency-ownership)
 
-<a id="finding-disposition-map"></a>
+<a id="input-tracing-and-bounded-reproductions"></a> [Input tracing and bounded reproductions](docs/history/2026-10-repository-audit.md#input-tracing-and-bounded-reproductions)
 
-- [Finding disposition map](docs/history/2026-10-repository-audit.md#finding-disposition-map)
+<a id="remedy-evaluation-and-separately-proposed-follow-up"></a> [Remedy evaluation and separately proposed follow-up](docs/history/2026-10-repository-audit.md#remedy-evaluation-and-separately-proposed-follow-up)
 
-<a id="execution-order"></a>
+<a id="validation-and-evidence-identity"></a> [Validation and evidence identity](docs/history/2026-10-repository-audit.md#validation-and-evidence-identity)
 
-- [Execution order](#repository-remediation)
+<a id="r06-align-existing-repository-guidance-with-the-released-architecture"></a> [R06: Align existing repository guidance with the released architecture](docs/history/2026-10-repository-audit.md#r06-align-existing-repository-guidance-with-the-released-architecture)
 
-<a id="shared-task-requirements-and-validation"></a>
+<a id="r07-regenerate-the-cli-api-reference"></a> [R07: Regenerate the CLI API reference](docs/history/2026-10-repository-audit.md#r07-regenerate-the-cli-api-reference)
 
-- [Shared task requirements and validation](CONTRIBUTING.md#verification)
+<a id="r08-correct-the-packaged-extension-contribution-link"></a> [R08: Correct the packaged extension contribution link](docs/history/2026-10-repository-audit.md#r08-correct-the-packaged-extension-contribution-link)
 
-<a id="r03-resolve-the-configured-or-installed-cli-without-relying-on-version"></a>
-
-- [R03: Resolve the configured or installed CLI without relying on version](docs/history/2026-10-repository-audit.md#r03-resolve-the-configured-or-installed-cli-without-relying-on-version)
-
-<a id="r04-correct-cli-runtime-dependency-ownership"></a>
-
-- [R04: Correct CLI runtime dependency ownership](docs/history/2026-10-repository-audit.md#r04-correct-cli-runtime-dependency-ownership)
-
-<a id="input-tracing-and-bounded-reproductions"></a>
-
-- [Input tracing and bounded reproductions](docs/history/2026-10-repository-audit.md#input-tracing-and-bounded-reproductions)
-
-<a id="remedy-evaluation-and-separately-proposed-follow-up"></a>
-
-- [Remedy evaluation and separately proposed follow-up](docs/history/2026-10-repository-audit.md#remedy-evaluation-and-separately-proposed-follow-up)
-
-<a id="validation-and-evidence-identity"></a>
-
-- [Validation and evidence identity](docs/history/2026-10-repository-audit.md#validation-and-evidence-identity)
-
-<a id="r06-align-existing-repository-guidance-with-the-released-architecture"></a>
-
-- [R06: Align existing repository guidance with the released architecture](docs/history/2026-10-repository-audit.md#r06-align-existing-repository-guidance-with-the-released-architecture)
-
-<a id="r07-regenerate-the-cli-api-reference"></a>
-
-- [R07: Regenerate the CLI API reference](docs/history/2026-10-repository-audit.md#r07-regenerate-the-cli-api-reference)
-
-<a id="r08-correct-the-packaged-extension-contribution-link"></a>
-
-- [R08: Correct the packaged extension contribution link](docs/history/2026-10-repository-audit.md#r08-correct-the-packaged-extension-contribution-link)
-
-<a id="implementation-workflow"></a>
-
-- [Implementation workflow](CONTRIBUTING.md#contribution-workflow)
+<a id="implementation-workflow"></a> [Implementation workflow](CONTRIBUTING.md#contribution-workflow)
