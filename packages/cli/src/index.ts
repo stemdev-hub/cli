@@ -1,5 +1,5 @@
 export type * from './runtime/types/index.js';
-export { getDefaultStemConfig, loadStemConfig, resolveStemConfig } from './runtime/config/index.js';
+export { loadStemConfig, resolveStemConfig } from './runtime/config/index.js';
 
 export { initProject } from './runtime/operations/init.js';
 export { createBlock, createGroup, createView } from './runtime/operations/create.js';

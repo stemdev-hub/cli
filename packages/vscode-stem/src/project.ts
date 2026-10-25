@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type * as vscode from 'vscode';
 import {
-  analyzeProject, decodeExternalSnapshotEnvelope, getDefaultPortableConfig,
+  analyzeProject, decodeExternalSnapshotEnvelope,
   isExternalStemGraphShape, normalizeStemConfig, parseConfigJson, renderViewMarkdown, STEM_CONFIG_FILE
 } from '@stemdev/core';
 import type { PortableStemConfig, ProjectSnapshot, SourceDocument, ValidationIssue } from '@stemdev/core';
@@ -82,7 +82,7 @@ async function loadConfig(api: ProjectApi, root: vscode.Uri, signal?: AbortSigna
   try { content = await readText(api, uri, signal); }
   catch (error) {
     signal?.throwIfAborted();
-    if (missing(error)) return getDefaultPortableConfig();
+    if (missing(error)) throw new PreviewFailure(`Stem config not found at ${uri.fsPath}.`);
     throw new PreviewFailure(`Failed to read Stem config at ${uri.fsPath}.`);
   }
   const parsed = parseConfigJson(content, uri.fsPath);

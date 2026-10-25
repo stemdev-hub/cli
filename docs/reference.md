@@ -1,6 +1,6 @@
 # Current Stem reference
 
-This describes the implemented Markdown format in the checkout, updated on 24 October 2026 for Tag-schema retirement after `635e833`: core 0.1.0, CLI 0.3.1, extension 0.4.1. These are source package versions, not verification of registry or Marketplace delivery. Keep this applicability statement with behavior changes.
+This describes implemented behavior in the checkout, updated on 25 October 2026 for durable project identity after `32fbf66`: core 0.1.0, CLI 0.3.1, extension 0.4.1. These are source package versions, not verification of registry or Marketplace delivery. Keep this applicability statement with behavior changes.
 
 The [Pure Block specifications](architecture.md#pure-block-design) are accepted, with implementation pending. Their `@stem:block(...)` / `@stem:include(...)` notation is not the format described here. Accepted design and implementation can differ; [roadmap](../roadmap.md#pure-block-migration) records remaining implementation work and open mechanics.
 
@@ -12,7 +12,7 @@ A current block file is Markdown with YAML frontmatter containing a nonempty str
 
 | Field        | Used by          | Current interpretation                                                                                                   |
 | ------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `id`         | Blocks and views | Required nonempty string; surrounding whitespace is trimmed. Keep project IDs unique.                                    |
+| `id`         | Blocks and views | Required nonempty string; surrounding whitespace is trimmed. Keep Block/view IDs unique within the project.             |
 | `tags`       | Blocks           | Array of string classification labels; non-string entries are filtered out. This is separate from tagged body fragments. |
 | `depends-on` | Blocks           | Array of string references such as `other-block#details.note`; records dependencies rather than inserting prose.         |
 | `group`      | Views            | Optional nonempty string, trimmed; CLI grouping also organizes files.                                                    |
@@ -143,7 +143,7 @@ schema/template features remain deferred.
 
 ## Configuration validation
 
-Configuration accepts only supported fields: `version`, `namespace`, `publishUrl`, `blocksDir`,
+Configuration accepts only supported fields: `projectId`, `namespace`, `publishUrl`, `blocksDir`,
 `viewsDir`, `cacheDir` and `namespaces`. Namespace aliases are user-defined names subject to the
 namespace naming rules; each namespace entry accepts only `graphUrl` and `localPath`.
 
@@ -152,7 +152,26 @@ and an error identifying the field, for example `Unknown Stem config field "bloc
 `Unknown Stem config field "namespaces.shared.graphURL".` CLI operations wrap configuration failures
 as `CONFIG_ERROR`; editor preview uses the same core message, including for unsaved configuration.
 There is no retired-field lookup, automatic correction or migration-specific error path.
-Supported fields retain their existing value, version and path validation.
+Configuration has no `version` field; supplying it receives the same unknown-field error.
+Package release versions and cache/snapshot format versions are separate and unchanged.
+Supported optional fields retain their value and path validation and defaults.
+
+### Project identity
+
+`projectId` is required: a 36-character lowercase hyphenated UUIDv4 with valid version and variant
+bits. It identifies the project independently of its location, namespace, aliases and Block IDs.
+Core validates supplied identity without generating it or normalizing its spelling. Missing or invalid
+identity produces `CONFIG_INVALID_SCHEMA`; an absent configuration file produces `CONFIG_NOT_FOUND`.
+Reads never persist defaults, repair configuration or save unsaved editor buffers.
+
+Initialization establishes identity once; moves and additional checkouts preserve the versioned
+value. Repeated initialization conflicts unless force is requested. Force preserves valid
+configuration bytes and completes missing scaffolding; invalid existing configuration fails before
+writes in either mode. Explicitly editing identity expresses author intent, without automatic Block
+rewrites or ownership transfer. See the [CLI procedure](../packages/cli/README.md#configuration) and
+the accepted [lifecycle specification](specs/project-connections.md#configuration-reads-and-initialization).
+Independent connections and producer-owned output publication remain pending; this identity
+prerequisite does not implement them.
 
 ## Namespace snapshots
 

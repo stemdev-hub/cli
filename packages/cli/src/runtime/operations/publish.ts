@@ -15,7 +15,7 @@ export async function publishGraph(
   if (!config.namespace) {
     return {
       success: false,
-      error: operationError('INVALID_OPERATION', `Project identity is missing. Add a "namespace" field to the root of .stem/config.json.`)
+      error: operationError('INVALID_OPERATION', `Publish namespace is missing. Add a "namespace" field to the root of .stem/config.json.`)
     };
   }
 

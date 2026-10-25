@@ -4,7 +4,7 @@ export interface NamespaceConfig {
 }
 
 export interface StemConfig {
-  version?: string;
+  projectId: string;
   namespace?: string;
   publishUrl?: string;
   blocksDir?: string;

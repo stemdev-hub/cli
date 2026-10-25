@@ -40,6 +40,14 @@ describe('MCP Server', () => {
   });
 
   describe('Tools', () => {
+    it('reports configuration failures without invoking content reads', async () => {
+      const message = 'Stem config field "projectId" is required and must be a lowercase hyphenated UUIDv4.';
+      vi.mocked(checkOps.checkProject).mockResolvedValue({ success: false, error: { code: 'CONFIG_ERROR', message } });
+      const result = await client.callTool({ name: 'check_references', arguments: {} });
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{ type: 'text', text: `Operation failed: ${message}` }]);
+      expect(readerOps.readFile).not.toHaveBeenCalled();
+    });
     it('list_blocks returns blocks data', async () => {
       const mockResult = {
         success: true as const,

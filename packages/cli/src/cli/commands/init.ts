@@ -6,7 +6,7 @@ export function registerInitCommand(program: Command): void {
   program
     .command('init')
     .description('Initialize a Stem project')
-    .option('--force', 'overwrite existing scaffold files')
+    .option('--force', 'complete missing scaffolding while preserving valid configuration and identity')
     .action(async (options: { force?: boolean }) => {
       reportInit(await initProject({ force: options.force ?? false }));
     });

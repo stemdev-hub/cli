@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -70,6 +70,15 @@ required:
       expect(result.data.durationMs).toBeGreaterThanOrEqual(0);
     }
     await expectPathMissing(path.join(testRoot, '.stem/cache'));
+  });
+
+  it.each([undefined, '{}', '{"projectId":"invalid"}'])('does not establish or repair identity during checking: %j', async (content) => {
+    await mkdir(path.join(testRoot, '.stem'));
+    const configPath = path.join(testRoot, '.stem/config.json');
+    if (content !== undefined) await writeFile(configPath, content);
+    expect(await checkProject({ startDir: testRoot })).toMatchObject({ success: false, error: { code: 'CONFIG_ERROR' } });
+    expect(await readdir(path.join(testRoot, '.stem'))).toEqual(content === undefined ? [] : ['config.json']);
+    if (content !== undefined) expect(await readFile(configPath, 'utf8')).toBe(content);
   });
 
   it('merges parser and graph issues without running retired Tag-schema validation', async () => {
@@ -174,7 +183,7 @@ Plain block.
         testRoot,
         '.stem/config.json',
         JSON.stringify({
-          version: '1',
+          projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
           namespaces: { core: { graphUrl: 'https://example.com/graph.json' } }
         })
       );
@@ -199,7 +208,7 @@ Plain block.
       await writeProjectFile(
         testRoot,
         '.stem/config.json',
-        JSON.stringify({ version: '1', namespaces: { core: { graphUrl: 'https://example.com' } } })
+        JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespaces: { core: { graphUrl: 'https://example.com' } } })
       );
       await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:auth]');
 
@@ -235,7 +244,7 @@ Plain block.
       await writeProjectFile(
         testRoot,
         '.stem/config.json',
-        JSON.stringify({ version: '1', namespaces: { core: { graphUrl: 'https://example.com' } } })
+        JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespaces: { core: { graphUrl: 'https://example.com' } } })
       );
       await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:old-auth]');
 
@@ -269,7 +278,7 @@ Plain block.
       await writeProjectFile(
         testRoot,
         '.stem/config.json',
-        JSON.stringify({ version: '1', namespaces: { core: { graphUrl: 'https://example.com' } } })
+        JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespaces: { core: { graphUrl: 'https://example.com' } } })
       );
       await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:auth]');
 
@@ -300,6 +309,7 @@ Plain block.
 
 async function createStemProject(projectRoot: string): Promise<void> {
   await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
+  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
   await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
   await mkdir(path.join(projectRoot, 'views'), { recursive: true });
 }

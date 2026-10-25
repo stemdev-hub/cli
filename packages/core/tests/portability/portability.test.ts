@@ -136,7 +136,7 @@ it('bundles and executes the portable modules without Node dependencies or globa
     const malformed = portable.parseFrontmatter('---\\nid: [broken\\n---\\nBody');
     const unsupported = portable.parseFrontmatter('---\\nvalue: !!binary SGVsbG8=\\n---\\nBody');
     const yaml = portable.parseFrontmatter('---\\nbase: &base {id: merged}\\n<<: *base\\ndate: 2024-01-02\\n---\\nBody');
-    const decoded = portable.parseConfigJson('{"blocksDir":"./docs/"}', 'config.json');
+    const decoded = portable.parseConfigJson('{"projectId":"0f671f2d-657d-4f3c-9a7d-d22f769c083a","blocksDir":"./docs/"}', 'config.json');
     return JSON.stringify({ parserErrors: [...block.errors, ...view.errors, ...extended.errors],
       validation,
       nodes: graph.nodes.size, users: portable.getViewsUsingBlock(graph, 'auth'),

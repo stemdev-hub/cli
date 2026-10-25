@@ -37,6 +37,7 @@ Preview requires no CLI installation or path configuration. For the separate AI 
 7. Re-enable `stem.preview.autoRefresh` without reloading VS Code and confirm changes refresh again.
 8. In a multi-root workspace, open previews from two Stem projects and confirm edits refresh only the matching project's previews.
 9. In an untrusted workspace, confirm preview is refused. Close or refresh a preview during loading and confirm cancellation does not display an obsolete error.
+10. In a disposable initialized project, remove or invalidate `projectId`, remove configuration, and add an unsupported `version` key in separate cases. Confirm CLI/editor configuration errors agree and no identity/configuration is written. Correct identity in an unsaved config buffer and confirm preview resumes without saving it; reopen the project and verify activation performs no identity repair. Restore the original config after testing.
 
 Run the shared [code validation profile](../../CONTRIBUTING.md#verification), then `pnpm --filter vscode-stem exec vitest run tests/preview.test.ts tests/vscode-stem.test.ts`. Inspect a temporary VSIX for its bundled entry and exclusions. These automated checks use mocked VS Code APIs; record the exact editor version and results of this checklist separately for real-host acceptance.
 

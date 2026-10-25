@@ -286,8 +286,9 @@ On 25 October 2026, the owner approved the lifecycle/API decisions and four-file
 scope against clean base `72b3862`: `docs/specs/project-connections.md`,
 `docs/decisions/0010-project-identity-configuration.md`, `docs/architecture.md` and this roadmap.
 The owner refined the plan to remove project configuration `version`, rather than retain `"1"`.
-State: design accepted; runtime implementation pending. Host acceptance and distribution are not
-established. This approval covers the documentation checkpoint, not the implementation inventory below.
+State: implementation and local verification complete. Host acceptance and distribution are not
+established. The owner subsequently authorized committing the documentation checkpoint and proceeding
+with its implementation inventory; documentation was committed as `32fbf66` before runtime edits.
 
 [ADR-0010](docs/decisions/0010-project-identity-configuration.md) covers the public configuration/API
 changes required by ADR-0001. The specification owns [identity representation and configuration](docs/specs/project-connections.md#project-identity-configuration),
@@ -306,7 +307,7 @@ Git transport, output manifest, cleanup, new command, dependency or deferred fea
 Keep the existing writer; its create-only publication already supplies the required non-overwrite
 guarantee. Its temporary-file UUIDs are unrelated to durable project identity.
 
-Concrete future implementation inventory; obtain approval for this code scope before editing it:
+Implementation inventory approved by that follow-up instruction:
 
 | Area / path base                         | Exact files and purpose                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -361,17 +362,35 @@ Acceptance for implementation:
 Implementation verification: run targeted configuration/init/CLI/MCP/editor parity and portability
 coverage, then the [full workspace profile](CONTRIBUTING.md#verification), generated-reference
 freshness, core/CLI package checks and temporary VSIX bundle/exclusion inspection. Record real-host
-acceptance and distribution separately. This documentation-only checkpoint uses static documentation,
+acceptance and distribution separately. The preceding documentation-only checkpoint used static documentation,
 budget and whitespace checks plus ownership/applicability review; runtime/artifact tests are not
 evidence required for unchanged code.
 
-Documentation verification on 25 October 2026: static checks passed for 42 Markdown files,
+Documentation-only verification on 25 October 2026, before `32fbf66`: static checks passed for 42 Markdown files,
 549 local/repository links and 32 canonical Pure Block labels; document budgets and whitespace
 checks passed. Reviewed the affected specification, decision applicability, roadmap checkpoints,
-current configuration/CLI/editor guidance and scoped agent instructions. Current guides continue
-to describe unchanged runtime behavior; the inventory above records their future updates.
+current configuration/CLI/editor guidance and scoped agent instructions. At that checkpoint, current
+guides continued to describe unchanged runtime behavior; the inventory above recorded their future updates.
 Only the four approved documents changed. No unresolved authority conflict or protected-file change
 was found in this scope; no runtime tests, artifact checks, host acceptance or distribution is claimed.
+
+Runtime verification on 25 October 2026 against `32fbf66` plus this working-tree change, on Windows
+with Node.js 26.12.1 and pnpm 11.25.0: build, typecheck, lint, dependency boundaries, built-CLI smoke,
+full documentation checks, budgets and whitespace checks passed. The sequential workspace suite
+passed 309 core, 276 CLI and 163 editor tests; all 11 documentation tests passed. Lifecycle coverage
+includes custom-path force preservation, invalid/unreadable config, copied/moved projects, deliberate
+identity changes, concurrent creation, generation/publication failure and retry after scaffold failure.
+Read-only and unsaved-buffer cases passed without configuration repair. Initial test-only lint issues
+were corrected before the passing lint run; no runtime test failures occurred.
+
+Local core 0.1.0 and CLI 0.3.1 tarballs passed strict publint (core), ESM declaration-resolution (core)
+and dependency-specifier checks. The extension 0.4.1 VSIX passed bundle/exclusion inspection,
+including bundled identity validation and absence of removed configuration helpers/errors.
+Current CLI/editor/reference guidance and generated CLI declarations now match implementation;
+package/cache/snapshot versions, dependencies, accepted ADR bodies and protected files are unchanged.
+API Extractor reported its existing TypeScript compiler-version warning but completed successfully.
+A clean installed consumer, real editor host and registry/Marketplace delivery remain unverified.
+Connection identity checks and producer-owned publication/cleanup remain separate pending work.
 
 ### Migration sequence
 
@@ -419,7 +438,7 @@ Partial supersession and rule changes are recorded following formal acceptance o
 
 ### Pure Block open and deferred work
 
-- **D5 mechanics:** Project-ID contracts are incorporated; runtime implementation follows the [identity checkpoint](#durable-project-identity-checkpoint). Connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
+- **D5 mechanics:** Project-ID lifecycle implementation and local verification are complete in the [identity checkpoint](#durable-project-identity-checkpoint). Connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
 - **D5 dependency policies:** User-configurable overrides of nested dependencies and explicit mechanisms for one connection to follow another remain deferred.
 - **D5 refresh scheduling:** Background polling and time-based refresh intervals remain deferred.
 - **D24 defaults:** Numeric work/output budget defaults await measurement; the required behavior is in [D24](docs/specs/composition.md#d24-resource-budgets).

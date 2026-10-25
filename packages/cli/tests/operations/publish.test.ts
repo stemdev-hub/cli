@@ -20,7 +20,7 @@ describe('publishGraph', () => {
     await mkdir(path.join(testRoot, 'views'), { recursive: true });
 
     config = {
-      version: '1',
+      projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
       namespace: 'my-api',
       publishUrl: 'https://example.com/graph.json',
       projectRoot: testRoot,
@@ -29,6 +29,8 @@ describe('publishGraph', () => {
       cacheDir: '.stem/cache',
       namespaces: {}
     };
+
+    await writeFile(path.join(testRoot, '.stem/config.json'), JSON.stringify({ projectId: config.projectId }));
 
     originalFetch = global.fetch;
     global.fetch = vi.fn();
@@ -134,7 +136,7 @@ Content
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.code).toBe('INVALID_OPERATION');
-      expect(result.error.message).toContain('Project identity is missing');
+      expect(result.error.message).toContain('Publish namespace is missing');
     }
   });
 

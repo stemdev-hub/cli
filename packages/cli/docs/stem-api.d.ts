@@ -173,8 +173,6 @@ export declare interface FileStats {
     inode: string;
 }
 
-export declare function getDefaultStemConfig(projectRoot: string): ResolvedStemConfig;
-
 export declare interface GraphSnapshot {
     version: string;
     generatedAt: string;

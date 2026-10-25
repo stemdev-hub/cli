@@ -14,6 +14,11 @@ try {
   await assertFileExists(cliEntry, 'Built CLI entrypoint is missing. Run pnpm build first.');
 
   await runStem(['init']);
+  const originalConfig = await readFile(path.join(smokeRoot, '.stem/config.json'), 'utf8');
+  const config = JSON.parse(originalConfig);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(config.projectId)
+      || Object.hasOwn(config, 'version')) throw new Error('Invalid initialized project configuration');
+  await runStem(['init', '--force']);
   await assertFileContains('.gitignore', '.stem/cache/');
   await assertFileContains('.gitignore', 'rendered/');
 
@@ -65,6 +70,9 @@ endpoint request response summary.
   assertIncludes(renderAllResult.stdout, 'Rendered auth-service-view to published/backend/services/auth-service-view.md', 'render all output');
   await assertFileContains('published/backend/services/auth-service-view.md', 'endpoint request response summary.');
 
+  if (await readFile(path.join(smokeRoot, '.stem/config.json'), 'utf8') !== originalConfig) {
+    throw new Error('Project workflows changed configuration or identity');
+  }
   console.log(`Built CLI smoke test passed in ${smokeRoot}`);
 } finally {
   await rm(smokeRoot, { recursive: true, force: true });

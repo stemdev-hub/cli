@@ -149,7 +149,7 @@ describe('finder', () => {
 
 function createConfig(projectRoot: string): ResolvedStemConfig {
   return {
-    version: '1',
+    projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
     blocksDir: 'blocks',
     viewsDir: 'views',
     projectRoot,

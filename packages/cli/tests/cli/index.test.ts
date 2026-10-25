@@ -35,7 +35,8 @@ describe('Stem CLI', () => {
 
   it('initializes a project with --force and reports the project root', async () => {
     await mkdir(path.join(testRoot, '.stem'), { recursive: true });
-    await writeFile(path.join(testRoot, '.stem/config.json'), '{"version":"custom"}\n', 'utf8');
+    const config = '{"projectId":"0f671f2d-657d-4f3c-9a7d-d22f769c083a"}\n';
+    await writeFile(path.join(testRoot, '.stem/config.json'), config, 'utf8');
 
     const result = await runStem(['init', '--force']);
 
@@ -44,11 +45,7 @@ describe('Stem CLI', () => {
       stdout: `Initialized Stem project at ${testRoot}\n`,
       stderr: ''
     });
-    await expect(readJson(path.join(testRoot, '.stem/config.json'))).resolves.toMatchObject({
-      version: '1',
-      blocksDir: 'blocks',
-      viewsDir: 'views'
-    });
+    await expect(readFile(path.join(testRoot, '.stem/config.json'), 'utf8')).resolves.toBe(config);
   }, cliTestTimeoutMs);
 
   it('creates blocks, views, and references with command options', async () => {
@@ -326,7 +323,7 @@ Endpoint summary.
     
     await writeProjectFile('../core-dep/.stem/cache/stem-graph.json', JSON.stringify(mockGraph));
     await writeProjectFile('.stem/config.json', JSON.stringify({
-      version: '1',
+      projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
       namespaces: {
         core: {
           graphUrl: 'https://example.com/graph',
@@ -344,7 +341,7 @@ Endpoint summary.
 
   it('reports missing publish configuration during publish-graph on stderr with non-zero exit code', async () => {
     await createStemProject(testRoot);
-    await writeProjectFile('.stem/config.json', JSON.stringify({ version: '1', namespace: 'core' }));
+    await writeProjectFile('.stem/config.json', JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespace: 'core' }));
 
     const result = await runStem(['publish-graph']);
 
@@ -355,7 +352,7 @@ Endpoint summary.
   it('reports strict external validation errors during check --strict-external on stderr with non-zero exit code', async () => {
     await createStemProject(testRoot);
     await writeProjectFile('.stem/config.json', JSON.stringify({
-      version: '1',
+      projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
       namespaces: {
         core: { graphUrl: 'https://example.com/graph' }
       }
@@ -444,6 +441,7 @@ Endpoint summary.
 
 async function createStemProject(projectRoot: string): Promise<void> {
   await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
+  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
   await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
   await mkdir(path.join(projectRoot, 'views'), { recursive: true });
 }

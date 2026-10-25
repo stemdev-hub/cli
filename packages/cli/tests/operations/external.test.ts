@@ -26,7 +26,7 @@ describe('loadExternalGraphs', () => {
     await mkdir(path.join(testRoot, '.stem', 'cache', 'namespaces'), { recursive: true });
 
     config = {
-      version: '1',
+      projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
       projectRoot: testRoot,
       blocksDir: 'blocks',
       viewsDir: 'views',

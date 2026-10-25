@@ -37,6 +37,14 @@ The pure external-snapshot decoder introduced by [ADR-0004](decisions/0004-core-
 
 The CLI's public types describe its adapter inputs and results. Portable domain/configuration types belong to core; consumers of the pre-extraction CLI type surface must use the current public entries rather than source paths or compatibility re-exports.
 
+Project configuration requires durable identity under [ADR-0010](decisions/0010-project-identity-configuration.md).
+Core validates `projectId`; initialization generates it in the Node adapter and uses create-only
+publication. CLI/editor reads reject absent or invalid configuration without writes, and force
+initialization preserves existing valid configuration. Identity-free default constructors and the
+project-config `version` field are removed. [Current semantics](reference.md#project-identity)
+and the [lifecycle contract](specs/project-connections.md#configuration-reads-and-initialization)
+describe the behavior; connection identity checks and output ownership remain separate pending work.
+
 For `stem check`, the Node adapter discovers and reads documents, loads external snapshots, and supplies them to core analysis with the current time. The operation returns validation results; the command formats output and sets the exit status. MCP's reference-checking tool uses that operation as well.
 
 For `stem sync`, the adapter scans documents, checks cache invalidation, parses changed content through core, builds the graph, and persists cache records. Parse-time positions stay out of persisted cache records. The internal `.stem/cache/graph.json` snapshot and external namespace snapshot are distinct formats; see the [remaining namespace issues](../roadmap.md#remaining-namespace-issues).
@@ -110,7 +118,7 @@ ADR status is the canonical decision state; this map is navigation. Acceptance d
 | Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Accepted; existing namespace snapshots do not implement this contract                                                          |
 | Documentation ownership and lifecycle                                        | [ADR-0008](decisions/0008-documentation-lifecycle.md)              | Applicable; operational policy lives in [governance](governance.md)                                                            |
 | Retirement of the hard/soft-edge axiom                                       | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)          | Applicable; retires only the former axiom, with no runtime behavior change                                                     |
-| Durable project identity and configuration API replacement                   | [ADR-0010](decisions/0010-project-identity-configuration.md)       | Accepted; required identity, strict reads and removal of identity-free constructors/configuration version await implementation |
+| Durable project identity and configuration API replacement                   | [ADR-0010](decisions/0010-project-identity-configuration.md)       | Implemented; connection identity checks and producer-owned publication remain pending |
 
 ## Terms used in this guide
 

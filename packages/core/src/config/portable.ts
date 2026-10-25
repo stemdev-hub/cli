@@ -1,7 +1,7 @@
 import type { NamespaceConfig, StemConfig } from '../types/index.js';
 
 export interface PortableStemConfig {
-  version: string;
+  projectId: string;
   namespace?: string;
   publishUrl?: string;
   blocksDir: string;
@@ -15,8 +15,7 @@ export type ConfigErrorCode =
   | 'CONFIG_READ_FAILED'
   | 'CONFIG_INVALID_JSON'
   | 'CONFIG_INVALID_SCHEMA'
-  | 'CONFIG_INVALID_PATH'
-  | 'CONFIG_UNSUPPORTED_VERSION';
+  | 'CONFIG_INVALID_PATH';
 
 export interface ConfigError {
   code: ConfigErrorCode;
@@ -29,15 +28,13 @@ export type ConfigResult<T> = { success: true; data: T } | { success: false; err
 export const STEM_CONFIG_FILE = '.stem/config.json';
 
 export const STEM_CONFIG_DEFAULTS = {
-  version: '1',
   blocksDir: 'blocks',
   viewsDir: 'views',
   cacheDir: '.stem/cache'
 } as const;
 
-const SUPPORTED_CONFIG_VERSION = '1';
 const CONFIG_PATH_FIELDS = ['blocksDir', 'viewsDir', 'cacheDir'] as const;
-const CONFIG_FIELDS = ['version', 'namespace', 'publishUrl', ...CONFIG_PATH_FIELDS, 'namespaces'];
+const CONFIG_FIELDS = ['projectId', 'namespace', 'publishUrl', ...CONFIG_PATH_FIELDS, 'namespaces'];
 const NAMESPACE_FIELDS = ['graphUrl', 'localPath'];
 
 type ConfigPathField = (typeof CONFIG_PATH_FIELDS)[number];
@@ -51,13 +48,13 @@ export function normalizeStemConfig(
     return schemaResult;
   }
 
-  const version = raw.version ?? STEM_CONFIG_DEFAULTS.version;
-  if (version !== SUPPORTED_CONFIG_VERSION) {
+  if (typeof raw.projectId !== 'string' || raw.projectId.length !== 36
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(raw.projectId)) {
     return {
       success: false,
       error: {
-        code: 'CONFIG_UNSUPPORTED_VERSION',
-        message: `Unsupported Stem config version "${version}". Supported version is "${SUPPORTED_CONFIG_VERSION}".`,
+        code: 'CONFIG_INVALID_SCHEMA',
+        message: 'Stem config field "projectId" is required and must be a lowercase hyphenated UUIDv4.',
         path: configPath
       }
     };
@@ -110,7 +107,7 @@ export function normalizeStemConfig(
   return {
     success: true,
     data: {
-      version,
+      projectId: raw.projectId,
       ...(raw.namespace !== undefined ? { namespace: raw.namespace } : {}),
       ...(raw.publishUrl !== undefined ? { publishUrl: raw.publishUrl } : {}),
       blocksDir: blocksDirResult.data,
@@ -118,16 +115,6 @@ export function normalizeStemConfig(
       cacheDir: cacheDirResult.data,
       namespaces: namespacesResult.data
     }
-  };
-}
-
-export function getDefaultPortableConfig(): PortableStemConfig {
-  return {
-    version: STEM_CONFIG_DEFAULTS.version,
-    blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
-    viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
-    cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
-    namespaces: {}
   };
 }
 
@@ -162,10 +149,6 @@ export function parseConfigJson(content: string, configPath: string): ConfigResu
 function validateRawConfig(raw: Partial<StemConfig>, configPath: string): ConfigResult<Partial<StemConfig>> {
   const fieldError = validateConfigFields(raw, CONFIG_FIELDS, configPath);
   if (fieldError !== undefined) return { success: false, error: fieldError };
-
-  if (!isOptionalString(raw.version)) {
-    return invalidSchema('version', configPath);
-  }
 
   if (!isOptionalString(raw.namespace)) {
     return invalidSchema('namespace', configPath);

@@ -1,11 +1,14 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { getDefaultStemConfig, loadStemConfig, resolveStemConfig } from '../../src/runtime/config/index.js';
+import { loadStemConfig, resolveStemConfig } from '../../src/runtime/config/index.js';
 import { STEM_CONFIG_DEFAULTS } from '@stemdev/core';
+import * as cli from '../../src/index.js';
+
+const projectId = '0f671f2d-657d-4f3c-9a7d-d22f769c083a';
 
 describe('config', () => {
   let testRoot: string;
@@ -21,7 +24,7 @@ describe('config', () => {
 
   it('loads a valid Stem config file', async () => {
     await writeConfig(testRoot, {
-      version: '1',
+      projectId,
       blocksDir: 'docs/blocks',
       viewsDir: 'docs/views',
       cacheDir: '.stem/custom-cache'
@@ -32,7 +35,7 @@ describe('config', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data).toEqual({
-        version: '1',
+        projectId,
         projectRoot: testRoot,
         blocksDir: 'docs/blocks',
         viewsDir: 'docs/views',
@@ -42,10 +45,9 @@ describe('config', () => {
     }
   });
 
-  it('uses defaults when the config file is missing', async () => {
-    const result = await loadStemConfig(testRoot);
-
-    expect(result).toEqual({ success: true, data: getDefaultStemConfig(testRoot) });
+  it('reports missing configuration without creating it', async () => {
+    expect(await loadStemConfig(testRoot)).toMatchObject({ success: false, error: { code: 'CONFIG_NOT_FOUND' } });
+    expect(await readdir(path.join(testRoot, '.stem'))).toEqual([]);
   });
 
   it.each(['schemasDir', 'blocksdir', 'unknown'])('rejects unknown persisted field %s', async (field) => {
@@ -58,12 +60,12 @@ describe('config', () => {
   });
 
   it('applies defaults for omitted optional fields', () => {
-    const result = resolveStemConfig({ version: '1', blocksDir: 'content/blocks' }, testRoot);
+    const result = resolveStemConfig({ projectId, blocksDir: 'content/blocks' }, testRoot);
 
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data).toEqual({
-        version: '1',
+        projectId,
         projectRoot: testRoot,
         blocksDir: 'content/blocks',
         viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
@@ -73,13 +75,9 @@ describe('config', () => {
     }
   });
 
-  it('defaults missing version to version 1', () => {
-    const result = resolveStemConfig({}, testRoot);
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.version).toBe('1');
-    }
+  it('requires identity and has no identity-free constructor', () => {
+    expect(resolveStemConfig({}, testRoot)).toMatchObject({ success: false, error: { code: 'CONFIG_INVALID_SCHEMA' } });
+    expect(cli).not.toHaveProperty('getDefaultStemConfig');
   });
 
   it('returns CONFIG_INVALID_JSON for malformed JSON', async () => {
@@ -106,7 +104,7 @@ describe('config', () => {
   });
 
   it('returns CONFIG_INVALID_SCHEMA for non-string config fields', async () => {
-    await writeFile(path.join(testRoot, '.stem', 'config.json'), '{"version":"1","blocksDir":123}', 'utf8');
+    await writeFile(path.join(testRoot, '.stem', 'config.json'), JSON.stringify({ projectId, blocksDir: 123 }), 'utf8');
 
     const result = await loadStemConfig(testRoot);
 
@@ -116,18 +114,14 @@ describe('config', () => {
     }
   });
 
-  it('returns CONFIG_UNSUPPORTED_VERSION for unknown config versions', () => {
-    const result = resolveStemConfig({ version: '2' }, testRoot);
-
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.code).toBe('CONFIG_UNSUPPORTED_VERSION');
-    }
+  it.each(['1', '2', null])('rejects version %j as an ordinary unknown field', async (version) => {
+    await writeConfig(testRoot, { projectId, version });
+    expect(await loadStemConfig(testRoot)).toMatchObject({ success: false, error: { code: 'CONFIG_INVALID_SCHEMA', message: 'Unknown Stem config field "version".' } });
   });
 
   describe('root namespace configuration', () => {
     it('rejects root namespace that is not kebab-case', () => {
-      const result = resolveStemConfig({ namespace: 'NotKebabCase' }, testRoot);
+      const result = resolveStemConfig({ projectId, namespace: 'NotKebabCase' }, testRoot);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
@@ -136,7 +130,7 @@ describe('config', () => {
     });
 
     it('rejects root namespace that starts with stem-', () => {
-      const result = resolveStemConfig({ namespace: 'stem-core' }, testRoot);
+      const result = resolveStemConfig({ projectId, namespace: 'stem-core' }, testRoot);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
@@ -147,7 +141,7 @@ describe('config', () => {
 
   describe('namespaces configuration', () => {
     it('rejects namespaces that are not kebab-case', () => {
-      const result = resolveStemConfig({ namespaces: { 'NotKebabCase': { graphUrl: 'https://a.com' } } }, testRoot);
+      const result = resolveStemConfig({ projectId, namespaces: { 'NotKebabCase': { graphUrl: 'https://a.com' } } }, testRoot);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
@@ -156,7 +150,7 @@ describe('config', () => {
     });
 
     it('rejects namespaces that start with stem-', () => {
-      const result = resolveStemConfig({ namespaces: { 'stem-core': { graphUrl: 'https://a.com' } } }, testRoot);
+      const result = resolveStemConfig({ projectId, namespaces: { 'stem-core': { graphUrl: 'https://a.com' } } }, testRoot);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
@@ -165,7 +159,7 @@ describe('config', () => {
     });
 
     it('rejects namespaces without graphUrl or localPath', () => {
-      const result = resolveStemConfig({ namespaces: { 'core': {} } }, testRoot);
+      const result = resolveStemConfig({ projectId, namespaces: { 'core': {} } }, testRoot);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.code).toBe('CONFIG_INVALID_SCHEMA');
@@ -175,7 +169,7 @@ describe('config', () => {
   });
 
   it('rejects absolute config paths', () => {
-    const result = resolveStemConfig({ blocksDir: path.join(testRoot, 'blocks') }, testRoot);
+    const result = resolveStemConfig({ projectId, blocksDir: path.join(testRoot, 'blocks') }, testRoot);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -184,7 +178,7 @@ describe('config', () => {
   });
 
   it('rejects config paths containing parent directory segments', () => {
-    const result = resolveStemConfig({ viewsDir: '../views' }, testRoot);
+    const result = resolveStemConfig({ projectId, viewsDir: '../views' }, testRoot);
 
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -193,7 +187,7 @@ describe('config', () => {
   });
 
   it('normalizes Windows separators to POSIX separators', () => {
-    const result = resolveStemConfig({ blocksDir: 'docs\\blocks' }, testRoot);
+    const result = resolveStemConfig({ projectId, blocksDir: 'docs\\blocks' }, testRoot);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -202,7 +196,7 @@ describe('config', () => {
   });
 
   it('strips leading dot-slash segments', () => {
-    const result = resolveStemConfig({ viewsDir: './docs/views' }, testRoot);
+    const result = resolveStemConfig({ projectId, viewsDir: './docs/views' }, testRoot);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -211,7 +205,7 @@ describe('config', () => {
   });
 
   it('strips trailing slashes', () => {
-    const result = resolveStemConfig({ blocksDir: 'content/blocks///' }, testRoot);
+    const result = resolveStemConfig({ projectId, blocksDir: 'content/blocks///' }, testRoot);
 
     expect(result.success).toBe(true);
     if (result.success) {
@@ -222,6 +216,7 @@ describe('config', () => {
   it('resolves all custom directory fields', () => {
     const result = resolveStemConfig(
       {
+        projectId,
         blocksDir: 'content/blocks',
         viewsDir: 'content/views',
         cacheDir: '.stem/state'
@@ -238,7 +233,7 @@ describe('config', () => {
   });
 
   it('resolveStemConfig is pure for the same input', () => {
-    const rawConfig = { blocksDir: 'content/blocks' };
+    const rawConfig = { projectId, blocksDir: 'content/blocks' };
 
     const firstResult = resolveStemConfig(rawConfig, testRoot);
     const secondResult = resolveStemConfig(rawConfig, testRoot);
@@ -246,15 +241,14 @@ describe('config', () => {
     expect(secondResult).toEqual(firstResult);
   });
 
-  it('getDefaultStemConfig returns defaults for a project root', () => {
-    expect(getDefaultStemConfig(testRoot)).toEqual({
-      version: STEM_CONFIG_DEFAULTS.version,
-      projectRoot: testRoot,
-      blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
-      viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
-      cacheDir: STEM_CONFIG_DEFAULTS.cacheDir,
-      namespaces: {}
-    });
+  it.each([{}, { projectId: 'invalid' }, { projectId }, { projectId, blocksDir: './content/' }])('never rewrites supplied configuration: %j', async (raw) => {
+    const content = JSON.stringify(raw, null, 4) + '\n';
+    const configPath = path.join(testRoot, '.stem/config.json');
+    await writeFile(configPath, content);
+    await loadStemConfig(testRoot);
+    await loadStemConfig(testRoot);
+    expect(await readFile(configPath, 'utf8')).toBe(content);
+    expect(await readdir(path.join(testRoot, '.stem'))).toEqual(['config.json']);
   });
 });
 

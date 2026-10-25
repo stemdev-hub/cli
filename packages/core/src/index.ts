@@ -16,7 +16,6 @@ export type {
   StemGraph
 } from './types/graph.js';
 export {
-  getDefaultPortableConfig,
   normalizeStemConfig,
   parseConfigJson,
   STEM_CONFIG_DEFAULTS,

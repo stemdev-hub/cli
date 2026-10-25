@@ -19,6 +19,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'stem-preview-parity-'));
   await mkdir(path.join(root, '.stem'));
+  await writeProjectFile(root, '.stem/config.json', JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
   await writeProjectFile(root, 'blocks/auth.md', '---\nid: auth\n---\nAuth.');
   await writeProjectFile(root, 'views/api.md', '---\nid: api\n---\n@stem[block:auth]');
 });
@@ -61,6 +62,15 @@ async function expectDiscoveryParity(): Promise<void> {
 }
 
 describe('built CLI preview parity', () => {
+  it.each([undefined, '{}', '{"projectId":"invalid"}', '{"version":"1"}'])('matches identity configuration failure without writes: %j', async (content) => {
+    const configPath = path.join(root, '.stem/config.json');
+    await rm(configPath);
+    if (content !== undefined) await writeProjectFile(root, '.stem/config.json', content);
+    expect((await cli('preview', 'view', 'api')).code).toBe(1);
+    await expectPreviewParity();
+    if (content === undefined) await expect(access(configPath)).rejects.toMatchObject({ code: 'ENOENT' });
+    else expect(await readFile(configPath, 'utf8')).toBe(content);
+  });
   it('matches local Markdown, sections, duplicate tags and final newline', async () => {
     await writeProjectFile(root, 'blocks/auth.md', '---\nid: auth\n---\n@stem[section:summary]\n@stem[tag:api]\nFirst.\n@stem[end]\n@stem[tag:api]\nSecond.\n@stem[end]\n@stem[end]');
     await writeProjectFile(root, 'views/api.md', '---\nid: api\ngroup: backend\n---\n# API\n\n@stem[block:auth section=summary tag=api]');
@@ -68,7 +78,7 @@ describe('built CLI preview parity', () => {
   });
 
   it.each(['local', 'cached', 'missing'] as const)('matches %s namespace snapshots', async (mode) => {
-    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ namespaces: { other: { localPath: 'sibling', graphUrl: 'unused' } } }));
+    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespaces: { other: { localPath: 'sibling', graphUrl: 'unused' } } }));
     const graph = { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [{ id: 'external', tags: [], sections: [] }], renames: [] };
     if (mode === 'local') await writeProjectFile(root, 'sibling/.stem/cache/stem-graph.json', JSON.stringify(graph));
     if (mode === 'cached') await writeProjectFile(root, '.stem/cache/namespaces/other.json', JSON.stringify({ fetchedAt: new Date().toISOString(), graph }));
@@ -110,7 +120,7 @@ describe('built CLI preview parity', () => {
     [{ blocksdir: 'content' }, 'blocksdir'],
     [{ namespaces: { shared: { graphURL: 'https://example.com/graph.json' } } }, 'namespaces.shared.graphURL']
   ])('reports the same unknown-field error for %j in CLI and editor preview', async (config, field) => {
-    await writeProjectFile(root, '.stem/config.json', JSON.stringify(config));
+    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', ...config }));
     const result = await cli('preview', 'view', 'api');
     expect(result.code).toBe(1);
     expect(result.stderr).toContain(`Unknown Stem config field "${field}".`);
@@ -153,7 +163,7 @@ describe('recursive discovery against built CLI', () => {
   });
 
   it('discovers Markdown in former schema directories with Windows-safe configured paths', async () => {
-    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ blocksDir: 'custom\\blocks', viewsDir: 'custom\\views' }));
+    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', blocksDir: 'custom\\blocks', viewsDir: 'custom\\views' }));
     await writeProjectFile(root, 'custom/blocks/a.md', '---\nid: auth\n---\nCustom.');
     await writeProjectFile(root, 'custom/views/api.md', '---\nid: api\n---\n@stem[block:auth]');
     await writeProjectFile(root, 'custom/blocks/schemas/included.md', '---\nid: included\n---\nOrdinary Markdown.');

@@ -27,7 +27,14 @@ See the [shared current reference](https://github.com/stemdev-hub/cli/blob/main/
 
 ## Prerequisites
 
-Preview includes `@stemdev/core`; no CLI installation is required. Open a trusted workspace containing a Stem project with a `.stem` folder. See [MCP setup](#ai-context-server-mcp) for the separate AI context server requirements.
+Preview includes `@stemdev/core`; no CLI installation is required. Open a trusted workspace containing
+a Stem project with valid `.stem/config.json` and a required `projectId`. See the
+[configuration procedure](https://github.com/stemdev-hub/cli/blob/main/packages/cli/README.md#configuration)
+for establishing identity, and [MCP setup](#ai-context-server-mcp) for the separate AI context server requirements.
+
+Preview uses the same configuration validation as the CLI, including for unsaved buffers. Missing or
+invalid identity produces an error; correcting an unsaved configuration buffer allows preview to
+resume without saving it. Opening or previewing a project never creates or repairs identity.
 
 ## Usage
 
@@ -86,7 +93,8 @@ This extension contributes the following settings:
 
 ## Troubleshooting
 
-- **Preview doesn't open?** Ensure the active editor is a Markdown file saved on disk inside a valid Stem project (must have a `.stem` folder) and contains a frontmatter `id`.
+- **Preview doesn't open?** Ensure the active editor is a Markdown file saved on disk inside a project with valid `.stem/config.json` and contains a frontmatter `id`.
+- **Configuration error?** Supply a valid `projectId` and supported settings. Configuration has no `version` field. Restore a lost configuration from version control to retain the project's identity.
 - **Invalid view notification?** Fix the YAML frontmatter and supply a nonempty string `id`, then reopen the preview.
 - **Workspace Untrusted?** Stem preview is available only in trusted workspaces. Trust the workspace in VS Code before opening a Stem preview.
 - **Preview refreshes too slow/fast?** Adjust the `stem.preview.refreshDebounceMs` setting in your VS Code preferences.

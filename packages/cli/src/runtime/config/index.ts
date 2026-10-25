@@ -3,14 +3,16 @@ import path from 'node:path';
 import type { ResolvedStemConfig } from '../types/index.js';
 import type { ConfigResult, StemConfig } from '@stemdev/core';
 import { readFile } from '../fs/reader.js';
-import { getDefaultPortableConfig, normalizeStemConfig, parseConfigJson, STEM_CONFIG_FILE } from '@stemdev/core';
+import { normalizeStemConfig, parseConfigJson, STEM_CONFIG_FILE } from '@stemdev/core';
 export async function loadStemConfig(projectRoot: string): Promise<ConfigResult<ResolvedStemConfig>> {
   const configPath = path.join(projectRoot, STEM_CONFIG_FILE);
   const readResult = await readFile(configPath);
 
   if (!readResult.success) {
     if (readResult.error.code === 'NOT_FOUND') {
-      return { success: true, data: getDefaultStemConfig(projectRoot) };
+      return { success: false, error: {
+        code: 'CONFIG_NOT_FOUND', message: `Stem config not found at ${configPath}.`, path: configPath
+      } };
     }
 
     return {
@@ -38,8 +40,4 @@ export function resolveStemConfig(
   const result = normalizeStemConfig(raw, path.join(projectRoot, STEM_CONFIG_FILE));
   if (!result.success) return result;
   return { success: true, data: { ...result.data, projectRoot: path.resolve(projectRoot) } };
-}
-
-export function getDefaultStemConfig(projectRoot: string): ResolvedStemConfig {
-  return { ...getDefaultPortableConfig(), projectRoot: path.resolve(projectRoot) };
 }

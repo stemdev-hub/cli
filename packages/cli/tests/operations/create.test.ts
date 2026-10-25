@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -142,6 +142,7 @@ group: by-audience/backend
 
 async function createStemProject(projectRoot: string): Promise<void> {
   await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
+  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
   await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
   await mkdir(path.join(projectRoot, 'views'), { recursive: true });
 }

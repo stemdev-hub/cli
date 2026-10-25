@@ -85,11 +85,13 @@ For block/view frontmatter, section/tag selection, parameters and known renderin
 
 ## Configuration
 
-Stem projects are rooted by a `.stem/` directory. Project settings live in `.stem/config.json`; if that file is missing, Stem uses defaults.
+Stem discovers projects through a `.stem/` directory and requires valid `.stem/config.json` settings.
+Run `stem init` to establish a new project's durable `projectId`. The example below shows its shape;
+keep your generated ID rather than copying the example identity into another project.
 
 ```json
 {
-  "version": "1",
+  "projectId": "0f671f2d-657d-4f3c-9a7d-d22f769c083a",
   "blocksDir": "blocks",
   "viewsDir": "views",
   "cacheDir": ".stem/cache"
@@ -97,6 +99,22 @@ Stem projects are rooted by a `.stem/` directory. Project settings live in `.ste
 ```
 
 All directory fields are project-relative and optional. Paths are normalized to POSIX `/` separators so cache keys stay stable across operating systems.
+
+Commit `.stem/config.json` with your project. Moves, renames and additional checkouts preserve its
+identity. Missing configuration or a missing/invalid ID is an error; reading, checking and preview
+never create or repair it. Configuration has no `version` field; package and cache/snapshot versions
+are separate. See the [identity contract](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#project-identity).
+
+Repeated `stem init` reports a conflict. `stem init --force` preserves valid configuration bytes
+and identity while completing missing scaffold directories and ignore entries using configured
+paths. Both modes reject invalid existing configuration before writes. If a later scaffold step
+fails after configuration was created, the established ID remains; retry with force after correcting
+the failure. Force never overwrites another initializer's configuration.
+
+For an intentionally independent project copy, generate a fresh ID, for example with
+`node -p "require('node:crypto').randomUUID()"`, and explicitly replace only `projectId` in its
+configuration. This does not rewrite Block IDs or transfer existing output ownership. Restore lost
+configuration from version control when you intend to retain the original identity.
 
 Unknown configuration keys and typos are errors, including inside namespace entries. See the
 [supported configuration fields](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#configuration-validation).
@@ -108,7 +126,7 @@ Tag-schema validation has been removed; existing schema files are preserved and 
 
 | Command                                                        | Purpose                                                                                   |
 | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `stem init [--force]`                                          | Create the project scaffold and `.stem/cache/` gitignore entry                            |
+| `stem init [--force]`                                          | Establish project identity; force completes scaffolding while preserving valid configuration |
 | `stem create block <name> [--tag <tag>]`                       | Create a Markdown block, optionally scaffolded with a tag                                 |
 | `stem create view <name> [--group <path>]`                     | Create a view file, optionally inside a view group                                        |
 | `stem create group <path>`                                     | Create a view group directory                                                             |
@@ -136,17 +154,16 @@ The optional configuration fields supplement the defaults above:
 
 | Field        | Meaning                                                                              |
 | ------------ | ------------------------------------------------------------------------------------ |
-| `namespace`  | This project's published identity; kebab-case, excluding the reserved `stem-` prefix |
+| `namespace`  | Published snapshot namespace, separate from `projectId`; kebab-case, excluding the reserved `stem-` prefix |
 | `publishUrl` | An HTTP endpoint that accepts an authenticated PUT of the structural graph           |
 | `namespaces` | Map of namespace names to `graphUrl`, `localPath`, or both                           |
 
-Directory fields are project-relative and cannot contain `..`. Namespace `localPath` is also relative, but may point to a sibling project using `..`. The file must be JSON; configuration version is the string `"1"`.
+Directory fields are project-relative and cannot contain `..`. Namespace `localPath` is also relative, but may point to a sibling project using `..`. The file must be JSON.
 
 For a consumer of a remote structural snapshot, merge this entry into `.stem/config.json`, replacing the example URL with your own endpoint:
 
 ```json
 {
-  "version": "1",
   "namespaces": {
     "team": { "graphUrl": "https://example.com/team/stem-graph.json" }
   }

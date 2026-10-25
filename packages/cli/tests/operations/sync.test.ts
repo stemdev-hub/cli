@@ -202,7 +202,7 @@ Auth block that depends on users.
 
 function createConfig(projectRoot: string): ResolvedStemConfig {
   return {
-    version: '1',
+    projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
     projectRoot,
     blocksDir: 'blocks',
     viewsDir: 'views',
@@ -213,6 +213,7 @@ function createConfig(projectRoot: string): ResolvedStemConfig {
 
 async function createStemProject(projectRoot: string): Promise<void> {
   await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
+  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
   await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
   await mkdir(path.join(projectRoot, 'views'), { recursive: true });
 }

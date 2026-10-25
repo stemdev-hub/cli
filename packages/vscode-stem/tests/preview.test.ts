@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,12 +9,38 @@ let root: string;
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'stem-preview-core-'));
   await mkdir(path.join(root, '.stem'));
+  await writeProjectFile(root, '.stem/config.json', JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
   await writeProjectFile(root, 'blocks/auth.md', '---\nid: auth\n---\nDisk.');
   await writeProjectFile(root, 'views/api.md', '---\nid: api\n---\n@stem[block:auth]');
 });
 afterEach(async () => { vi.useRealTimers(); await rm(root, { recursive: true, force: true }); });
 
 describe('built extension preview', () => {
+  it.each([undefined, '{}', '{"projectId":"invalid"}'])('does not write or repair identity while reading: %j', async (content) => {
+    const configPath = path.join(root, '.stem/config.json');
+    await rm(configPath);
+    if (content !== undefined) await writeProjectFile(root, '.stem/config.json', content);
+    const { api, raw } = mockApi();
+    const write = vi.fn();
+    Object.assign(raw.workspace.fs, { writeFile: write, createDirectory: write, rename: write, delete: write });
+    await expect(stem.loadProjectSnapshot(api, fileUri(root))).rejects.toThrow(content === undefined ? 'Stem config not found' : 'projectId');
+    expect(write).not.toHaveBeenCalled();
+    expect(raw.workspace.fs.readDirectory).not.toHaveBeenCalled();
+    expect(await readdir(path.join(root, '.stem'))).toEqual(content === undefined ? [] : ['config.json']);
+    if (content !== undefined) expect(await readFile(configPath, 'utf8')).toBe(content);
+  });
+
+  it('previews an unsaved identity correction without saving or replacing disk config', async () => {
+    const configPath = path.join(root, '.stem/config.json');
+    await writeProjectFile(root, '.stem/config.json', '{}');
+    const { api, raw, documents } = mockApi();
+    const write = vi.fn();
+    Object.assign(raw.workspace.fs, { writeFile: write, createDirectory: write, rename: write, delete: write });
+    documents.push(openDocument(configPath, () => '{"projectId":"0f671f2d-657d-4f3c-9a7d-d22f769c083a"}'));
+    expect(await stem.renderProjectPreview(api, fileUri(root), 'api')).toBe('Disk.\n');
+    expect(write).not.toHaveBeenCalled();
+    expect(await readFile(configPath, 'utf8')).toBe('{}');
+  });
   it('loads the vscode test module without resolving the real module', () => {
     expect(vscodeMock.__stemTestMock).toBe(true);
   });
@@ -61,7 +87,7 @@ describe('built extension preview', () => {
     await writeProjectFile(root, '.stem/config.json', '{"schemasDir":"blocks/schemas"}');
     await writeProjectFile(root, 'blocks/schemas/a.yaml', 'name: [');
     const { api, documents, raw } = mockApi();
-    documents.push(openDocument(path.join(root, '.stem/config.json'), () => '{}'));
+    documents.push(openDocument(path.join(root, '.stem/config.json'), () => '{"projectId":"0f671f2d-657d-4f3c-9a7d-d22f769c083a"}'));
     expect(await stem.renderProjectPreview(api, fileUri(root), 'api')).toBe('Disk.\n');
     expect(raw.workspace.fs.readFile.mock.calls.map(([target]) => target.fsPath)).not.toContain(path.join(root, 'blocks/schemas/a.yaml'));
   });
@@ -91,7 +117,7 @@ describe('built extension preview', () => {
   it('reads local snapshots before cache and honors useRemote without changing cacheDir behavior', async () => {
     const localGraph = { version: '1', namespace: 'other', publishedAt: '', contentSha: 'local', blocks: [], renames: [] };
     const remoteGraph = { ...localGraph, contentSha: 'remote' };
-    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ cacheDir: 'ignored', namespaces: { other: { localPath: 'sibling', graphUrl: 'unused' } } }));
+    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', cacheDir: 'ignored', namespaces: { other: { localPath: 'sibling', graphUrl: 'unused' } } }));
     await writeProjectFile(root, 'sibling/.stem/cache/stem-graph.json', JSON.stringify(localGraph));
     await writeProjectFile(root, '.stem/cache/namespaces/other.json', JSON.stringify({ graph: remoteGraph, fetchedAt: 'not a date' }));
     const { api } = mockApi();
