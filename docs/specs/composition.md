@@ -259,6 +259,27 @@ not a complete project configuration or a claim of current CLI support:
 }
 ```
 
+### Publication selection and commands
+
+`renderOutputs(selection, options)` replaces `renderView()` and `renderAll()` during coordinated
+adapter replacement. Selection explicitly requests all local sets or a nonempty list of named sets,
+each with either its complete target list or explicit configured destination paths. Omitted target
+paths select the complete set; an explicit target selection remains a partial-set run even if it
+happens to enumerate every target. Reject unknown sets/targets and duplicate selections before
+mutation. Selecting all sets in a valid library-only project is a successful no-op.
+
+The CLI exposes `stem render set <name> [--target <path>]` and `stem render all`. Repeat `--target`
+to select several targets within that set; omit it to select the complete set. Match target paths
+against configured destinations, not source IDs or process-relative filesystem paths. Destinations
+and policies come from configuration; these commands do not accept a destination override. Multi-set
+selection is available through the operation; the CLI needs no additional grouping syntax.
+
+These are file-publication commands. Explicit-source preview and eligible stdout composition remain
+separate, output-set-independent workflows under [preview/output separation](#preview-and-output-adapters).
+Their concrete command and MCP declarations must be finalized before coordinated replacement;
+do not remove working preview/stdout access to integrate publication earlier. These spellings describe
+the accepted replacement contract, not commands supported by the current implementation.
+
 ### Source boundary and View retirement
 
 Retain `blocksDir`, default `"blocks"`, as the single project-relative source directory within the
@@ -520,7 +541,28 @@ uses the same path, ownership, hash and valid-configuration checks without requi
 of a retired set. Renaming a set does not create a new producer or authorize deleting paths used
 under the new name. Never reinterpret old relative records under a newly configured root or scan the filesystem for former
 destinations. Explicit relinquishment may stop tracking a file while preserving it; it is not a
-forced-deletion mechanism. CLI spellings remain an implementation-slice decision.
+forced-deletion mechanism; its interface remains separate from the cleanup command below.
+
+#### Explicit cleanup command
+
+`stem cleanup --output-dir <dir> --set <name>` assesses one explicitly selected root/set without
+writes. `--apply` requests selective cleanup after reacquiring coordination and repeating all
+checks; it never treats a previous assessment as authorization based on reserved filesystem state.
+The directory follows the output-root resolution rules, including project-relative and native
+absolute paths. Use the producer ID from the current valid project configuration, with no arbitrary
+producer-ID override. A set name may be retired, and the root may be its former destination.
+
+The command protects all currently configured destinations, regardless of selected scope or current
+set names. Applying explicit cleanup does not require regenerating a retired set or changing the
+current automatic `cleanup` policy. It authorizes only the obsolete-record actions above, not
+relinquishment, forced deletion, or takeover. A missing manifest reports unavailable ownership
+evidence and performs no deletion; do not present it as proof that no obsolete files exist.
+
+Assessment reports eligible deletions, already-absent obsolete records, retained paths and conflicts;
+application reports confirmed deletions/record removals and failures. Both distinguish an unreliable
+assessment from an empty candidate list. Edited-file conflicts and inability to assess/apply safely
+produce a nonzero command exit status. File outcomes survive subsequent tracking or lock-release
+errors under the reporting contract below.
 
 ### Publication bookkeeping and failures
 
@@ -547,6 +589,38 @@ was preserved or a batch rollback occurred. Do not proceed with automatic prunin
 tracking state. After a crash, unknown or hash-mismatched files stay preserved and may need explicit
 reconciliation. No full output backup, transaction journal, reverse synchronization or recovery
 service is required by this initial contract.
+
+### Publication result reporting
+
+`renderOutputs()` returns a dedicated readonly publication result on both success and failure;
+leave unrelated operations' `OperationResult<T>` unchanged. The result carries `success`, `targets`,
+`cleanup` and `errors`. Failure never discards confirmed outcomes. Before target enumeration is
+possible, return empty outcomes with the configuration/selection error, not invented target results.
+Implementation types/TSDoc own the concrete declarations; the required information is:
+
+| Result part | Required information                                                                                                                                                                                                                                     |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `targets`   | Set name, configured path, resolved output root when available, applicable diagnostics, and status `published`, `skipped` or `not-published`. A published target separately reports whether its ownership record was persisted.                          |
+| `cleanup`   | Root/set/path scope and assessed or confirmed action: preserve, eligible deletion, confirmed deletion, or removal of an already-absent obsolete record. Distinguish assessment from application and report suppressed automatic pruning with its reason. |
+| `errors`    | Stable code, readable message, failing stage and available root/set/path scope. Keep composition/publication, tracking, cleanup and lock-release failures distinguishable; do not hide them only inside an untyped cause.                                |
+
+`published` means the file write was confirmed, even if manifest persistence later failed. A skip
+claims neither freshness nor new ownership. `not-published` includes ineligible results and targets
+blocked by plan/root failures, with the reason retained. Preserve the same distinctions for cleanup:
+a confirmed deletion followed by failed manifest persistence is still a deletion, not a rollback.
+Report tracking only after its persistence succeeds; do not infer it from prepared records.
+
+Overall success requires no failed target or operation stage; intentional skips are successful
+outcomes. CLI reporting presents partial successes as well as failures and exits nonzero on overall
+failure, including a late lock-release failure. Counts are derived from outcomes. Global planning
+failure reports no publication; independent-root progress and automatic pruning follow the existing
+[failure scopes](#publication-bookkeeping-and-failures), not a new fail-fast or transaction policy.
+
+Integration acceptance must exercise published-but-untracked output, independent-root success after
+another root fails, whole-plan collision rejection, skipped ownership preservation, suppression of
+pruning after failures, and late cleanup/tracking/release errors without lost outcomes. Explicit
+cleanup additionally verifies retired-root/current-target protection and zero writes during assessment,
+including when directories or manifests are absent or a lock is observed.
 
 <a id="worked-examples-of-the-proposed-rules"></a>
 

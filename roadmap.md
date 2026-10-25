@@ -119,14 +119,14 @@ Contracts are complete in `72b3862`; runtime replacement remains pending. The
 budgets and [preview/output separation](docs/specs/composition.md#preview-and-output-adapters).
 Approved caller direction to preserve in the concrete adapter plans:
 
-| Caller                                        | Replacement                                                                                               |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Core `renderViewMarkdown()` and both branches | One `compose()` implementation.                                                                           |
-| CLI `previewView()`                           | `previewSource()` with explicit Block/file selector and separate content/diagnostics.                     |
-| CLI `renderView()` / `renderAll()`            | `renderOutputs()` for selected output-set targets; publication declarations still needed.                 |
-| Editor `stem.previewToSide`                   | Retain command; compose active source and unsaved content without a frontmatter ID.                       |
-| MCP View composition                          | Read-only explicit selection with structured completeness/diagnostics; protocol declaration still needed. |
-| Cached parsed Block/View reconstruction       | Fresh source analysis; remove `ZERO_POSITION` reconstruction.                                             |
+| Caller                                        | Replacement                                                                                                 |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Core `renderViewMarkdown()` and both branches | One `compose()` implementation.                                                                             |
+| CLI `previewView()`                           | `previewSource()` with explicit Block/file selector and separate content/diagnostics.                       |
+| CLI `renderView()` / `renderAll()`            | `renderOutputs()` under the [publication contract](docs/specs/composition.md#publication-result-reporting). |
+| Editor `stem.previewToSide`                   | Retain command; compose active source and unsaved content without a frontmatter ID.                         |
+| MCP View composition                          | Read-only explicit selection with structured completeness/diagnostics; protocol declaration still needed.   |
+| Cached parsed Block/View reconstruction       | Fresh source analysis; remove `ZERO_POSITION` reconstruction.                                               |
 
 Start core composition with explicit limits; measure representative large/deep inputs before
 choosing shared defaults for user-facing callers. Keep ADR-0004's external-snapshot decoder
@@ -146,12 +146,13 @@ Private path, manifest and lock helpers are implemented; integration remains pen
 [cleanup](docs/specs/composition.md#obsolete-output-cleanup). No new ADR or protected-file edit is required
 for these refinements of ADR-0005.
 
-The owner approved the eight-file helper/test/documentation scope on 25 October 2026 against
-`6820459`. Helpers remain private and use supplied protection paths and confirmed-write records;
-they introduce no command, public export or legacy-rendering bridge. Verification is recorded below.
-Next: finalize publication/result/command declarations and explicit retired-scope cleanup. Current
-`OperationResult<T>` failure has no typed successful-output summary: the replacement must retain
-confirmed partial publication and distinguish later tracking failures. Keep stdout/preview read-only.
+Private helpers are complete in `7f06f08`; they use supplied protection paths and confirmed-write
+records, with no command, public export or legacy-rendering bridge. The owner approved the two-file
+publication contract checkpoint on 25 October 2026: [selection/commands](docs/specs/composition.md#publication-selection-and-commands),
+[results](docs/specs/composition.md#publication-result-reporting) and
+[explicit cleanup](docs/specs/composition.md#explicit-cleanup-command). Runtime integration is pending.
+Next: bound its implementation file scope alongside the remaining preview/stdout/MCP declarations,
+parser/composition replacement and measured limits; preserve working workflows until coordinated integration.
 
 Local verification on 25 October 2026: the full workspace profile passed, including 829 workspace
 tests (81 new helper tests) and 11 documentation tests. Coverage includes real competing processes,
@@ -183,9 +184,9 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 
 ### Pure Block open and deferred work
 
-- **Adapter/evaluation contracts:** Concrete operation/command/MCP declarations and edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Adapter/evaluation contracts:** Remaining preview/stdout/MCP and other operation declarations and edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
 - **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
-- **Publication integration:** Private bookkeeping helpers are implemented; public adapter declarations, multi-root orchestration, output publication and cleanup remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
+- **Publication integration:** Private bookkeeping helpers are implemented and publication contracts are recorded; implementation scope, multi-root orchestration, output publication and cleanup remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
 - **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
 - **D5 deferred features:** Machine-local path overrides, nested-dependency overrides, connection-following mechanisms and background/time-based refresh remain deferred until a concrete workflow requires them.
 - **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed coordination remain outside the initial contract; reconsider for demonstrated consumer needs.
