@@ -140,23 +140,24 @@ for later connection checks and producer-owned publication. [Verification eviden
 
 ### Publication bookkeeping and coordination checkpoint
 
-Documentation complete; runtime implementation pending. The specification owns
+Private path, manifest and lock helpers are implemented; integration remains pending. The specification owns
 [manifest encoding/validation](docs/specs/composition.md#manifest-encoding-and-validation),
 [local coordination](docs/specs/composition.md#local-writer-coordination) and
 [cleanup](docs/specs/composition.md#obsolete-output-cleanup). No new ADR or protected-file edit is required
 for these refinements of ADR-0005.
 
-Next: define a bounded private Node-adapter scope for manifest loading/persistence, root/path checks
-and locking, reusing the shared writer. Supplied roots, identities and prepared bytes permit isolated
-verification before parser/composition integration; no runtime file inventory is approved yet.
-Then finalize publication/result/command declarations and explicit retired-scope cleanup. Current
+The owner approved the eight-file helper/test/documentation scope on 25 October 2026 against
+`6820459`. Helpers remain private and use supplied protection paths and confirmed-write records;
+they introduce no command, public export or legacy-rendering bridge. Verification is recorded below.
+Next: finalize publication/result/command declarations and explicit retired-scope cleanup. Current
 `OperationResult<T>` failure has no typed successful-output summary: the replacement must retain
 confirmed partial publication and distinguish later tracking failures. Keep stdout/preview read-only.
 
-Tests must exercise real competing processes, root aliases/protected paths, other-producer records,
-crash leftovers, injected write/tracking failures and absence of read-time writes, alongside the
-specification's cleanup/publication cases. Establish tracking before enabling pruning; preserve
-current rendering until coordinated replacement supplies the complete workflow.
+Local verification on 25 October 2026: the full workspace profile passed, including 829 workspace
+tests (81 new helper tests) and 11 documentation tests. Coverage includes real competing processes,
+root aliases, crash leftovers, failed persistence, ownership preservation and write-free reads.
+Integration must still cover the specification's publication/cleanup cases and run-wide pruning
+gate. Preserve current rendering until coordinated replacement supplies the complete workflow.
 
 ### Migration sequence
 
@@ -184,7 +185,7 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 
 - **Adapter/evaluation contracts:** Concrete operation/command/MCP declarations and edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
 - **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
-- **Publication implementation:** Follow the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint); encoding and coordination decisions are settled, implementation and adapter declarations are not.
+- **Publication integration:** Private bookkeeping helpers are implemented; public adapter declarations, multi-root orchestration, output publication and cleanup remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
 - **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
 - **D5 deferred features:** Machine-local path overrides, nested-dependency overrides, connection-following mechanisms and background/time-based refresh remain deferred until a concrete workflow requires them.
 - **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed coordination remain outside the initial contract; reconsider for demonstrated consumer needs.

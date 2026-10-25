@@ -58,8 +58,14 @@ prepared file into place. Unsupported or failed publication returns an error wit
 delete-and-replace fallback. Concurrent replacements may each succeed; this is not writer coordination
 or a compare-and-swap operation. Only invocation-owned temporary files are cleaned up, on a best-effort
 basis; cleanup failure preserves the original write outcome and may leave a temporary file. This
-provides no crash-durability, output-ownership, destination-containment or manifest guarantee; those
-belong to the accepted publication contract and remain implementation work.
+provides no crash-durability, output-ownership, destination-containment or manifest guarantee.
+
+Private Node helpers in `packages/cli/src/runtime/output/` inspect supplied roots/protected paths,
+decode and persist ownership manifests, and acquire/verify/release local writer locks. They reuse
+the shared writer for the [bookkeeping contract](specs/composition.md#output-manifest).
+Callers must supply configured/connected protection paths and confirm output publication before
+recording writes. Current render commands do not call these helpers; output publication, multi-root
+orchestration and cleanup integration remain pending. Source comments/tests own helper mechanics.
 
 ## Editor adapter
 
@@ -107,18 +113,18 @@ D-labels are retained for traceability, not separate ADRs. D11 is split between 
 
 ADR status is the canonical decision state; this map is navigation. Acceptance does not establish implementation, host acceptance or distribution. [Roadmap](../roadmap.md) owns those work states, and the [current reference](reference.md) describes observed user behavior.
 
-| Topic                                                                        | Governing record                                                   | Applicability                                                                                                                  |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Package extraction, portability, public entries and core-first release order | [ADR-0001](decisions/0001-extract-core-package.md)                 | Applicable; API removals/renames require an ADR                                                                                |
-| Frontmatter schema                                                           | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)         | Superseded in full by ADR-0005; legacy runtime parsing remains until replacement                                               |
-| Model versus core package                                                    | [ADR-0003](decisions/0003-clarify-axiom-4.md)                      | Applicable; completed clarification is not supersession                                                                        |
-| Pure schema and external-snapshot decoders                                   | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)    | Tag-schema requirements superseded by ADR-0005; external-snapshot requirements remain binding                                  |
-| Pure Block model and composition                                             | [ADR-0005](decisions/0005-pure-block-model.md) and the specs above | Accepted; implementation pending, with open mechanics retained                                                                 |
-| Separation of ADRs, specifications and navigation                            | [ADR-0006](decisions/0006-documentation-ownership.md)              | Remaining provisions apply; its blanket ADR triggers are superseded by ADR-0008                                                |
-| Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Accepted; existing namespace snapshots do not implement this contract                                                          |
-| Documentation ownership and lifecycle                                        | [ADR-0008](decisions/0008-documentation-lifecycle.md)              | Applicable; operational policy lives in [governance](governance.md)                                                            |
-| Retirement of the hard/soft-edge axiom                                       | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)          | Applicable; retires only the former axiom, with no runtime behavior change                                                     |
-| Durable project identity and configuration API replacement                   | [ADR-0010](decisions/0010-project-identity-configuration.md)       | Implemented; connection identity checks and producer-owned publication remain pending |
+| Topic                                                                        | Governing record                                                   | Applicability                                                                                 |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Package extraction, portability, public entries and core-first release order | [ADR-0001](decisions/0001-extract-core-package.md)                 | Applicable; API removals/renames require an ADR                                               |
+| Frontmatter schema                                                           | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)         | Superseded in full by ADR-0005; legacy runtime parsing remains until replacement              |
+| Model versus core package                                                    | [ADR-0003](decisions/0003-clarify-axiom-4.md)                      | Applicable; completed clarification is not supersession                                       |
+| Pure schema and external-snapshot decoders                                   | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)    | Tag-schema requirements superseded by ADR-0005; external-snapshot requirements remain binding |
+| Pure Block model and composition                                             | [ADR-0005](decisions/0005-pure-block-model.md) and the specs above | Accepted; implementation pending, with open mechanics retained                                |
+| Separation of ADRs, specifications and navigation                            | [ADR-0006](decisions/0006-documentation-ownership.md)              | Remaining provisions apply; its blanket ADR triggers are superseded by ADR-0008               |
+| Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Accepted; existing namespace snapshots do not implement this contract                         |
+| Documentation ownership and lifecycle                                        | [ADR-0008](decisions/0008-documentation-lifecycle.md)              | Applicable; operational policy lives in [governance](governance.md)                           |
+| Retirement of the hard/soft-edge axiom                                       | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)          | Applicable; retires only the former axiom, with no runtime behavior change                    |
+| Durable project identity and configuration API replacement                   | [ADR-0010](decisions/0010-project-identity-configuration.md)       | Implemented; connection identity checks and producer-owned publication remain pending         |
 
 ## Terms used in this guide
 
