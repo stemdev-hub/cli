@@ -138,9 +138,61 @@ content or append a newline. Normal export, including stdout, checks D25 eligibi
 publishing content; preview does not require export eligibility. Neither mode rejects a selected
 result solely because analysis reports unrelated project errors.
 
-Editor file preview selects the active source document, including supplied unsaved content, without
-requiring a frontmatter ID. Diagnostics use a separate diagnostic surface. Rejection of obsolete
-evaluations follows D20 for all relevant supplied inputs, not only the active document.
+`previewSource(selector, options)` replaces `previewView()` and returns
+`OperationResult<CompositionResult>`. Use the explicit Block/file selector shapes and local-file
+boundary in [output selectors](#output-sets-and-targets), without requiring an output set. The Node
+adapter discovers/loads inputs and resolves the selector into the supplied analysis. A completed
+evaluation returns `{ success: true, data }`, even when `data` is incomplete or has blocking
+diagnostics; this means preview was evaluated, not that export is permitted. Invalid adapter input
+or configuration and loading failures return `{ success: false, error }`. Resolution/composition
+diagnostics from an available analysis remain in the composition result, not discarded as operation
+errors. Keep the result and nested records readonly; concrete declarations belong in types/TSDoc.
+
+Preview and stdout evaluation do not write configuration, computation caches, outputs, manifests or
+locks. They consume available source inputs; unavailable connected content is not replaced by metadata
+snapshots. Resource allowances follow D24, including measurement before selecting shared defaults.
+
+#### Terminal preview and stdout export
+
+| Command | Content and status |
+| ------- | ------------------ |
+| `stem preview block <ref>` / `stem preview file <path>` | Emit exact current content to stdout, including partial content. Emit diagnostics separately to stderr; exit nonzero for incomplete results, blocking diagnostics or operation failures. |
+| `stem render block <ref> --stdout` / `stem render file <path> --stdout` | Prepare and check export eligibility before emitting any content. Ineligible results emit no Markdown; report diagnostics to stderr and exit nonzero. |
+
+Warnings alone do not fail an otherwise complete result. Operation failures emit no composed content.
+The source-render commands require `--stdout`; file destinations use configured output-set commands.
+Reuse source evaluation and D25 eligibility checks without another renderer or public export API.
+Neither stdout mode adds a heading, status summary or trailing newline to the composed content.
+These commands are replacement contracts awaiting implementation, not current usage instructions.
+
+#### MCP preview
+
+Replace the composed-View resource `stem://views/{id}` with the read-only `preview_source` tool;
+retain no compatibility resource alias. Its input contains the same explicit `selector`, and its
+output schema describes the preview operation's success/error envelope. Return that envelope in
+`structuredContent` and serialize the same envelope into a text content block, following the
+[MCP structured-result contract](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#structured-content).
+Composed Markdown remains in `data.content`, separate from `data.diagnostics` and `data.complete`.
+
+Partial composition is a successful preview invocation and does not set `isError`; configuration
+or loading failures return the error envelope with `isError: true`. Preserve readable error codes,
+messages and available path context without serializing arbitrary internal exception causes.
+Malformed tool requests follow protocol/input-schema validation. Advertise `readOnlyHint: true`;
+the implementation must satisfy the write-free evaluation contract, not rely on that annotation.
+This replaces only MCP composition; other resource/tool migrations require their own caller scope.
+
+#### Editor preview and adapter acceptance
+
+Retain `stem.previewToSide`, selecting the active local source document and supplied unsaved content
+without a frontmatter ID. The editor uses bundled core, not the CLI operation. Show composition
+diagnostics on a separate diagnostic surface. Reject obsolete content and diagnostics together under
+D20 for changes to any relevant supplied source/configuration, not only the active document; a new
+failure must not present previous successful content as the current result.
+
+Acceptance covers exact whitespace/no appended newline, partial preview versus blocked stdout
+export, unrelated project diagnostics, missing/invalid configuration and absence of read-time writes.
+Exercise MCP structured/text envelope agreement and partial-result/error mapping, plus editor unsaved
+source/configuration, separate diagnostics and rejection of stale content/diagnostic updates.
 
 ## D16. Affected results
 
@@ -276,9 +328,8 @@ selection is available through the operation; the CLI needs no additional groupi
 
 These are file-publication commands. Explicit-source preview and eligible stdout composition remain
 separate, output-set-independent workflows under [preview/output separation](#preview-and-output-adapters).
-Their concrete command and MCP declarations must be finalized before coordinated replacement;
-do not remove working preview/stdout access to integrate publication earlier. These spellings describe
-the accepted replacement contract, not commands supported by the current implementation.
+Preserve those workflows during coordinated replacement. These spellings describe the accepted
+replacement contract, not commands supported by the current implementation.
 
 ### Source boundary and View retirement
 

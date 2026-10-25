@@ -114,10 +114,11 @@ publication ownership and coordination remain separate work. [Verification evide
 
 ### Composition and adapter contract checkpoint
 
-Contracts are complete in `72b3862`; runtime replacement remains pending. The
+Core composition contracts are recorded in `72b3862`; runtime replacement remains pending. The
 [composition specification](docs/specs/composition.md#composition-invocation) owns inputs, results,
 budgets and [preview/output separation](docs/specs/composition.md#preview-and-output-adapters).
-Approved caller direction to preserve in the concrete adapter plans:
+The owner approved the preview/stdout/MCP refinements on 25 October 2026; preserve these contracts
+in the coordinated implementation scope:
 
 | Caller                                        | Replacement                                                                                                 |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -125,7 +126,7 @@ Approved caller direction to preserve in the concrete adapter plans:
 | CLI `previewView()`                           | `previewSource()` with explicit Block/file selector and separate content/diagnostics.                       |
 | CLI `renderView()` / `renderAll()`            | `renderOutputs()` under the [publication contract](docs/specs/composition.md#publication-result-reporting). |
 | Editor `stem.previewToSide`                   | Retain command; compose active source and unsaved content without a frontmatter ID.                         |
-| MCP View composition                          | Read-only explicit selection with structured completeness/diagnostics; protocol declaration still needed.   |
+| MCP View composition                          | Read-only `preview_source` under the [MCP contract](docs/specs/composition.md#mcp-preview).                  |
 | Cached parsed Block/View reconstruction       | Fresh source analysis; remove `ZERO_POSITION` reconstruction.                                               |
 
 Start core composition with explicit limits; measure representative large/deep inputs before
@@ -151,8 +152,8 @@ records, with no command, public export or legacy-rendering bridge. The owner ap
 publication contract checkpoint on 25 October 2026: [selection/commands](docs/specs/composition.md#publication-selection-and-commands),
 [results](docs/specs/composition.md#publication-result-reporting) and
 [explicit cleanup](docs/specs/composition.md#explicit-cleanup-command). Runtime integration is pending.
-Next: bound its implementation file scope alongside the remaining preview/stdout/MCP declarations,
-parser/composition replacement and measured limits; preserve working workflows until coordinated integration.
+Next: bound its implementation file scope alongside parser/composition and adapter replacement,
+with measured limits; preserve working workflows until coordinated integration.
 
 Local verification on 25 October 2026: the full workspace profile passed, including 829 workspace
 tests (81 new helper tests) and 11 documentation tests. Coverage includes real competing processes,
@@ -184,7 +185,7 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 
 ### Pure Block open and deferred work
 
-- **Adapter/evaluation contracts:** Remaining preview/stdout/MCP and other operation declarations and edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Adapter/evaluation contracts:** Other operation/resource declarations and coordinated edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
 - **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
 - **Publication integration:** Private bookkeeping helpers are implemented and publication contracts are recorded; implementation scope, multi-root orchestration, output publication and cleanup remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
 - **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
