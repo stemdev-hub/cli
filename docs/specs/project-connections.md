@@ -1,8 +1,9 @@
 # Project connections
 
 Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
-Implementation remains pending. Governing decision:
-[ADR-0007](../decisions/0007-independent-project-connections.md). See
+Identity lifecycle refinements were approved on 25 October 2026 under
+[ADR-0010](../decisions/0010-project-identity-configuration.md). Implementation remains pending.
+Governing connection decision: [ADR-0007](../decisions/0007-independent-project-connections.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.
 
@@ -40,6 +41,78 @@ governed by [D4b](block-model.md#d4b-independent-copies-and-transclusion).
 Different revisions, including a local checkout with edits, may share a project ID. Shared identity
 does not establish equal content and must not cause their contents to be silently merged. Connecting
 the same project again preserves its project and Block IDs; it is not an independent Block copy.
+
+### Project identity configuration
+
+Store identity in the required top-level `projectId` string in versioned `.stem/config.json`.
+Use exactly 36 ASCII characters in lowercase, hyphenated UUIDv4 form: groups of 8, 4, 4, 4 and
+12 hexadecimal digits, with `4` as the first digit of the third group and `8`, `9`, `a` or `b`
+as the first digit of the fourth group. Compare complete strings exactly. Reject missing values,
+nonstrings, whitespace, uppercase, braces, URN prefixes, other UUID versions and invalid variants;
+do not trim, lowercase, coerce or otherwise repair supplied identity.
+
+[RFC 9562](https://www.rfc-editor.org/rfc/rfc9562.html#section-5.4) defines UUIDv4's 122 random bits.
+Its [text representation](https://www.rfc-editor.org/rfc/rfc9562.html#section-4) permits mixed case;
+lowercase-only acceptance is Stem's chosen canonical spelling. The Node initialization adapter
+generates identity with [`node:crypto.randomUUID()`](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions),
+which uses cryptographic pseudorandomness. Core validates supplied identity without randomness,
+clock reads or I/O. There is no default, dummy, path-derived or package-derived project ID.
+
+Project configuration has no `version` field. Remove that field, its default and its special
+unsupported-version error directly; a supplied `version` receives the ordinary unknown-field
+configuration error. Package release versions and independently specified cache, snapshot and
+output-manifest format versions are separate and unaffected. Other currently supported settings
+retain their defaults; this identity checkpoint does not implement the later configuration changes
+for connections or output sets.
+
+`StemConfig` and `PortableStemConfig` require `projectId`; the adapter's `ResolvedStemConfig`
+inherits it. Raw JSON parsing and normalization may accept partial inputs to report missing fields.
+Remove the identity-free `getDefaultPortableConfig()` and `getDefaultStemConfig()` exports under
+ADR-0010, without aliases. Callers supply identity to existing `normalizeStemConfig()` or
+`resolveStemConfig()` validation; `STEM_CONFIG_DEFAULTS` retains only genuine setting defaults.
+No public identity generator or new domain primitive is introduced.
+
+### Configuration reads and initialization
+
+Reading absent configuration returns `CONFIG_NOT_FOUND`. Missing or invalid `projectId` returns
+`CONFIG_INVALID_SCHEMA`. Invalid JSON, inaccessible configuration, invalid paths and unknown fields
+retain the corresponding existing configuration errors. CLI operations wrap configuration failures
+as `CONFIG_ERROR`; editor preview presents the configuration message and validates unsaved buffers
+through the same core validator. Reads never create configuration, persist defaults, generate or
+repair identity, or save an editor buffer. Pure parsing of supplied source remains independent of
+durable project identity.
+
+Initialization follows this lifecycle, retaining the existing refusal to initialize inside a
+discovered parent project:
+
+| State at the selected project root                                | Ordinary `init`                                                            | `init --force`                                                                                                                 |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Configuration absent, including a folder containing only `.stem/` | Establish a fresh ID and create configuration.                             | Same creation behavior; force does not permit replacing a concurrent creator.                                                  |
+| Existing valid configuration                                      | Return `CONFLICT` before scaffold mutations; preserve configuration bytes. | Preserve configuration bytes and ID; complete missing scaffolding using configured directories and appropriate ignore entries. |
+| Existing invalid or unreadable configuration                      | Return the configuration error before writes.                              | Same error and preservation; force does not repair identity or discard settings.                                               |
+
+Generate identity only for explicit configuration creation. Publish new configuration through the
+shared writer's create-only mode, including under force. If another initializer creates the file
+meanwhile, report the conflict without replacing it or claiming the losing candidate ID was
+established. A failed generation or configuration publication must not report initialization success.
+If configuration publication succeeds but later scaffold work fails, report failure while retaining
+the established ID; a force retry completes scaffolding without regenerating it. Initialization is
+not a transaction over all scaffold files. Preserve authored files, including former schema files.
+
+### Deliberate identity changes
+
+Copying a project preserves its versioned identity until the author explicitly chooses independence.
+For an independent project, the author generates a fresh UUIDv4 and deliberately replaces
+`projectId` in configuration. This requires no new Stem command or identity-reset flag. A valid
+manual replacement is accepted as supplied; readers do not compare it with hidden historical state
+or silently restore a previous value. To retain identity after losing configuration, restore the
+versioned file rather than asking initialization to infer the former ID.
+
+Changing project identity does not rewrite Block IDs, rebind consumer connections or transfer
+existing output ownership. Independent Block copies still follow D4b. Once implemented, connection
+rereads and output ownership follow their existing [lifecycle](#connection-lifecycle) and
+[manifest](composition.md#output-manifest) contracts; this checkpoint does not implement those
+operations or infer independence from path, name, checkout or content differences.
 
 ### Independent source connections
 
@@ -321,7 +394,7 @@ edits are validated as supplied, without silently restoring or repairing authore
 
 ## Open mechanics
 
-Concrete formats and mechanisms remain in the
+Connection-specific formats and mechanisms remain in the
 [deferred design work](../../roadmap.md#pure-block-open-and-deferred-work). The decision's rationale
 and precedents belong to [ADR-0007](../decisions/0007-independent-project-connections.md).
 

@@ -130,8 +130,8 @@ operates on supplied source and project/instance context; project-ID generation,
 initialization changes are not prerequisites for that bounded work. Implement the durable identity
 lifecycle before enabling connection identity checks or producer-owned publication/cleanup.
 This sequencing preserves the accepted identity contract; it introduces no dummy IDs, path-derived
-durable IDs or compatibility fallback. Incorporate the approved project-ID implementation
-recommendations into the owning specification when selecting that lifecycle slice, before code.
+durable IDs or compatibility fallback. The [identity checkpoint](#durable-project-identity-checkpoint)
+now records the approved specification refinements and bounded implementation plan.
 
 On 24 October 2026, the owner approved preserving useful workflows during replacement, superseding
 the chat proposal to withdraw commands and editor preview to shrink the parser/model checkpoint.
@@ -280,6 +280,99 @@ Documentation verification on 24 October 2026: static checks passed for 41 Markd
 current guides continue to describe the unchanged runtime. Only the two approved documents changed.
 No runtime tests, artifact checks, host acceptance or distribution checks were needed or claimed.
 
+### Durable project identity checkpoint
+
+On 25 October 2026, the owner approved the lifecycle/API decisions and four-file documentation
+scope against clean base `72b3862`: `docs/specs/project-connections.md`,
+`docs/decisions/0010-project-identity-configuration.md`, `docs/architecture.md` and this roadmap.
+The owner refined the plan to remove project configuration `version`, rather than retain `"1"`.
+State: design accepted; runtime implementation pending. Host acceptance and distribution are not
+established. This approval covers the documentation checkpoint, not the implementation inventory below.
+
+[ADR-0010](docs/decisions/0010-project-identity-configuration.md) covers the public configuration/API
+changes required by ADR-0001. The specification owns [identity representation and configuration](docs/specs/project-connections.md#project-identity-configuration),
+[read/initialization behavior](docs/specs/project-connections.md#configuration-reads-and-initialization)
+and [deliberate identity changes](docs/specs/project-connections.md#deliberate-identity-changes).
+The 23 October acceptance established the durable-identity principles; the 24 October checkpoint
+established sequencing. UUID spelling, constructor retirement, initialization behavior and removal
+of configuration `version` are the 25 October refinements, not backdated approvals.
+
+This can be an independently buildable runtime prerequisite: change configuration admission and
+creation together across core, CLI and editor while retaining current parsing, graph, authoring,
+checking/listing, sync, rendering, MCP and preview workflows for valid projects. Pure parsing and
+supplied-source analysis need no durable-ID dependency. Implement identity before connection identity
+checks and producer-owned output publication/cleanup. No parser/model switch, connection storage,
+Git transport, output manifest, cleanup, new command, dependency or deferred feature is included.
+Keep the existing writer; its create-only publication already supplies the required non-overwrite
+guarantee. Its temporary-file UUIDs are unrelated to durable project identity.
+
+Concrete future implementation inventory; obtain approval for this code scope before editing it:
+
+| Area / path base                         | Exact files and purpose                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/core/` runtime                 | `src/types/config.ts`, `src/config/portable.ts`, `src/index.ts`: required identity, pure validation, removal of configuration version/default/error and identity-free constructor export.                                                                                                                                                                                                                                            |
+| `packages/cli/` runtime                  | `src/runtime/config/index.ts`, `src/runtime/operations/init.ts`, `src/cli/commands/init.ts`, `src/index.ts`: strict loading, create-only identity establishment, preserving force behavior/help and constructor retirement.                                                                                                                                                                                                          |
+| `packages/cli/` diagnostic               | `src/runtime/operations/publish.ts`: only correct the message calling missing `namespace` project identity; retain snapshot publication behavior and format.                                                                                                                                                                                                                                                                         |
+| `packages/vscode-stem/` runtime          | `src/project.ts`: remove missing-config fallback and retain shared validation of saved/unsaved configuration.                                                                                                                                                                                                                                                                                                                        |
+| `packages/core/` tests                   | `tests/config/portable.test.ts`, `tests/portability/portability.test.ts`: format/error/default coverage, removed exports and portable execution without randomness or I/O.                                                                                                                                                                                                                                                           |
+| `packages/cli/` lifecycle/command tests  | `tests/config/index.test.ts`, `tests/operations/init.test.ts`, `tests/cli/index.test.ts`, `tests/smoke/built-cli-smoke.mjs`: creation, preservation, errors, force, concurrent creation and representative built workflows.                                                                                                                                                                                                          |
+| `packages/cli/` operation fixtures       | `tests/operations/add.test.ts`, `tests/operations/check.test.ts`, `tests/operations/create.test.ts`, `tests/operations/delete.test.ts`, `tests/operations/list.test.ts`, `tests/operations/preview.test.ts`, `tests/operations/rename.test.ts`, `tests/operations/render.test.ts`, `tests/operations/sync.test.ts`: replace implicit missing-config success fixtures with explicit valid configuration; preserve operation coverage. |
+| `packages/cli/` resolved-config fixtures | `tests/fs/finder.test.ts`, `tests/cache/index-store.test.ts`, `tests/cache/graph-store.test.ts`, `tests/operations/external.test.ts`, `tests/operations/fetch.test.ts`, `tests/operations/publish.test.ts`: add valid project identity and remove project-config version, preserving independently versioned cache/snapshot records.                                                                                                 |
+| `packages/cli/` MCP tests                | `tests/mcp/server.test.ts`: configuration-error propagation through existing operation results; no protocol replacement.                                                                                                                                                                                                                                                                                                             |
+| `packages/vscode-stem/` tests            | `tests/preview.test.ts`, `tests/parity.test.ts`: valid config fixtures, CLI/editor failure parity, unsaved corrections and absence of read-time writes.                                                                                                                                                                                                                                                                              |
+| Current guidance and generated reference | `packages/cli/README.md`, `docs/reference.md`, `packages/vscode-stem/README.md`, `packages/vscode-stem/CONTRIBUTING.md`, generated `packages/cli/docs/stem-api.d.ts`: update only with runtime implementation, including configuration examples, force semantics, namespace terminology and host checks.                                                                                                                             |
+| Implementation bookkeeping               | `docs/architecture.md` and this roadmap: update applicability and verification evidence when implemented.                                                                                                                                                                                                                                                                                                                            |
+
+`ResolvedStemConfig` inherits the required field without an independent declaration change.
+Retain `normalizeStemConfig()`, `parseConfigJson()`, `resolveStemConfig()`, `loadStemConfig()` and
+`initProject()`; raw parsing does not substitute for semantic validation. The existing config loader
+supplies operation callers, so their runtime files need no parallel identity implementation.
+Keep `InitProjectOptions` and `InitResult` shapes. Existing MCP setup and editor activation remain
+separate from project creation; their tests remain regression checks, not permission to initialize.
+No tracked project-config fixture files were found; affected fixtures are embedded in tests.
+Use explicit valid UUIDs for valid fixtures; preserve intentional invalid inputs and give tests of
+other rules valid identity so they still exercise the intended error. Remove configuration `version`
+from valid examples, including partial configuration snippets. Preserve historical observations and
+package/cache/snapshot format versions. No protected-file proposals are needed.
+
+Acceptance for implementation:
+
+- Fresh initialization persists valid UUIDv4 identity; independent creations receive different IDs.
+  Repeated initialization, force, moves/renames and copied checkouts preserve established identity.
+- Missing config, missing/invalid identity, invalid JSON, unreadable config, unsupported keys and
+  typos use existing configuration errors. `version` is an ordinary unknown key, with no special
+  unsupported-version error, retired-field lookup or compatibility fallback.
+- Cover wrong types, empty strings, whitespace including trailing line endings, uppercase, braces,
+  URNs, wrong length/grouping, nonhex digits, incorrect UUID versions/variants and nil/max UUIDs.
+  Validation preserves supplied values; it neither mutates inputs nor supplies identity defaults.
+- Valid and invalid config reads, checking and preview never write configuration or establish
+  identity. Editor unsaved corrections remain unsaved; activation performs no identity repair.
+  Verify bytes and absence of files/write calls rather than relying only on successful return values.
+- Ordinary repeated init conflicts before scaffold writes; force preserves complete valid config
+  bytes and honors configured paths. Invalid existing config fails before writes in either mode.
+  Preserve authored schema/Markdown files. Independent identity edits require explicit author intent.
+- Concurrent fresh creation never overwrites another established ID, including under force.
+  Inject generation/publication and later scaffold failures; report actual outcomes and preserve an
+  already published identity through retry. No whole-scaffold transaction guarantee is implied.
+- Preserve CLI/MCP/editor workflows for valid projects, with configuration-error parity and pure
+  parsing independent of identity. Verify removal of both default constructors and configuration
+  version handling from declarations and callers, without changing other format versions.
+
+Implementation verification: run targeted configuration/init/CLI/MCP/editor parity and portability
+coverage, then the [full workspace profile](CONTRIBUTING.md#verification), generated-reference
+freshness, core/CLI package checks and temporary VSIX bundle/exclusion inspection. Record real-host
+acceptance and distribution separately. This documentation-only checkpoint uses static documentation,
+budget and whitespace checks plus ownership/applicability review; runtime/artifact tests are not
+evidence required for unchanged code.
+
+Documentation verification on 25 October 2026: static checks passed for 42 Markdown files,
+549 local/repository links and 32 canonical Pure Block labels; document budgets and whitespace
+checks passed. Reviewed the affected specification, decision applicability, roadmap checkpoints,
+current configuration/CLI/editor guidance and scoped agent instructions. Current guides continue
+to describe unchanged runtime behavior; the inventory above records their future updates.
+Only the four approved documents changed. No unresolved authority conflict or protected-file change
+was found in this scope; no runtime tests, artifact checks, host acceptance or distribution is claimed.
+
 ### Migration sequence
 
 1. Resolve the [open design work](#pure-block-open-and-deferred-work) and replacement API contracts needed for the selected implementation slice within the accepted decisions and specifications.
@@ -326,7 +419,7 @@ Partial supersession and rule changes are recorded following formal acceptance o
 
 ### Pure Block open and deferred work
 
-- **D5 mechanics:** Project-ID specification incorporation and implementation follow the [identity sequencing checkpoint](#pure-block-decisions-to-finalize). Connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
+- **D5 mechanics:** Project-ID contracts are incorporated; runtime implementation follows the [identity checkpoint](#durable-project-identity-checkpoint). Connection ID formats and generation mechanisms, source-binding field names and serialization, resolved-instance representation, supported Git transport syntax, and remote-content storage layout remain open. Command/UI details and persistence mechanisms must implement the [connection lifecycle contract](docs/specs/project-connections.md#connection-lifecycle); machine-specific local path overrides remain deferred. Recording the resolved dependency graph does not require deciding on a new lockfile or configuration syntax.
 - **D5 dependency policies:** User-configurable overrides of nested dependencies and explicit mechanisms for one connection to follow another remain deferred.
 - **D5 refresh scheduling:** Background polling and time-based refresh intervals remain deferred.
 - **D24 defaults:** Numeric work/output budget defaults await measurement; the required behavior is in [D24](docs/specs/composition.md#d24-resource-budgets).
