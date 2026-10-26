@@ -29,6 +29,13 @@ The CLI declares core as a runtime dependency. The extension bundles core for pr
 
 Consumers provide content and source identities. Core never opens a path, fetches a namespace, persists a cache, or reads the clock. Time-sensitive validation receives `nowMs`. These boundaries allow the same engine to process disk documents, unsaved editor buffers, or browser/worker inputs. Portability is a design contract, not a claim of exhaustive platform certification.
 
+The private replacement scanner in `packages/core/src/parser/scanner.ts`, with declarations in
+`syntax.ts`, implements the accepted [source syntax](specs/stem-syntax.md#parser-contract).
+It retains source ranges, ordered metadata and diagnostic associations using an explicit nesting
+stack for scanning and recovery. It is not exported through the package entry; existing parser
+callers remain active until analysis, composition and adapters are replaced together. Source types/tests own its private
+representation; [roadmap](../roadmap.md#parser-and-model-contract-checkpoint) tracks integration.
+
 The pure external-snapshot decoder introduced by [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) remains supported, with consumers retaining I/O, timestamps, fallback policy, and contextual errors. [ADR-0005](decisions/0005-pure-block-model.md) retires Tag-schema requirements and replaces the legacy external metadata shape under the [projection contract](specs/project-connections.md#external-metadata-projection). Tag-schema decoding, validation and loading have been removed under the [transition contract](specs/block-model.md#d23-schema-retirement-transition); external metadata replacement remains pending. Remaining work is tracked in [roadmap](../roadmap.md#current-behavior-and-policy).
 
 ## Node.js adapters

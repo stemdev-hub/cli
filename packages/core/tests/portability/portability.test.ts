@@ -4,11 +4,14 @@ import { createContext, runInContext } from 'node:vm';
 import { build } from 'esbuild';
 import { expect, it } from 'vitest';
 
-it('runs project analysis through the public entry without Node globals or clock reads', async () => {
+it('runs public analysis and the private scanner without Node globals or clock reads', async () => {
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
   const bundle = await build({
     stdin: {
-      contents: "export { analyzeProject, decodeExternalSnapshotEnvelope } from './index.ts';",
+      contents: `
+        export { analyzeProject, decodeExternalSnapshotEnvelope } from './index.ts';
+        export { parse } from './parser/scanner.ts';
+      `,
       resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
       loader: 'ts'
     },
@@ -71,6 +74,19 @@ it('runs project analysis through the public entry without Node globals or clock
   expect(JSON.parse(result)).toMatchObject({
     issues: [{ code: 'EXPIRED_SNAPSHOT', severity: 'error' }],
     errorCount: 1, warningCount: 0, hasErrors: true, hasWarnings: false
+  });
+  const scanned = runInContext(`(() => {
+    const result = portable.parse({ sourceId: 'unsaved:portable', content:
+      '@stem:block(id:a tags:["é","e\\\\u0301"])@stem:include(lib:b)@stem:block(id:c)C@stem:end(id:a)' });
+    const parent = result.tree.children[0];
+    return JSON.stringify({ sourceId: result.tree.source.sourceId,
+      codes: result.diagnostics.map(diagnostic => diagnostic.code),
+      target: parent.children[0].target, ending: parent.children[1].ending.kind,
+      frozen: Object.isFrozen(parent.children) });
+  })()`, context, { timeout: 5000 }) as string;
+  expect(JSON.parse(scanned)).toMatchObject({
+    sourceId: 'unsaved:portable', codes: ['DUPLICATE_TAG', 'MISSING_BLOCK_END'],
+    target: { qualifier: 'lib', id: 'b' }, ending: 'ancestor', frozen: true
   });
 }, 30_000);
 

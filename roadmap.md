@@ -87,7 +87,7 @@ compatibility aliases, legacy-cache reconstruction or withdrawn rendering.
 
 ### Parser and model contract checkpoint
 
-Contracts are complete; runtime replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
+Contracts are complete; the private scanner is implemented and public replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
 [analysis/editing contracts](docs/specs/block-model.md#project-analysis) and
 [supplied context](docs/specs/project-connections.md#supplied-evaluation-context).
 The approved core inventory remains active below; it does not cover the still-unplanned adapter changes.
@@ -99,13 +99,19 @@ Paths are relative to `packages/core/`:
 | Replace semantic analysis and graph callers               | `src/project/types.ts`, `src/project/index.ts`, `src/graph/builder.ts`, `src/graph/types.ts`, `src/graph/traverser.ts`, `src/validator/rules.ts`                                                                                          |
 | Update existing acceptance coverage                       | `tests/parser/index.test.ts`, `tests/project/analyze.test.ts`, `tests/graph/builder.test.ts`, `tests/graph/traverser.test.ts`, `tests/validator/rules.test.ts`, `tests/portability/portability.test.ts`                                   |
 | Remove after caller replacement                           | `src/parser/frontmatter.ts`, `src/parser/stem-plugin.ts`, `src/parser/two-pass.ts`, `src/types/view.ts`, `src/types/position.ts`, `tests/parser/frontmatter.test.ts`, `tests/parser/stem-plugin.test.ts`, `tests/parser/two-pass.test.ts` |
-| Add scanner and selection modules with selection coverage | `src/parser/scanner.ts` (scanning/recovery behind the entry), `src/project/selection.ts` (shared ID/Tag lookup), `tests/project/selection.test.ts` (ambiguity, context and classification)                                                |
+| Private scanner stage; selection remains pending | `src/parser/scanner.ts`, `src/parser/syntax.ts`, `tests/parser/scanner.test.ts`; next: `src/project/selection.ts` (shared ID/Tag lookup), `tests/project/selection.test.ts` (ambiguity, context and classification) |
 
 Reuse `src/renderer/index.ts` and `tests/renderer/index.test.ts` for composition. Scanner,
 analysis/selection/graph, composition and coordinated callers are successive review stages of a
 working replacement. Use specification examples and integration cases for deep traversal,
 instance-aware identity/cycles, safe edits, diagnostic scope and rejection of stale editor results.
 Run targeted checks per stage and the full workspace/artifact profile before integration is ready.
+
+The owner approved the six-file private scanner scope on 27 October 2026. Scanner tests cover
+original-source ranges, metadata, literal escapes, localized recovery and deep iterative traversal;
+portability coverage executes it without Node globals or clock reads. Public integration remains
+pending; no adapter calls or legacy-parser bridges were added. Local verification: the full repository
+profile passed, including 984 workspace tests (92 new scanner tests) and 11 documentation tests.
 
 ### Shared file-writer prerequisite
 
