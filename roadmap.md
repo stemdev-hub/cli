@@ -186,7 +186,8 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 
 ### Pure Block open and deferred work
 
-- **Adapter/evaluation contracts:** Other operation/resource declarations and coordinated edit scopes, `getOrphanedBlocks()` disposition and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Adapter/evaluation contracts:** Other operation/resource declarations, coordinated edit scopes and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Output-usage warnings:** The owner approved retaining `getOrphanedBlocks()` for [configured-output reachability warnings](docs/specs/block-model.md#blocks-outside-configured-outputs) on 26 October 2026. Implementation awaits coordinated graph/output integration.
 - **Sync replacement:** The owner approved the [position-free sync contract](docs/specs/composition.md#sync-records-and-results) on 26 October 2026. Implementation and its coordinated caller/file scope remain pending.
 - **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
 - **Publication integration:** Private publication/cleanup is implemented; coordinated configuration, composition and public caller integration remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).

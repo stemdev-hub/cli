@@ -189,11 +189,40 @@ an invented target. File-level inclusions remain represented without turning the
 Graph checking uses the shared core cycle mechanism under
 [D12](composition.md#d12-expansion-cycles); composition retains its own active-path traversal.
 
-The old warning for a Block unused by Views does not govern the replacement model. If
-`getOrphanedBlocks()` is retained, it reports unreferenced Blocks informationally within the supplied
-graph scope, with its concrete query contract finalized before implementation. Being unreferenced
-does not make a reusable Block invalid, establish that it is unused outside that scope, or authorize
-deletion. It is not an output-eligibility rule.
+### Blocks outside configured outputs
+
+Retain `getOrphanedBlocks()` as an output-reachability query. It consumes the supplied graph and
+roots derived from every target in all of the current project's configured
+[output sets](composition.md#output-sets-and-targets), not just targets selected for one render run.
+Core performs no configuration discovery, file reads or composition to answer this query.
+
+A Block target reaches its definition and contained descendants. A whole-file target reaches all
+definitions and file-level inclusions in that source. Follow containment and resolved inclusions
+transitively, retaining definition and instance identity. A child of a reached Block counts as used
+without needing a direct output mapping. An unreachable cycle does not become used merely because
+its members reference each other. Use stack-safe traversal with visited-node tracking; repeated
+inclusions and cycles must terminate without expanding output text. Existing-file policies,
+publication failures and composition budgets do not change this structural reachability question.
+
+The query reports local candidate definitions, whether the assessment is applicable and complete,
+and diagnostics, using readonly records and collections. Preserve duplicate/invalid definitions
+individually rather than collapsing by authored ID. Traverse supplied connected instances when
+needed, but do not warn about their unreached library Blocks or execute their output configurations.
+No configured targets means the assessment is not applicable and produces no per-Block warnings.
+Unavailable roots or unresolved/ambiguous references encountered on reachable paths make the
+assessment incomplete; report that limitation and suppress per-Block unused-output warnings.
+
+For a complete assessment, project checking emits `ORPHANED_BLOCK` with severity `warning` for
+each local definition outside the reachable set, located at that definition. Describe it as
+"not reachable from any configured output" and a possible left-out Block, not proven stale content.
+This replaces the old View-use predicate. The warning does not make a Block invalid, block export,
+establish absence of external consumers, or authorize automatic deletion. Pure parsing
+and callers without supplied output context do not infer orphan warnings from graph edges alone.
+
+Acceptance covers direct targets, nested children, transitive inclusions, whole-file roots,
+unselected output sets, reachable/unreachable cycles and distinct instances. Verify no false
+per-Block warnings for absent or incomplete output scopes, source-located warnings for complete
+assessments, unchanged export eligibility and no writes during assessment or checking.
 
 ## D23. Schema retirement transition
 
