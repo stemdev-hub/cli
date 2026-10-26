@@ -93,6 +93,74 @@ Reject ambiguous selections. Refuse destructive edits when recovery leaves the a
 or edit boundaries uncertain; neither a guessed range nor a whole-file fallback is acceptable.
 Adapters own filesystem reads and writes; this contract does not introduce another parser in them.
 
+#### Authoring operations and destinations
+
+These Node/CLI replacement contracts await coordinated implementation. Source-file destinations
+are explicit project-relative Markdown paths within the current project's `blocksDir`; Block
+destinations select one local definition. Reject missing/ambiguous Block destinations, paths outside
+the source boundary, and uncertain ownership or insertion ranges. Do not edit connected projects.
+Filesystem resolution must preserve that boundary rather than trusting path spelling alone.
+
+Retain `createBlock` with an explicit ID and destination. CLI creation uses
+`stem create block <id> --file <path>` or `stem create block <id> --parent <id>` (exactly one),
+with repeatable `--tag <tag>` for direct classification. Validate the supplied ID with the shared
+grammar, preserving spelling without trimming, slugging or appending `-block`; reject collisions
+with existing addressable definitions. Emit ordinary Block syntax with an explicit closer, not
+frontmatter or Tag-owned content. Validate and encode Tags under D27/D29 without inventing templates.
+
+For a file destination, create a missing file without overwriting a concurrent creator, or append
+a root definition at the existing file's end. For a parent destination, insert a final child before
+its actual closer. An open definition at EOF cannot silently turn an intended new root into its
+child; an implicit/recovered ending is not permission to invent a closer. Refuse unsafe insertion.
+Preserve all existing source text; insert only the new definition and necessary line separators.
+
+Replace `addBlockToView` with `addInclusion`. CLI uses `stem add <ref> to block <id>` or
+`stem add <ref> to file <path>`. Validate and resolve the reference in the destination's context
+before inserting `@stem:include(<ref>)`; unavailable or ambiguous targets are operation failures.
+Append within the selected Block before its actual closer, or at the end of an existing source
+file in surrounding-content scope, using the same insertion safeguards. Do not rewrite existing
+text, expand the target, or retain Section/Tag selection flags. Repeated inclusions are permitted.
+
+Retain `deleteBlock` and `stem delete block <id> [--force]`. Remove only the selected definition
+and subtree; leave the containing file even if it becomes empty. Check references from surviving
+local source and the [configured output targets](composition.md#output-selectors-during-authoring)
+to every removed descendant. References wholly inside the removed subtree are not surviving
+conflicts. Without force, report conflicts before writes. Force may leave known references dangling,
+but never bypasses ambiguous selection, uncertain boundaries or an incomplete safety assessment.
+Report affected surviving references; do not silently remove or retarget them.
+
+Retain `renameBlock` and `stem rename <old-id> <new-id>`. Require a unique local selection and a
+valid, noncolliding replacement ID; renaming to the same ID is a no-op. Apply the token edits above
+and update matching local output selectors under their contract. Preserve filenames, child IDs,
+explicitly escaped Stem syntax and equal spellings that resolve to other instances. Retain `.stem/renames.json`
+as advisory rename history, not an alias resolver. Validate existing history before source writes;
+report malformed/unreadable history rather than silently replacing it. Record the completed rename
+after source/configuration edits; a history-write failure must retain those edits in the result.
+
+Retire `createView`, `createGroup`, `deleteView`, their CLI commands, and View-specific option/result
+fields without aliases. Ordinary source files and parent Blocks supply those authoring roles;
+creation does not automatically add an output mapping. Initialization follows the
+[source-transition contract](composition.md#source-boundary-and-view-retirement).
+
+#### Mutation preparation and failures
+
+Plan and validate the whole requested edit against fresh source/configuration before writing.
+Use original token ranges; reject overlapping or uncertain edits and recovery that prevents
+identifying references relevant to the requested edit. Recheck relevant inputs before
+publication and each affected file before its write; detected changes stop remaining writes rather
+than applying stale ranges. Reuse the shared safe writer and create-only mode for new files.
+These checks do not establish a filesystem compare-and-swap or a project-wide transaction.
+
+Report overall success, confirmed changed files and the failing stage on partial failure, including
+configuration or rename-history writes. Stop after a failed write; do not claim previous writes were
+rolled back or overwrite later edits in an automatic rollback. No mutation implicitly renders,
+syncs computation caches, updates ownership manifests or prunes outputs. Concrete declarations
+must preserve these outcomes even when the operation reports failure.
+
+Acceptance covers root/child insertion, ID/Tag validation, collisions, ambiguous/recovered input,
+sibling and surrounding-text preservation, descendant reference conflicts and force limits,
+token-only rename, output-selector effects, corrupt history, changed inputs and late write failures.
+
 ## D6. Containment parenthood
 
 Each Block has at most one containment parent; containment is acyclic. Transclusion does not

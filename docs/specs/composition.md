@@ -323,6 +323,20 @@ or all local sets; loading a connection never executes the connected project's o
 Set names and destination paths identify configured targets; no new durable target ID is required.
 Preview and stdout composition do not require an output set and never update destination ownership.
 
+### Output selectors during authoring
+
+Local [Block rename](block-model.md#authoring-operations-and-destinations) updates configured Block
+selectors that resolve to the renamed definition in the current project context. Preserve set names,
+destination paths, policies, file selectors and selectors resolving to another instance. Preserve
+unrelated configuration values; configuration edits participate in preflight and partial-failure
+reporting alongside source edits. No output files or ownership records are rewritten by rename.
+
+Deletion checks explicit Block selectors targeting the selected definition or its descendants as
+surviving references. Force may leave those selectors dangling but never deletes their configuration
+or previously generated files. A whole-file selector remains valid when a subtree is removed from
+its source file; it does not by itself prohibit an intentional content edit. Neither creation nor
+inclusion insertion automatically creates output sets or mappings.
+
 ### Output discovery
 
 Use `listOutputs`, `stem list outputs [--json]` and MCP `list_outputs` to discover the current
@@ -402,6 +416,14 @@ retired-field lookup, compatibility path or migration-specific message. Files ou
 remain ordinary files until the author deliberately includes them in the new source layout.
 The output manifest alone does not establish a Stem source project; source project identity and
 configuration remain governed by [D5](project-connections.md#project-identity).
+
+Initialization preserves the [identity lifecycle](project-connections.md#configuration-reads-and-initialization),
+including force behavior. Create the single configured source directory and required Stem metadata
+directory; stop creating a View directory. Ignore the configured computation cache, but add no
+legacy `rendered/` ignore entry or blanket ignore for output destinations. Preserve existing authored
+files and ignore entries. Initialization creates no output mappings or destination directories;
+an absent `outputSets` map is valid. Remove `viewsDir` from initialization results with the runtime
+replacement, without substituting another source role.
 
 ## D24. Resource budgets
 

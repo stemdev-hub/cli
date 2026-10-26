@@ -186,7 +186,8 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 
 ### Pure Block open and deferred work
 
-- **Adapter/evaluation contracts:** Authoring-operation declarations and coordinated edit scopes remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Adapter integration:** Concrete operation declarations and coordinated edit scopes remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Authoring callers:** The owner approved [creation, inclusion insertion, deletion, rename and failure handling](docs/specs/block-model.md#authoring-operations-and-destinations), with [output-selector effects](docs/specs/composition.md#output-selectors-during-authoring) and initialization refinements, on 26 October 2026. Coordinated implementation remains pending.
 - **Read-only callers:** The owner approved [listing, reference lookup, checking and Block source retrieval](docs/specs/block-model.md#read-only-cli-and-mcp-queries), plus [output discovery](docs/specs/composition.md#output-discovery), on 26 October 2026. Coordinated runtime integration remains pending.
 - **External metadata:** The owner directed the ADR-0005 amendment on 26 October 2026. The [Block-only projection contract](docs/specs/project-connections.md#external-metadata-projection) is recorded; concrete declarations and coordinated producer/consumer implementation scope remain pending.
 - **Output-usage warnings:** The owner approved retaining `getOrphanedBlocks()` for [configured-output reachability warnings](docs/specs/block-model.md#blocks-outside-configured-outputs) on 26 October 2026. Implementation awaits coordinated graph/output integration.
