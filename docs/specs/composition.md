@@ -323,6 +323,23 @@ or all local sets; loading a connection never executes the connected project's o
 Set names and destination paths identify configured targets; no new durable target ID is required.
 Preview and stdout composition do not require an output set and never update destination ownership.
 
+### Output discovery
+
+Use `listOutputs`, `stem list outputs [--json]` and MCP `list_outputs` to discover the current
+project's configured output sets. Return each set's name, effective directory and policies, and its
+explicit target selectors and destination paths, preserving target order. Include empty sets;
+an absent or empty `outputSets` map produces a successful empty listing. This replaces View discovery
+alongside the [reference query](block-model.md#reference-lookup), with no View compatibility alias.
+
+Discovery validates configuration but does not resolve source selectors, compose content, inspect
+destination ownership or write anything. A configured target is not proof of an available source,
+an eligible export or an existing output file. Follow the shared [read-only query reporting
+contract](block-model.md#read-only-cli-and-mcp-queries), including CLI JSON and MCP result agreement.
+Acceptance covers both selector kinds, effective defaults, empty sets and invalid configuration,
+with no source/destination reads or publication side effects beyond configuration loading.
+
+### Output configuration example
+
 This configuration fragment illustrates the accepted contract with both selector kinds and an external destination; it is
 not a complete project configuration or a claim of current CLI support:
 

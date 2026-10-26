@@ -175,6 +175,74 @@ make mutable index maps a public storage contract. Project checking can report t
 set, while selection and composition retain their own diagnostic scope. Analysis returns useful
 data alongside diagnostics rather than a single success/failure result.
 
+### Read-only CLI and MCP queries
+
+The following are replacement contracts under ADR-0005, awaiting coordinated implementation.
+Node operations retain `OperationResult` envelopes; source-dependent queries use fresh analysis.
+Configuration and loading failures remain operation errors. Completed queries retain usable data and diagnostics
+even when authored content has errors. Results and nested collections are readonly. Queries never
+write sources, configuration, computation caches, output files, manifests or locks.
+
+CLI JSON output must retain the query's diagnostics and completeness information, not reduce a
+result to an array of matches. MCP tools use the success/error envelope and structured/text
+agreement described for [MCP preview](composition.md#mcp-preview), advertise `readOnlyHint: true`,
+and set `isError` for operation failures, not merely for diagnostics in a completed query. CLI
+queries exit nonzero for operation failures or returned error diagnostics; listing/reference-query
+incompleteness also exits nonzero. Warnings alone do not fail a completed query.
+
+#### Block listing
+
+Retain `listBlocks`, `stem list blocks [--tag <tag>] [--json]` and MCP `list_blocks` with optional
+`tag`. List local recovered definitions, including nested, duplicate and invalid definitions,
+without including connected projects' inventories implicitly. Each row identifies its source file
+and definition range, its ID when usable, and known direct Tags. An unusable ID is absent rather
+than fabricated; duplicate valid IDs remain separate rows distinguished by source locations.
+Order rows by project-relative source path and then definition start offset. These locations
+describe the current source and do not establish durable identity.
+
+Remove `usedInViews`, `sectionCount` and `standaloneTagCount`. Return the rows, their total,
+`classificationComplete` and diagnostics. Tag filtering uses shared core selection and D29 equality;
+retain known matches with incomplete classification under [D10](#d10-id-and-tag-selection).
+An exhaustive empty result is distinct from an incomplete search. Listing gives no assembly order.
+
+#### Reference lookup
+
+Use `listReferences`, `stem list references <id> [--json]` and MCP `list_references` with required
+`id` to preserve the useful reference lookup formerly offered by `list views --block`.
+Select one local Block through core resolution; missing, invalid or ambiguous selection is an
+operation failure, never a first-match choice. Return authored inclusion occurrences in the local
+source scope that resolve to that definition and instance, with source paths/ranges and an owning
+Block when present. Include file-level occurrences without inventing an implicit Block. Repeated
+authored references remain separate occurrences; transitive expansion creates no extra occurrences.
+
+Return known references with explicit completeness and diagnostics when recovery or unresolved
+references prevent an exhaustive assessment. Equal ID spelling in another instance is not a match.
+Containment and configured output mappings are not authored inclusion occurrences; an empty result
+does not prove that a Block is unused. [Output reachability](#blocks-outside-configured-outputs)
+owns that separate assessment, while [output discovery](composition.md#output-discovery) exposes
+configured mappings. Retire `listViews`, `stem list views` and `list_views` without aliases.
+
+#### Checking and Block source retrieval
+
+Retain `checkProject`, `stem check [--json]` and MCP `check_references`. Report shared project
+diagnostics, including applicable [output-usage warnings](#blocks-outside-configured-outputs),
+with severity counts and validity summaries derived from those diagnostics. A completed check
+with content errors remains an evaluated operation result; the CLI exits nonzero for errors.
+Warnings alone, including an incomplete output-usage assessment, do not fail checking. Retained
+external-snapshot adapter options keep their separately specified scope.
+
+Retain MCP `stem://blocks/{id}` for a uniquely selected local definition. Return exactly its original
+source range, including authored boundaries and children, without expansion, normalization or an
+appended newline. Use the same source content that was analyzed, not a second file read. Preserve
+the parser's recovered range and actual source spelling without synthesizing a missing closer.
+Missing/ambiguous selection, unavailable source or an unavailable range is a resource failure;
+never return another candidate, adjacent siblings or the containing file as a fallback.
+
+Acceptance covers nested/duplicate/invalid definitions, incomplete Tag classification, source order,
+repeated and file-level inclusions, scope/completeness reporting, exact Block source extraction,
+CLI/MCP data agreement, warning-only checks and absence of writes. Current guides and generated
+declarations change with runtime integration, not this contract checkpoint.
+
 ### Graph construction and checking
 
 Retain `buildGraph()`, `validateGraph()` and `detectCycles()` with replacement representations.
