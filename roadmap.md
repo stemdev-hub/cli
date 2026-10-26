@@ -141,25 +141,26 @@ for later connection checks and producer-owned publication. [Verification eviden
 
 ### Publication bookkeeping and coordination checkpoint
 
-Private path, manifest and lock helpers are implemented; integration remains pending. The specification owns
+Private publication, tracking, coordination and cleanup are implemented; public integration remains pending. The specification owns
 [manifest encoding/validation](docs/specs/composition.md#manifest-encoding-and-validation),
 [local coordination](docs/specs/composition.md#local-writer-coordination) and
 [cleanup](docs/specs/composition.md#obsolete-output-cleanup). No new ADR or protected-file edit is required
 for these refinements of ADR-0005.
 
-Private helpers are complete in `7f06f08`; they use supplied protection paths and confirmed-write
-records, with no command, public export or legacy-rendering bridge. The owner approved the two-file
-publication contract checkpoint on 25 October 2026: [selection/commands](docs/specs/composition.md#publication-selection-and-commands),
+Foundation helpers are complete in `7f06f08`; publication contracts are recorded in `079082d`.
+The owner approved the eight-file private coordinator/cleanup scope on 26 October 2026 against
+`d0b4f99`. It consumes prepared content and supplied protections, with no command, public export
+or legacy-rendering bridge. [Selection](docs/specs/composition.md#publication-selection-and-commands),
 [results](docs/specs/composition.md#publication-result-reporting) and
-[explicit cleanup](docs/specs/composition.md#explicit-cleanup-command). Runtime integration is pending.
-Next: bound its implementation file scope alongside parser/composition and adapter replacement,
+[explicit cleanup](docs/specs/composition.md#explicit-cleanup-command) remain the owning contracts.
+Next: bound the public integration file scope alongside parser/composition and adapter replacement,
 with measured limits; preserve working workflows until coordinated integration.
 
-Local verification on 25 October 2026: the full workspace profile passed, including 829 workspace
-tests (81 new helper tests) and 11 documentation tests. Coverage includes real competing processes,
-root aliases, crash leftovers, failed persistence, ownership preservation and write-free reads.
-Integration must still cover the specification's publication/cleanup cases and run-wide pruning
-gate. Preserve current rendering until coordinated replacement supplies the complete workflow.
+Local verification on 26 October 2026: the full workspace profile passed, including 892 workspace
+tests (144 output tests, 63 new) and 11 documentation tests. Coverage includes the run-wide pruning gate,
+root aliases/ownership, real process contention, late failures and write-free cleanup assessment.
+Public integration must verify configuration/selection/composition and command result mapping;
+preserve current rendering until coordinated replacement supplies the complete workflow.
 
 ### Migration sequence
 
@@ -187,7 +188,7 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 
 - **Adapter/evaluation contracts:** Other operation/resource declarations and coordinated edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
 - **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
-- **Publication integration:** Private bookkeeping helpers are implemented and publication contracts are recorded; implementation scope, multi-root orchestration, output publication and cleanup remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
+- **Publication integration:** Private publication/cleanup is implemented; coordinated configuration, composition and public caller integration remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
 - **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
 - **D5 deferred features:** Machine-local path overrides, nested-dependency overrides, connection-following mechanisms and background/time-based refresh remain deferred until a concrete workflow requires them.
 - **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed coordination remain outside the initial contract; reconsider for demonstrated consumer needs.

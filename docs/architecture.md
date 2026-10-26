@@ -60,12 +60,15 @@ or a compare-and-swap operation. Only invocation-owned temporary files are clean
 basis; cleanup failure preserves the original write outcome and may leave a temporary file. This
 provides no crash-durability, output-ownership, destination-containment or manifest guarantee.
 
-Private Node helpers in `packages/cli/src/runtime/output/` inspect supplied roots/protected paths,
-decode and persist ownership manifests, and acquire/verify/release local writer locks. They reuse
-the shared writer for the [bookkeeping contract](specs/composition.md#output-manifest).
-Callers must supply configured/connected protection paths and confirm output publication before
-recording writes. Current render commands do not call these helpers; output publication, multi-root
-orchestration and cleanup integration remain pending. Source comments/tests own helper mechanics.
+Private Node helpers in `packages/cli/src/runtime/output/` implement prepared-output publication,
+destination-local tracking, local writer coordination and selective cleanup under the
+[publication contract](specs/composition.md#d25-export-eligibility-and-publication). The coordinator
+uses the shared writer, retains partial outcomes and holds locks through the run-wide pruning decision.
+Callers supply eligible Markdown or preparation failures, selection scope, source/configuration
+protections and all current destinations; unavailable protection blocks cleanup. Explicit cleanup
+assessment is write-free, and application rechecks ownership, paths and exact-byte hashes.
+Current commands do not call these helpers; configuration/composition and public adapter integration
+remain pending. Source comments/tests own the private declarations and mechanics.
 
 ## Editor adapter
 

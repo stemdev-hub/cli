@@ -170,4 +170,40 @@ describe('output manifests', () => {
     // Failed persistence does not poison the held lock or block an explicit retry.
     expect((await persistOutputManifest(lock, producer, [record()])).outputs).toHaveLength(2);
   });
+
+  it('removes only exact absent ownership records and preserves unrelated inventory', async () => {
+    const lock = await lockRoot();
+    const absent = record({ path: 'gone.md' });
+    const retained = record({ projectId: other, path: 'theirs.md' });
+    await writeFile(filePath, encode([absent, retained]));
+    expect((await persistOutputManifest(lock, producer, [record()], [absent])).outputs).toEqual([retained, record()]);
+  });
+
+  it('rejects stale, foreign, present and overlapping removal requests without rewriting evidence', async () => {
+    const lock = await lockRoot();
+    const existing = record();
+    const foreign = record({ projectId: other, path: 'foreign.md' });
+    const original = encode([existing, foreign]);
+    await writeFile(filePath, original);
+    for (const removal of [record({ sha256: 'a'.repeat(64) }), record({ outputSet: 'changed' }), foreign, record({ path: 'unknown.md' })]) {
+      await expect(persistOutputManifest(lock, producer, [], [removal])).rejects.toMatchObject({ code: 'CONFLICT' });
+    }
+    await expect(persistOutputManifest(lock, producer, [existing], [existing])).rejects.toMatchObject({ code: 'CONFLICT' });
+    await writeFile(path.join(dir, 'README.md'), 'recreated');
+    await expect(persistOutputManifest(lock, producer, [], [existing])).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(await readFile(filePath, 'utf8')).toBe(original);
+  });
+
+  it('snapshots removal evidence and preserves it on persistence failure', async () => {
+    const lock = await lockRoot();
+    await writeFile(filePath, encode([record()]));
+    const mutable = { ...record() };
+    const pending = persistOutputManifest(lock, producer, [], [mutable]);
+    mutable.path = 'caller-mutated.md';
+    expect((await pending).outputs).toEqual([]);
+    await writeFile(filePath, encode([record()]));
+    vi.mocked(rename).mockRejectedValueOnce(new Error('cannot persist'));
+    await expect(persistOutputManifest(lock, producer, [], [record()])).rejects.toMatchObject({ code: 'IO_ERROR' });
+    expect(await readFile(filePath, 'utf8')).toBe(encode([record()]));
+  });
 });

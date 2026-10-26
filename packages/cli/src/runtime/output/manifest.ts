@@ -104,11 +104,12 @@ export async function readOutputManifest(root: OutputRoot, lock?: OutputLock): P
 
 /**
  * Record only writes the caller has confirmed as published. This does not publish output files
- * or adopt skipped files. Other producers and untouched records are retained; deletion is outside
- * this checkpoint. The caller keeps the lock until the entire publication/cleanup run is done.
+ * or adopt skipped files. Removals must match current ownership exactly and still be absent.
+ * The caller keeps the lock until the entire publication/cleanup run is done.
  */
 export async function persistOutputManifest(
-  lock: OutputLock, projectId: string, confirmedWrites: readonly OutputRecord[]
+  lock: OutputLock, projectId: string, confirmedWrites: readonly OutputRecord[],
+  confirmedAbsent: readonly OutputRecord[] = []
 ): Promise<OutputManifest> {
   if (persisting.has(lock)) throw new OutputError('CONFLICT', 'A manifest update is already using this lock.', lock.root.path);
   persisting.add(lock);
@@ -116,12 +117,25 @@ export async function persistOutputManifest(
     if (!validProjectId(projectId)) throw new OutputError('MANIFEST_CORRUPT', 'Invalid producer identity.', lock.root.path);
     // Validate/copy before the first await that could expose caller mutation of the records.
     const updates = decodeOutputManifest(JSON.stringify({ version: 1, outputs: confirmedWrites })).outputs;
+    const removals = decodeOutputManifest(JSON.stringify({ version: 1, outputs: confirmedAbsent })).outputs;
     await verifyOutputLock(lock);
-    if (updates.some(record => record.projectId !== projectId)) {
-      throw new OutputError('CONFLICT', 'Cannot record another producer\'s writes.', lock.root.path);
+    if ([...updates, ...removals].some(record => record.projectId !== projectId)) {
+      throw new OutputError('CONFLICT', 'Cannot change another producer\'s records.', lock.root.path);
     }
     const previous = await readOutputManifest(lock.root, lock);
     const records = new Map((previous.status === 'present' ? previous.manifest.outputs : []).map(record => [record.path, record]));
+    for (const record of removals) {
+      const existing = records.get(record.path);
+      if (existing === undefined || existing.projectId !== projectId || existing.outputSet !== record.outputSet
+        || existing.sha256 !== record.sha256 || updates.some(update => update.path === record.path)) {
+        throw new OutputError('CONFLICT', 'Obsolete ownership changed or overlaps a write.', record.path);
+      }
+      const [target] = await inspectOutputPaths(lock.root, [record.path]);
+      if (await optionalStat(target!.path) !== undefined) {
+        throw new OutputError('CONFLICT', 'Cannot remove ownership of a file that is still present.', target!.path);
+      }
+      records.delete(record.path);
+    }
     for (const record of updates) {
       const existing = records.get(record.path);
       if (existing !== undefined && existing.projectId !== projectId) {
@@ -134,7 +148,7 @@ export async function persistOutputManifest(
     const filePath = await inspectBookkeepingPath(lock.root, 'outputs.json');
     await verifyOutputLock(lock);
     const written = await writeFile(filePath, `${JSON.stringify(manifest, null, 2)}\n`, { overwrite: previous.status === 'present' });
-    if (!written.success) throw new OutputError('IO_ERROR', 'Failed to persist output ownership; published files have not been rolled back.', filePath, written.error);
+    if (!written.success) throw new OutputError('IO_ERROR', 'Failed to persist output ownership; confirmed file changes have not been rolled back.', filePath, written.error);
     return manifest;
   } catch (error) { throw outputError(error, lock.root.path); }
   finally { persisting.delete(lock); }
