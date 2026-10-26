@@ -259,6 +259,36 @@ connection storage. Those lifecycle requirements remain binding when their adapt
 External metadata snapshots do not supply authored source bodies and cannot stand in for resolved
 source content during composition. Missing required context or source remains `unavailable`.
 
+### External metadata projection
+
+Under [ADR-0005](../decisions/0005-pure-block-model.md), the external structural snapshot projects
+the producer's current local Blocks into a flat inventory of IDs and direct Tags, including nested
+children as ordinary Blocks. It contains no `sections`, source bodies, parse-time positions or
+analysis handles. Do not flatten a child's Tags into its parent or publish connected projects'
+definitions as the producer's own. Include the producer's validated durable `projectId` from its
+configuration; namespace naming does not replace identity or implement connection identity checks.
+
+Publishing requires a complete inventory with valid, unambiguous Block IDs and complete, valid
+Tag metadata. If recovery or invalid/duplicate definitions prevent that projection, report failure
+before upload rather than silently dropping candidates or choosing one. Unrelated content errors
+do not by themselves invalidate a complete metadata projection; output-usage warnings do not
+exclude library Blocks. Concrete encoding and format-version declarations belong to implementation
+types and validation. Replace the supported format directly, without legacy-format conversion,
+retired-field lookups, dummy values or migration-specific errors.
+
+Retain the metadata exchange workflow, cached `{ fetchedAt, graph }` envelope and public pure
+`decodeExternalSnapshotEnvelope()` / `isExternalStemGraphShape()` boundary. Both consumers use
+the same replacement-shape checks; malformed or unsupported input is rejected rather than repaired.
+Retain permissive timestamp strings and adapter ownership of JSON parsing, I/O, local/cache paths,
+fallback policy, timestamps and contextual errors. Replace producer, CLI/editor consumers and
+fixtures together. This contract neither supplies a new local snapshot producer nor specifies Git
+transport or connection storage. Internal sync records and destination ownership remain separate.
+
+Acceptance covers root and nested Block inventory, direct Tags, producer identity, rejection of
+ambiguous/invalid metadata before upload, replacement-shape validation parity, retained timestamp
+behavior and absence of read-time writes. Metadata-only input must still leave required source
+content unavailable for composition.
+
 ### Resolution records and update scope
 
 The selected source's configuration owns the meaning of its bindings. The consumer's recorded graph

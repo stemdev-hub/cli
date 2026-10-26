@@ -1,6 +1,6 @@
 # 0005. Pure Block model and composition
 
-Status: accepted (23 October 2026). The owner explicitly accepted this decision and the model, syntax, composition, and project-connections specifications at revision `a56203e`, alongside ADR-0007. Open mechanics and deferred implementation work remain as recorded in the roadmap; acceptance does not establish implementation or distribution. The reviewed decision body below is preserved, including its pre-acceptance wording.
+Status: accepted (23 October 2026). The owner explicitly accepted this decision and the model, syntax, composition, and project-connections specifications at revision `a56203e`, alongside ADR-0007. On 26 October 2026, the owner directed an in-place amendment of the external-snapshot consequences below: Pure Block retirement also replaces the legacy Section-bearing snapshot shape. This is a scoped exception to accepted-body immutability; other decision text remains unchanged. Acceptance does not establish implementation or distribution; roadmap owns remaining work.
 
 ## Context
 
@@ -70,12 +70,18 @@ preservation obligations no longer govern the replacement source parser. This re
 Stem's interpretation of frontmatter; it does not select a new YAML policy for unrelated
 formats. Replace Node-side frontmatter helpers in affected migrated operations as well.
 
-Supersede only ADR-0004's Tag-schema decoder/export and preservation requirements;
-retain its external-snapshot decoder, shape/timestamp behavior and consumer-owned
-contextual handling. ADR-0001's pure-core/I/O and public-entry boundaries remain binding.
-At acceptance, record these dispositions in the old ADR statuses, affected rules and
-architecture applicability map; their accepted decision bodies remain historical records.
-Until then, ADR-0002, ADR-0004 and existing rules remain binding in full.
+Supersede ADR-0004's Tag-schema decoder/export requirements and its obligation to preserve
+the legacy external-snapshot shape. Section retirement applies to exchanged metadata as well
+as the source model: replace that shape with a Block-only projection, without empty Section
+placeholders, reinterpretation of children as Sections, or legacy-format compatibility.
+The [external metadata contract](../specs/project-connections.md#external-metadata-projection)
+owns the projection and rejection behavior. Replace its producer and consumers together.
+
+Retain ADR-0004's pure `decodeExternalSnapshotEnvelope()` and `isExternalStemGraphShape()`
+APIs, shared shape validation for the replacement format, cached envelope, permissive timestamp
+strings and consumer-owned contextual handling. Metadata cannot substitute for authored source
+content. ADR-0001's pure-core/I/O and public-entry boundaries remain binding. Record the exact
+superseded scope in ADR-0004's status and the architecture map; preserve ADR-0004's decision body.
 
 Replace the legacy View file role and `viewsDir` alongside its affected callers, without
 deleting authored View files or silently converting them. The
