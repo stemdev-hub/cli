@@ -224,6 +224,44 @@ The [output manifest](#output-manifest) is separate operational state: recomputi
 cannot recover which obsolete files Stem previously wrote. Clearing computation caches must not
 erase generation ownership or enable cleanup without that evidence.
 
+### Sync records and results
+
+Retain `stem sync` and `syncProject()`. The initial replacement discovers current sources, reads
+and parses every source, builds the current graph, and replaces the derived `index.json` and
+`graph.json` in the configured `cacheDir`. An unchanged file is still parsed; previous cache
+contents cannot substitute for current source analysis. Later reuse requires demonstrated need
+and the invariance guarantees above.
+
+The index records source-file metadata, not cached parsed Block/View objects. The internal graph
+snapshot is a position-free projection of the current graph under the
+[graph contract](block-model.md#graph-construction-and-checking), retaining duplicate and invalid
+definitions, containment, and inclusion occurrences, including unresolved or ambiguous references.
+Do not collapse definitions by authored ID, invent a resolved target, or make files into Blocks.
+References between projected records are local to that snapshot; they neither persist analysis
+handles nor establish durable identity or references usable across snapshots. Persist no syntax
+trees, source ranges, or reconstructed parsed records. Source-located diagnostics come from fresh
+analysis. Concrete encoding and format versions belong to implementation types and validation;
+they do not restore a project-configuration version field.
+
+Missing, corrupt or incompatible computation records are rebuilt from available current sources,
+without legacy-format conversion or a migration-specific error. Configuration, source-read and
+cache-write failures remain operation errors; a failed write must not be reported as a successful
+refresh. Read-only checking, listing and preview do not create or repair these records. This
+projection is not the external namespace-snapshot format and changes none of ADR-0004's retained
+decoder obligations or the separate output-ownership state.
+
+`syncProject()` retains its operation-result envelope. On successful refresh, report actual
+`scannedFiles`, `parsedFiles`, `graphNodes`, `graphEdges` and `durationMs`; remove `cachedFiles`
+and the corresponding CLI wording. Successful refresh describes cache production, not source
+validity or export eligibility. Graph counts reflect the graph that was projected, including
+recovered definitions, rather than only uniquely addressable Blocks. Public results remain readonly.
+
+Acceptance covers repeated unchanged runs parsing all sources, changed/deleted sources replacing
+stale records, empty projects, and missing/corrupt/incompatible caches yielding the same current
+graph. Exercise duplicate/invalid definitions and unresolved inclusions without loss or invented
+identity; verify stored records contain no positions or analysis handles. Cover loading/write
+failures, truthful result counts, and read-only operations leaving absent or damaged caches untouched.
+
 ## D19. Current results
 
 Current composition never silently substitutes a previous successful result or stale content for a

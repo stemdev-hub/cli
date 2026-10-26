@@ -164,7 +164,7 @@ preserve current rendering until coordinated replacement supplies the complete w
 
 ### Migration sequence
 
-1. Finalize the remaining caller declarations, edit inventories, sync representation and publication scope listed below.
+1. Finalize the remaining caller declarations, edit inventories and publication scope listed below.
 2. Implement scanner, analysis/selection/graph and composition in review stages; measure composition defaults before user-facing integration.
 3. Coordinate adapter replacement with working file export, manifest tracking and then selective cleanup. Update current guides and generated declarations with runtime behavior; preserve authored View files under the source-transition contract.
 4. Plan connection resolution separately under ADR-0007, resolving storage and transport before implementing those interfaces.
@@ -186,7 +186,8 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 
 ### Pure Block open and deferred work
 
-- **Adapter/evaluation contracts:** Other operation/resource declarations and coordinated edit scopes, `getOrphanedBlocks()` disposition, position-free sync records and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Adapter/evaluation contracts:** Other operation/resource declarations and coordinated edit scopes, `getOrphanedBlocks()` disposition and the new-model external-snapshot projection remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
+- **Sync replacement:** The owner approved the [position-free sync contract](docs/specs/composition.md#sync-records-and-results) on 26 October 2026. Implementation and its coordinated caller/file scope remain pending.
 - **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
 - **Publication integration:** Private publication/cleanup is implemented; coordinated configuration, composition and public caller integration remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
 - **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
