@@ -87,7 +87,7 @@ compatibility aliases, legacy-cache reconstruction or withdrawn rendering.
 
 ### Parser and model contract checkpoint
 
-Contracts, the private scanner and private analysis/selection/graph are complete; public replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
+Contracts and the private scanner, analysis/selection/graph and composition are complete; public replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
 [analysis/editing contracts](docs/specs/block-model.md#project-analysis) and
 [supplied context](docs/specs/project-connections.md#supplied-evaluation-context).
 The approved core inventory remains active below; it does not cover the still-unplanned adapter changes.
@@ -101,19 +101,16 @@ Paths are relative to `packages/core/`:
 | Remove after caller replacement                           | `src/parser/frontmatter.ts`, `src/parser/stem-plugin.ts`, `src/parser/two-pass.ts`, `src/types/view.ts`, `src/types/position.ts`, `tests/parser/frontmatter.test.ts`, `tests/parser/stem-plugin.test.ts`, `tests/parser/two-pass.test.ts` |
 | Private scanner stage complete | `src/parser/scanner.ts`, `src/parser/syntax.ts`, `tests/parser/scanner.test.ts` |
 | Private analysis/selection/graph stage | `src/project/model.ts`, `src/project/analysis.ts`, `src/project/selection.ts`, `src/graph/analysis.ts`, `tests/project/analysis.test.ts`, `tests/project/selection.test.ts`, `tests/graph/analysis.test.ts` |
+| Private composition stage | `src/renderer/compose.ts`, `tests/renderer/compose.test.ts` |
 
-Reuse `src/renderer/index.ts` and `tests/renderer/index.test.ts` for composition. Scanner,
-analysis/selection/graph, composition and coordinated callers are successive review stages of a
-working replacement. Use specification examples and integration cases for deep traversal,
+Composition is staged beside the active renderer; retire `src/renderer/index.ts` and replace its
+legacy tests during coordinated public integration. These private stages form a working replacement.
+Use specification examples and integration cases for deep traversal,
 instance-aware identity/cycles, safe edits, diagnostic scope and rejection of stale editor results.
 Run targeted checks per stage and the full workspace/artifact profile before integration is ready.
 
-Scanner checkpoint: `ba91d77`. The owner approved the eleven-file private analysis/selection/graph
-scope on 27 October 2026. It includes supplied instance contexts, scoped lookup and diagnostics,
-iterative cycles and output reachability; public integration remains pending. Composition is next,
-followed by coordinated callers; connection storage and transport remain a separate scope.
-Local verification: the full repository profile passed, including 1,044 workspace tests (60 new
-analysis/selection/graph tests), browser/worker portability coverage and 11 documentation tests.
+Scanner checkpoint: `ba91d77`; analysis/selection/graph checkpoint: `d78e1aa`. Next: bound coordinated
+public caller integration; connection storage and transport remain a separate scope.
 
 ### Shared file-writer prerequisite
 
@@ -122,7 +119,8 @@ publication ownership and coordination remain separate work. [Verification evide
 
 ### Composition and adapter contract checkpoint
 
-Core composition contracts are recorded in `72b3862`; runtime replacement remains pending. The
+Core composition contracts are recorded in `72b3862`; private composition is implemented and public
+replacement remains pending. The
 [composition specification](docs/specs/composition.md#composition-invocation) owns inputs, results,
 budgets and [preview/output separation](docs/specs/composition.md#preview-and-output-adapters).
 The owner approved the preview/stdout/MCP refinements on 25 October 2026; preserve these contracts
@@ -137,8 +135,15 @@ in the coordinated implementation scope:
 | MCP View composition                          | Read-only `preview_source` under the [MCP contract](docs/specs/composition.md#mcp-preview).                  |
 | Cached parsed Block/View reconstruction       | Fresh source analysis; remove `ZERO_POSITION` reconstruction.                                               |
 
-Start core composition with explicit limits; measure representative large/deep inputs before
-choosing shared defaults for user-facing callers. Keep ADR-0004's external-snapshot decoder
+The owner approved the five-file private composition scope on 27 October 2026. It covers Block/file
+composition, exact boundaries and recovery, scoped diagnostics, instance-aware cycles, explicit
+budgets, portability and scale tests. The reproducible measurement cases live in
+`packages/core/tests/renderer/compose.test.ts` (set `STEM_COMPOSITION_MEASURE=1` and run Vitest with
+`--silent=false`). They exercise 12,000-deep containment/inclusion, empty branching and 16 MiB output;
+timing is reported, never an acceptance threshold. Shared adapter defaults remain unselected.
+Local verification: the full repository profile passed, including 1,118 workspace tests (74 new
+composition tests), browser/worker portability, built CLI smoke and 11 documentation tests.
+Keep ADR-0004's external-snapshot decoder
 boundaries and implement the [external metadata projection](docs/specs/project-connections.md#external-metadata-projection) with coordinated producers and consumers.
 
 ### Durable project identity checkpoint
@@ -173,7 +178,7 @@ preserve current rendering until coordinated replacement supplies the complete w
 ### Migration sequence
 
 1. Finalize the remaining caller declarations, edit inventories and publication scope listed below.
-2. Implement scanner, analysis/selection/graph and composition in review stages; measure composition defaults before user-facing integration.
+2. Select shared limits from the private composition measurements before user-facing integration.
 3. Coordinate adapter replacement with working file export, manifest tracking and then selective cleanup. Update current guides and generated declarations with runtime behavior; preserve authored View files under the source-transition contract.
 4. Plan connection resolution separately under ADR-0007, resolving storage and transport before implementing those interfaces.
 
@@ -200,7 +205,7 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 - **External metadata:** The owner directed the ADR-0005 amendment on 26 October 2026. The [Block-only projection contract](docs/specs/project-connections.md#external-metadata-projection) is recorded; concrete declarations and coordinated producer/consumer implementation scope remain pending.
 - **Output-usage warnings:** Private graph assessment implements the approved [configured-output reachability warnings](docs/specs/block-model.md#blocks-outside-configured-outputs). Supplying all configured roots and exposing results through public callers await coordinated integration.
 - **Sync replacement:** The owner approved the [position-free sync contract](docs/specs/composition.md#sync-records-and-results) on 26 October 2026. Implementation and its coordinated caller/file scope remain pending.
-- **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
+- **D24 defaults:** Select shared caller limits using the [composition measurements](#composition-and-adapter-contract-checkpoint); [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
 - **Publication integration:** Private publication/cleanup is implemented; coordinated configuration, composition and public caller integration remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
 - **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
 - **D5 deferred features:** Machine-local path overrides, nested-dependency overrides, connection-following mechanisms and background/time-based refresh remain deferred until a concrete workflow requires them.

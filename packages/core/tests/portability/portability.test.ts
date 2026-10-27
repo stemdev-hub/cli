@@ -4,7 +4,7 @@ import { createContext, runInContext } from 'node:vm';
 import { build } from 'esbuild';
 import { expect, it } from 'vitest';
 
-it('runs public and replacement analysis without Node globals or clock reads', async () => {
+it('runs public and replacement analysis/composition without Node globals or clock reads', async () => {
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
   const bundle = await build({
     stdin: {
@@ -14,6 +14,7 @@ it('runs public and replacement analysis without Node globals or clock reads', a
         export * as blockAnalysis from './project/analysis.ts';
         export * as blockSelection from './project/selection.ts';
         export * as blockGraph from './graph/analysis.ts';
+        export { compose } from './renderer/compose.ts';
       `,
       resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
       loader: 'ts'
@@ -111,6 +112,23 @@ it('runs public and replacement analysis without Node globals or clock reads', a
   expect(JSON.parse(analyzed)).toEqual({ nodes: 4, tags: ['child'], classificationComplete: true,
     selected: 'resolved', cycles: 1, unused: ['unused'], complete: true,
     codes: ['BLOCK_CYCLE', 'ORPHANED_BLOCK'], frozen: true });
+  const composed = runInContext(`(() => {
+    const local = {}, remote = {};
+    const analysis = portable.blockAnalysis.analyzeProject({ localInstance: local, instances: [
+      { handle: local, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:root)Hi @stem:include(lib:item)!@stem:end()' }], bindings: [{ alias: 'lib', target: remote }] },
+      { handle: remote, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:item)🌱@stem:include(back:root)@stem:end()' }], bindings: [{ alias: 'back', target: local }] }
+    ] });
+    const target = { kind: 'block', instance: analysis.localInstance, reference: { id: 'root' } };
+    const full = portable.compose(analysis, target, { maxWork: 10, maxOutputBytes: 100 });
+    const bounded = portable.compose(analysis, target, { maxWork: 10, maxOutputBytes: 5 });
+    return JSON.stringify({ full: full.content, fullComplete: full.complete,
+      fullCodes: full.diagnostics.map(d => d.code), prefix: bounded.content,
+      prefixCodes: bounded.diagnostics.map(d => d.code), frozen: Object.isFrozen(full.diagnostics) });
+  })()`, context, { timeout: 5000 }) as string;
+  expect(JSON.parse(composed)).toEqual({ full: 'Hi 🌱!', fullComplete: false, fullCodes: ['BLOCK_CYCLE'],
+    prefix: 'Hi ', prefixCodes: ['COMPOSITION_OUTPUT_LIMIT'], frozen: true });
 }, 30_000);
 
 it('bundles and executes the portable modules without Node dependencies or globals', async () => {
