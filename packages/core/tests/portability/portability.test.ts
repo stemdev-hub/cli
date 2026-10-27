@@ -4,7 +4,7 @@ import { createContext, runInContext } from 'node:vm';
 import { build } from 'esbuild';
 import { expect, it } from 'vitest';
 
-it('runs public and replacement analysis/composition without Node globals or clock reads', async () => {
+it('runs public and replacement modules without Node globals or clock reads', async () => {
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
   const bundle = await build({
     stdin: {
@@ -15,6 +15,7 @@ it('runs public and replacement analysis/composition without Node globals or clo
         export * as blockSelection from './project/selection.ts';
         export * as blockGraph from './graph/analysis.ts';
         export { compose } from './renderer/compose.ts';
+        export { normalizeOutputSets } from './config/outputs.ts';
       `,
       resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
       loader: 'ts'
@@ -129,6 +130,20 @@ it('runs public and replacement analysis/composition without Node globals or clo
   })()`, context, { timeout: 5000 }) as string;
   expect(JSON.parse(composed)).toEqual({ full: 'Hi 🌱!', fullComplete: false, fullCodes: ['BLOCK_CYCLE'],
     prefix: 'Hi ', prefixCodes: ['COMPOSITION_OUTPUT_LIMIT'], frozen: true });
+  const outputs = runInContext(`(() => {
+    const result = portable.normalizeOutputSets({ docs: { outputDir: '../published', targets: [
+      { source: { kind: 'block', ref: 'lib:Guide' }, path: './README.md' },
+      { source: { kind: 'file', path: './blocks/guide.md' }, path: 'docs//guide.md' }
+    ] } }, 'blocks', 'config.json');
+    const invalid = portable.normalizeOutputSets({ docs: { targets: [], cleanpu: 'prune' } }, 'blocks', 'config.json');
+    return JSON.stringify({ result, code: invalid.error.code,
+      frozen: Object.isFrozen(result.data.docs.targets[0].source), prototype: Object.getPrototypeOf(result.data) });
+  })()`, context, { timeout: 5000 }) as string;
+  expect(JSON.parse(outputs)).toEqual({ result: { success: true, data: { docs: {
+    outputDir: '../published', ifExists: 'replace', cleanup: 'keep', targets: [
+      { source: { kind: 'block', ref: 'lib:Guide' }, path: 'README.md' },
+      { source: { kind: 'file', path: 'blocks/guide.md' }, path: 'docs/guide.md' }
+    ] } } }, code: 'CONFIG_INVALID_SCHEMA', frozen: true, prototype: null });
 }, 30_000);
 
 it('bundles and executes the portable modules without Node dependencies or globals', async () => {

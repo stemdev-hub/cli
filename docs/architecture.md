@@ -38,8 +38,11 @@ helper; output reachability is independent of composition and publication. Sourc
 own their representations. Private composition in `src/renderer/compose.ts` consumes that analysis,
 uses the shared active-path helper with its own iterative traversal, and applies explicit work/UTF-8
 output limits to each result. It preserves source whitespace and recovery content without rescanning
-assembled text; composition diagnostics are scoped to evaluated occurrences. These modules are not
-package exports; existing callers remain active until coordinated integration.
+assembled text; composition diagnostics are scoped to evaluated occurrences. Private output-set
+validation in `src/config/outputs.ts` supplies readonly selectors, targets and effective policies
+under the [output contract](specs/composition.md#output-sets-and-targets). It checks shape and lexical
+paths; adapters retain host/filesystem validation, source resolution and selected-destination checks.
+These modules are not package exports; existing callers remain active until coordinated integration.
 [Roadmap](../roadmap.md#parser-and-model-contract-checkpoint) tracks that work.
 
 The pure external-snapshot decoder introduced by [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) remains supported, with consumers retaining I/O, timestamps, fallback policy, and contextual errors. [ADR-0005](decisions/0005-pure-block-model.md) retires Tag-schema requirements and replaces the legacy external metadata shape under the [projection contract](specs/project-connections.md#external-metadata-projection). Tag-schema decoding, validation and loading have been removed under the [transition contract](specs/block-model.md#d23-schema-retirement-transition); external metadata replacement remains pending. Remaining work is tracked in [roadmap](../roadmap.md#current-behavior-and-policy).

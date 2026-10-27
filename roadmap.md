@@ -135,14 +135,16 @@ in the coordinated implementation scope:
 | MCP View composition                          | Read-only `preview_source` under the [MCP contract](docs/specs/composition.md#mcp-preview).                  |
 | Cached parsed Block/View reconstruction       | Fresh source analysis; remove `ZERO_POSITION` reconstruction.                                               |
 
-The owner approved the five-file private composition scope on 27 October 2026. It covers Block/file
-composition, exact boundaries and recovery, scoped diagnostics, instance-aware cycles, explicit
-budgets, portability and scale tests. The reproducible measurement cases live in
+Private composition is complete in `0259412`. The reproducible measurement cases live in
 `packages/core/tests/renderer/compose.test.ts` (set `STEM_COMPOSITION_MEASURE=1` and run Vitest with
 `--silent=false`). They exercise 12,000-deep containment/inclusion, empty branching and 16 MiB output;
 timing is reported, never an acceptance threshold. Shared adapter defaults remain unselected.
-Local verification: the full repository profile passed, including 1,118 workspace tests (74 new
-composition tests), browser/worker portability, built CLI smoke and 11 documentation tests.
+The owner approved the five-file private output-configuration scope on 27 October 2026.
+`packages/core/src/config/outputs.ts` and `packages/core/tests/config/outputs.test.ts` implement and verify
+readonly output sets, strict fields/policies and portable path validation. Public configuration,
+source discovery and caller integration remain pending; the active reader still rejects `outputSets`.
+Local verification: the full repository profile passed, including 1,220 workspace tests (102 new
+configuration tests), browser/worker portability, built CLI smoke and 11 documentation tests.
 Keep ADR-0004's external-snapshot decoder
 boundaries and implement the [external metadata projection](docs/specs/project-connections.md#external-metadata-projection) with coordinated producers and consumers.
 
