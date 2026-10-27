@@ -13,6 +13,8 @@ export interface SourceRange {
 export interface SourceLocation {
   readonly sourceId: string;
   readonly range: SourceRange;
+  /** Opaque evaluation-local context, added by analysis; parsing supplies none. */
+  readonly instance?: object;
 }
 
 export interface Diagnostic {

@@ -87,7 +87,7 @@ compatibility aliases, legacy-cache reconstruction or withdrawn rendering.
 
 ### Parser and model contract checkpoint
 
-Contracts are complete; the private scanner is implemented and public replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
+Contracts, the private scanner and private analysis/selection/graph are complete; public replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
 [analysis/editing contracts](docs/specs/block-model.md#project-analysis) and
 [supplied context](docs/specs/project-connections.md#supplied-evaluation-context).
 The approved core inventory remains active below; it does not cover the still-unplanned adapter changes.
@@ -99,7 +99,8 @@ Paths are relative to `packages/core/`:
 | Replace semantic analysis and graph callers               | `src/project/types.ts`, `src/project/index.ts`, `src/graph/builder.ts`, `src/graph/types.ts`, `src/graph/traverser.ts`, `src/validator/rules.ts`                                                                                          |
 | Update existing acceptance coverage                       | `tests/parser/index.test.ts`, `tests/project/analyze.test.ts`, `tests/graph/builder.test.ts`, `tests/graph/traverser.test.ts`, `tests/validator/rules.test.ts`, `tests/portability/portability.test.ts`                                   |
 | Remove after caller replacement                           | `src/parser/frontmatter.ts`, `src/parser/stem-plugin.ts`, `src/parser/two-pass.ts`, `src/types/view.ts`, `src/types/position.ts`, `tests/parser/frontmatter.test.ts`, `tests/parser/stem-plugin.test.ts`, `tests/parser/two-pass.test.ts` |
-| Private scanner stage; selection remains pending | `src/parser/scanner.ts`, `src/parser/syntax.ts`, `tests/parser/scanner.test.ts`; next: `src/project/selection.ts` (shared ID/Tag lookup), `tests/project/selection.test.ts` (ambiguity, context and classification) |
+| Private scanner stage complete | `src/parser/scanner.ts`, `src/parser/syntax.ts`, `tests/parser/scanner.test.ts` |
+| Private analysis/selection/graph stage | `src/project/model.ts`, `src/project/analysis.ts`, `src/project/selection.ts`, `src/graph/analysis.ts`, `tests/project/analysis.test.ts`, `tests/project/selection.test.ts`, `tests/graph/analysis.test.ts` |
 
 Reuse `src/renderer/index.ts` and `tests/renderer/index.test.ts` for composition. Scanner,
 analysis/selection/graph, composition and coordinated callers are successive review stages of a
@@ -107,11 +108,12 @@ working replacement. Use specification examples and integration cases for deep t
 instance-aware identity/cycles, safe edits, diagnostic scope and rejection of stale editor results.
 Run targeted checks per stage and the full workspace/artifact profile before integration is ready.
 
-The owner approved the six-file private scanner scope on 27 October 2026. Scanner tests cover
-original-source ranges, metadata, literal escapes, localized recovery and deep iterative traversal;
-portability coverage executes it without Node globals or clock reads. Public integration remains
-pending; no adapter calls or legacy-parser bridges were added. Local verification: the full repository
-profile passed, including 984 workspace tests (92 new scanner tests) and 11 documentation tests.
+Scanner checkpoint: `ba91d77`. The owner approved the eleven-file private analysis/selection/graph
+scope on 27 October 2026. It includes supplied instance contexts, scoped lookup and diagnostics,
+iterative cycles and output reachability; public integration remains pending. Composition is next,
+followed by coordinated callers; connection storage and transport remain a separate scope.
+Local verification: the full repository profile passed, including 1,044 workspace tests (60 new
+analysis/selection/graph tests), browser/worker portability coverage and 11 documentation tests.
 
 ### Shared file-writer prerequisite
 
@@ -196,7 +198,7 @@ validation/authoring need, including their relationship to Tags. ADR-0004's exte
 - **Authoring callers:** The owner approved [creation, inclusion insertion, deletion, rename and failure handling](docs/specs/block-model.md#authoring-operations-and-destinations), with [output-selector effects](docs/specs/composition.md#output-selectors-during-authoring) and initialization refinements, on 26 October 2026. Coordinated implementation remains pending.
 - **Read-only callers:** The owner approved [listing, reference lookup, checking and Block source retrieval](docs/specs/block-model.md#read-only-cli-and-mcp-queries), plus [output discovery](docs/specs/composition.md#output-discovery), on 26 October 2026. Coordinated runtime integration remains pending.
 - **External metadata:** The owner directed the ADR-0005 amendment on 26 October 2026. The [Block-only projection contract](docs/specs/project-connections.md#external-metadata-projection) is recorded; concrete declarations and coordinated producer/consumer implementation scope remain pending.
-- **Output-usage warnings:** The owner approved retaining `getOrphanedBlocks()` for [configured-output reachability warnings](docs/specs/block-model.md#blocks-outside-configured-outputs) on 26 October 2026. Implementation awaits coordinated graph/output integration.
+- **Output-usage warnings:** Private graph assessment implements the approved [configured-output reachability warnings](docs/specs/block-model.md#blocks-outside-configured-outputs). Supplying all configured roots and exposing results through public callers await coordinated integration.
 - **Sync replacement:** The owner approved the [position-free sync contract](docs/specs/composition.md#sync-records-and-results) on 26 October 2026. Implementation and its coordinated caller/file scope remain pending.
 - **D24 defaults:** Measure work/output limits during composition implementation before integrating callers; [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
 - **Publication integration:** Private publication/cleanup is implemented; coordinated configuration, composition and public caller integration remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).

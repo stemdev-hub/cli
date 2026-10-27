@@ -4,13 +4,16 @@ import { createContext, runInContext } from 'node:vm';
 import { build } from 'esbuild';
 import { expect, it } from 'vitest';
 
-it('runs public analysis and the private scanner without Node globals or clock reads', async () => {
+it('runs public and replacement analysis without Node globals or clock reads', async () => {
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
   const bundle = await build({
     stdin: {
       contents: `
         export { analyzeProject, decodeExternalSnapshotEnvelope } from './index.ts';
         export { parse } from './parser/scanner.ts';
+        export * as blockAnalysis from './project/analysis.ts';
+        export * as blockSelection from './project/selection.ts';
+        export * as blockGraph from './graph/analysis.ts';
       `,
       resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
       loader: 'ts'
@@ -88,6 +91,26 @@ it('runs public analysis and the private scanner without Node globals or clock r
     sourceId: 'unsaved:portable', codes: ['DUPLICATE_TAG', 'MISSING_BLOCK_END'],
     target: { qualifier: 'lib', id: 'b' }, ending: 'ancestor', frozen: true
   });
+  const analyzed = runInContext(`(() => {
+    const local = {}, remote = {};
+    const result = portable.blockAnalysis.analyzeProject({ localInstance: local, instances: [
+      { handle: local, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:root)@stem:block(id:child tags:[guide])@stem:include(lib:item)@stem:end()@stem:end()@stem:block(id:unused)@stem:end()' }],
+        bindings: [{ alias: 'lib', target: remote }] },
+      { handle: remote, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:item)@stem:include(back:child)@stem:end()' }], bindings: [{ alias: 'back', target: local }] }
+    ], outputs: { complete: true, targets: [{ kind: 'block', reference: { id: 'root' } }] } });
+    const tagged = portable.blockSelection.findBlocksByTag(result, result.localInstance, 'guide');
+    const selected = portable.blockSelection.resolveBlockReference(result, result.localInstance, { qualifier: 'lib', id: 'item' });
+    return JSON.stringify({ nodes: result.graph.nodes.length, tags: tagged.blocks.map(node => node.id),
+      classificationComplete: tagged.classificationComplete, selected: selected.status,
+      cycles: portable.blockGraph.detectCycles(result.graph).length,
+      unused: result.outputUsage.blocks.map(node => node.id), complete: result.outputUsage.complete,
+      codes: result.diagnostics.map(diagnostic => diagnostic.code), frozen: Object.isFrozen(result.graph.nodes[0]) });
+  })()`, context, { timeout: 5000 }) as string;
+  expect(JSON.parse(analyzed)).toEqual({ nodes: 4, tags: ['child'], classificationComplete: true,
+    selected: 'resolved', cycles: 1, unused: ['unused'], complete: true,
+    codes: ['BLOCK_CYCLE', 'ORPHANED_BLOCK'], frozen: true });
 }, 30_000);
 
 it('bundles and executes the portable modules without Node dependencies or globals', async () => {
