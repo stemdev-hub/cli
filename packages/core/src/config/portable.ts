@@ -1,27 +1,20 @@
-import type { NamespaceConfig, StemConfig } from '../types/index.js';
+import type { NamespaceConfig, StemConfig } from '../types/config.js';
+
+import { normalizeOutputSets } from './outputs.js';
+import type { OutputSets } from './outputs.js';
 
 export interface PortableStemConfig {
-  projectId: string;
-  namespace?: string;
-  publishUrl?: string;
-  blocksDir: string;
-  viewsDir: string;
-  cacheDir: string;
-  namespaces: Record<string, NamespaceConfig>;
+  readonly projectId: string;
+  readonly namespace?: string;
+  readonly publishUrl?: string;
+  readonly blocksDir: string;
+  readonly outputSets: OutputSets;
+  readonly cacheDir: string;
+  readonly namespaces: Readonly<Record<string, NamespaceConfig>>;
 }
 
-export type ConfigErrorCode =
-  | 'CONFIG_NOT_FOUND'
-  | 'CONFIG_READ_FAILED'
-  | 'CONFIG_INVALID_JSON'
-  | 'CONFIG_INVALID_SCHEMA'
-  | 'CONFIG_INVALID_PATH';
-
-export interface ConfigError {
-  code: ConfigErrorCode;
-  message: string;
-  path: string;
-}
+export type { ConfigError, ConfigErrorCode } from '../types/config.js';
+import type { ConfigError } from '../types/config.js';
 
 export type ConfigResult<T> = { success: true; data: T } | { success: false; error: ConfigError };
 
@@ -29,12 +22,18 @@ export const STEM_CONFIG_FILE = '.stem/config.json';
 
 export const STEM_CONFIG_DEFAULTS = {
   blocksDir: 'blocks',
-  viewsDir: 'views',
   cacheDir: '.stem/cache'
 } as const;
 
-const CONFIG_PATH_FIELDS = ['blocksDir', 'viewsDir', 'cacheDir'] as const;
-const CONFIG_FIELDS = ['projectId', 'namespace', 'publishUrl', ...CONFIG_PATH_FIELDS, 'namespaces'];
+const CONFIG_PATH_FIELDS = ['blocksDir', 'cacheDir'] as const;
+const CONFIG_FIELDS = [
+  'projectId',
+  'namespace',
+  'publishUrl',
+  ...CONFIG_PATH_FIELDS,
+  'namespaces',
+  'outputSets'
+];
 const NAMESPACE_FIELDS = ['graphUrl', 'localPath'];
 
 type ConfigPathField = (typeof CONFIG_PATH_FIELDS)[number];
@@ -43,34 +42,50 @@ export function normalizeStemConfig(
   raw: Partial<StemConfig>,
   configPath: string
 ): ConfigResult<PortableStemConfig> {
+  if (!isPlainObject(raw))
+    return {
+      success: false,
+      error: {
+        code: 'CONFIG_INVALID_SCHEMA',
+        path: configPath,
+        message: 'Stem config must be a JSON object.'
+      }
+    };
   const schemaResult = validateRawConfig(raw, configPath);
   if (!schemaResult.success) {
     return schemaResult;
   }
 
-  if (typeof raw.projectId !== 'string' || raw.projectId.length !== 36
-    || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(raw.projectId)) {
+  if (
+    typeof raw.projectId !== 'string' ||
+    raw.projectId.length !== 36 ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(raw.projectId)
+  ) {
     return {
       success: false,
       error: {
         code: 'CONFIG_INVALID_SCHEMA',
-        message: 'Stem config field "projectId" is required and must be a lowercase hyphenated UUIDv4.',
+        message:
+          'Stem config field "projectId" is required and must be a lowercase hyphenated UUIDv4.',
         path: configPath
       }
     };
   }
 
-  const blocksDirResult = normalizeConfigPath(raw.blocksDir ?? STEM_CONFIG_DEFAULTS.blocksDir, 'blocksDir', configPath);
+  const blocksDirResult = normalizeConfigPath(
+    raw.blocksDir ?? STEM_CONFIG_DEFAULTS.blocksDir,
+    'blocksDir',
+    configPath
+  );
   if (!blocksDirResult.success) {
     return blocksDirResult;
   }
 
-  const viewsDirResult = normalizeConfigPath(raw.viewsDir ?? STEM_CONFIG_DEFAULTS.viewsDir, 'viewsDir', configPath);
-  if (!viewsDirResult.success) {
-    return viewsDirResult;
-  }
-
-  const cacheDirResult = normalizeConfigPath(raw.cacheDir ?? STEM_CONFIG_DEFAULTS.cacheDir, 'cacheDir', configPath);
+  const cacheDirResult = normalizeConfigPath(
+    raw.cacheDir ?? STEM_CONFIG_DEFAULTS.cacheDir,
+    'cacheDir',
+    configPath
+  );
   if (!cacheDirResult.success) {
     return cacheDirResult;
   }
@@ -79,6 +94,9 @@ export function normalizeStemConfig(
   if (!namespacesResult.success) {
     return namespacesResult;
   }
+
+  const outputs = normalizeOutputSets(raw.outputSets, blocksDirResult.data, configPath);
+  if (!outputs.success) return outputs;
 
   if (raw.namespace !== undefined) {
     const kebabCaseRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -106,19 +124,22 @@ export function normalizeStemConfig(
 
   return {
     success: true,
-    data: {
+    data: Object.freeze({
       projectId: raw.projectId,
       ...(raw.namespace !== undefined ? { namespace: raw.namespace } : {}),
       ...(raw.publishUrl !== undefined ? { publishUrl: raw.publishUrl } : {}),
       blocksDir: blocksDirResult.data,
-      viewsDir: viewsDirResult.data,
+      outputSets: outputs.data,
       cacheDir: cacheDirResult.data,
-      namespaces: namespacesResult.data
-    }
+      namespaces: Object.freeze(namespacesResult.data)
+    })
   };
 }
 
-export function parseConfigJson(content: string, configPath: string): ConfigResult<Partial<StemConfig>> {
+export function parseConfigJson(
+  content: string,
+  configPath: string
+): ConfigResult<Partial<StemConfig>> {
   try {
     const parsed: unknown = JSON.parse(content);
 
@@ -139,14 +160,20 @@ export function parseConfigJson(content: string, configPath: string): ConfigResu
       success: false,
       error: {
         code: 'CONFIG_INVALID_JSON',
-        message: error instanceof Error ? `Invalid Stem config JSON: ${error.message}` : 'Invalid Stem config JSON.',
+        message:
+          error instanceof Error
+            ? `Invalid Stem config JSON: ${error.message}`
+            : 'Invalid Stem config JSON.',
         path: configPath
       }
     };
   }
 }
 
-function validateRawConfig(raw: Partial<StemConfig>, configPath: string): ConfigResult<Partial<StemConfig>> {
+function validateRawConfig(
+  raw: Partial<StemConfig>,
+  configPath: string
+): ConfigResult<Partial<StemConfig>> {
   const fieldError = validateConfigFields(raw, CONFIG_FIELDS, configPath);
   if (fieldError !== undefined) return { success: false, error: fieldError };
 
@@ -187,7 +214,11 @@ function normalizeConfigPath(
   field: ConfigPathField,
   configFilePath: string
 ): ConfigResult<string> {
-  if (isAbsolutePath(configPathValue)) {
+  if (
+    isAbsolutePath(configPathValue) ||
+    /^[a-z][a-z\d+.-]*:/i.test(configPathValue) ||
+    configPathValue.includes('\0')
+  ) {
     return invalidPath(field, configPathValue, configFilePath, 'must be project-relative');
   }
 
@@ -197,7 +228,7 @@ function normalizeConfigPath(
     return invalidPath(field, configPathValue, configFilePath, 'must not contain ".."');
   }
 
-  const normalized = stripTrailingSlashes(stripLeadingDotSlash(withPosixSeparators));
+  const normalized = pathSegments.filter((segment) => segment !== '' && segment !== '.').join('/');
   if (normalized.length === 0 || normalized === '.') {
     return invalidPath(field, configPathValue, configFilePath, 'must not be empty');
   }
@@ -293,7 +324,7 @@ function validateAndNormalizeNamespaces(
         }
       };
     }
-    
+
     if (key.startsWith('stem-')) {
       return {
         success: false,
@@ -316,7 +347,12 @@ function validateAndNormalizeNamespaces(
       };
     }
 
-    const fieldError = validateConfigFields(value, NAMESPACE_FIELDS, configPath, `namespaces.${key}.`);
+    const fieldError = validateConfigFields(
+      value,
+      NAMESPACE_FIELDS,
+      configPath,
+      `namespaces.${key}.`
+    );
     if (fieldError !== undefined) return { success: false, error: fieldError };
 
     const { graphUrl, localPath } = value as Record<string, unknown>;
@@ -356,7 +392,7 @@ function validateAndNormalizeNamespaces(
           }
         };
       }
-      
+
       const localPathResult = normalizeNamespaceLocalPath(localPath, key, configPath);
       if (!localPathResult.success) {
         return { success: false, error: localPathResult.error };
@@ -364,10 +400,10 @@ function validateAndNormalizeNamespaces(
       normalizedLocalPath = localPathResult.data;
     }
 
-    result[key] = {
+    result[key] = Object.freeze({
       ...(graphUrl ? { graphUrl } : {}),
       ...(normalizedLocalPath ? { localPath: normalizedLocalPath } : {})
-    };
+    });
   }
 
   return { success: true, data: result };
@@ -392,7 +428,7 @@ function normalizeNamespaceLocalPath(
   const withPosixSeparators = localPathValue.replaceAll('\\', '/');
   const normalized = stripTrailingSlashes(stripLeadingDotSlash(withPosixSeparators));
   if (normalized.length === 0 || normalized === '.') {
-     return {
+    return {
       success: false,
       error: {
         code: 'CONFIG_INVALID_PATH',

@@ -1,25 +1,39 @@
+import { Option } from 'commander';
 import type { Command } from 'commander';
-import { createBlock, createGroup, createView } from '../../runtime/operations/create.js';
-import { reportCreateBlock, reportCreateGroup, reportCreateView } from '../output.js';
-
+import { createBlock } from '../../runtime/operations/create.js';
+import { reportMutation } from '../output.js';
 export function registerCreateCommand(program: Command): void {
-  const create = program.command('create').description('Create Stem blocks, views, and groups');
-
-  create
-    .command('block <name>')
-    .option('--tag <tag>')
-    .action(async (name: string, options: { tag?: string }) => {
-      reportCreateBlock(await createBlock(name, options.tag === undefined ? {} : { tag: options.tag }));
-    });
-
-  create
-    .command('view <name>')
-    .option('--group <group>')
-    .action(async (name: string, options: { group?: string }) => {
-      reportCreateView(await createView(name, options.group === undefined ? {} : { group: options.group }));
-    });
-
-  create.command('group <path>').action(async (groupPath: string) => {
-    reportCreateGroup(await createGroup(groupPath));
-  });
+  program
+    .command('create')
+    .description('Create authored Blocks')
+    .command('block <id>')
+    .addOption(new Option('--file <path>').conflicts('parent'))
+    .addOption(new Option('--parent <id>').conflicts('file'))
+    .option(
+      '--tag <tag>',
+      'Direct Tag; repeat to add more',
+      (value: string, previous: string[]) => [...previous, value],
+      []
+    )
+    .action(
+      async (
+        id: string,
+        options: { file?: string; parent?: string; tag: string[] },
+        command: Command
+      ) => {
+        if (options.file === undefined && options.parent === undefined) {
+          command.error('Exactly one of --file or --parent is required.');
+          return;
+        }
+        reportMutation(
+          await createBlock(id, {
+            destination:
+              options.file !== undefined
+                ? { kind: 'file', path: options.file }
+                : { kind: 'block', id: options.parent! },
+            tags: options.tag
+          })
+        );
+      }
+    );
 }

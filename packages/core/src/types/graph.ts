@@ -1,101 +1,77 @@
-import type { DependencyRef } from './block.js';
-
-export type NodeType = 'block' | 'view';
-
-export interface GraphNode {
-  id: string;
-  type: NodeType;
-  filePath: string;
-  relativePath: string;
-  tags: string[];
-  group: string | null;
-}
-
-export type EdgeType = 'view-uses-block' | 'block-depends-on';
-
-export interface GraphEdge {
-  type: EdgeType;
-  from: string;
-  to: string;
-  section: string | null;
-  tag: string | null;
-}
-
-export interface StemGraph {
-  nodes: Map<string, GraphNode>;
-  edges: GraphEdge[];
-  blockUsedInViews: Map<string, string[]>;
-  viewUsesBlocks: Map<string, string[]>;
-  blockDependsOn: Map<string, DependencyRef[]>;
-  blockDependents: Map<string, string[]>;
-}
-
+import { isBlockId, isTagName } from '../parser/grammar.js';
 export interface ExternalBlockEntry {
-  id: string;
-  tags: string[];
-  sections: Array<{ id: string; tags: string[] }>;
+  readonly id: string;
+  readonly tags: readonly string[];
 }
-
 export interface ExternalRenameEntry {
-  from: string;
-  to: string;
-  since: string;
+  readonly from: string;
+  readonly to: string;
+  readonly since: string;
 }
-
 export interface ExternalStemGraph {
-  version: string;
-  namespace: string;
-  publishedAt: string;
-  contentSha: string;
-  blocks: ExternalBlockEntry[];
-  renames: ExternalRenameEntry[];
+  readonly version: '2';
+  readonly projectId: string;
+  readonly namespace: string;
+  readonly publishedAt: string;
+  readonly contentSha: string;
+  readonly blocks: readonly ExternalBlockEntry[];
+  readonly renames: readonly ExternalRenameEntry[];
 }
-
 export interface ExternalSnapshotState {
-  graph: ExternalStemGraph;
-  fetchedAt: string;
-  isLocalFallback: boolean;
+  readonly graph: ExternalStemGraph;
+  readonly fetchedAt: string;
+  readonly isLocalFallback: boolean;
 }
-
+const record = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const keys = (value: Record<string, unknown>, names: readonly string[]) =>
+  Object.keys(value).length === names.length && names.every((name) => Object.hasOwn(value, name));
+/** Replacement shape only. Timestamp strings deliberately remain permissive. */
 export function isExternalStemGraphShape(value: unknown): value is ExternalStemGraph {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return false;
-  }
-  
-  const obj = value as Record<string, unknown>;
-  
   if (
-    typeof obj['version'] !== 'string' ||
-    typeof obj['namespace'] !== 'string' ||
-    typeof obj['publishedAt'] !== 'string' ||
-    typeof obj['contentSha'] !== 'string' ||
-    !Array.isArray(obj['blocks']) ||
-    !Array.isArray(obj['renames'])
-  ) {
+    !record(value) ||
+    !keys(value, [
+      'version',
+      'projectId',
+      'namespace',
+      'publishedAt',
+      'contentSha',
+      'blocks',
+      'renames'
+    ]) ||
+    value['version'] !== '2' ||
+    typeof value['projectId'] !== 'string' ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      value['projectId']
+    ) ||
+    value['projectId'].length !== 36 ||
+    typeof value['namespace'] !== 'string' ||
+    typeof value['publishedAt'] !== 'string' ||
+    typeof value['contentSha'] !== 'string' ||
+    !Array.isArray(value['blocks']) ||
+    !Array.isArray(value['renames'])
+  )
     return false;
+  const ids = new Set<string>();
+  for (const block of value['blocks'] as unknown[]) {
+    if (
+      !record(block) ||
+      !keys(block, ['id', 'tags']) ||
+      typeof block['id'] !== 'string' ||
+      !isBlockId(block['id']) ||
+      ids.has(block['id']) ||
+      !Array.isArray(block['tags']) ||
+      !(block['tags'] as unknown[]).every((tag) => typeof tag === 'string' && isTagName(tag))
+    )
+      return false;
+    ids.add(block['id']);
   }
-
-  const blocksValid = obj['blocks'].every((block: unknown) => {
-    if (typeof block !== 'object' || block === null || Array.isArray(block)) return false;
-    const b = block as Record<string, unknown>;
-    if (typeof b['id'] !== 'string') return false;
-    if (!Array.isArray(b['tags']) || !b['tags'].every((t) => typeof t === 'string')) return false;
-    if (!Array.isArray(b['sections'])) return false;
-    
-    return b['sections'].every((sec: unknown) => {
-      if (typeof sec !== 'object' || sec === null || Array.isArray(sec)) return false;
-      const s = sec as Record<string, unknown>;
-      return typeof s['id'] === 'string' && Array.isArray(s['tags']) && s['tags'].every((t) => typeof t === 'string');
-    });
-  });
-
-  if (!blocksValid) return false;
-
-  const renamesValid = obj['renames'].every((rename: unknown) => {
-    if (typeof rename !== 'object' || rename === null || Array.isArray(rename)) return false;
-    const r = rename as Record<string, unknown>;
-    return typeof r['from'] === 'string' && typeof r['to'] === 'string' && typeof r['since'] === 'string';
-  });
-
-  return renamesValid;
+  return (value['renames'] as unknown[]).every(
+    (rename) =>
+      record(rename) &&
+      keys(rename, ['from', 'to', 'since']) &&
+      typeof rename['from'] === 'string' &&
+      typeof rename['to'] === 'string' &&
+      typeof rename['since'] === 'string'
+  );
 }

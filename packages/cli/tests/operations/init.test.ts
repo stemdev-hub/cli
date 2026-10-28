@@ -40,20 +40,27 @@ describe('initProject', () => {
     if (result.success) {
       expect(result.data).toEqual({
         projectRoot: testRoot,
-        blocksDir: path.join(testRoot, 'blocks'),
-        viewsDir: path.join(testRoot, 'views')
+        blocksDir: path.join(testRoot, 'blocks')
       });
     }
 
     await expect(readJson(path.join(testRoot, '.stem/config.json'))).resolves.toEqual({
-      projectId: expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/) as unknown,
+      projectId: expect.stringMatching(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      ) as unknown,
       blocksDir: 'blocks',
-      viewsDir: 'views',
+
       cacheDir: '.stem/cache'
     });
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
-    await expect(readFile(path.join(testRoot, '.gitignore'), 'utf8')).resolves.toBe('.stem/cache/\nrendered/\n');
+    await expect(
+      readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(
+      readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(path.join(testRoot, '.gitignore'), 'utf8')).resolves.toBe(
+      '.stem/cache/\n'
+    );
   });
 
   it('returns a conflict when config already exists without force', async () => {
@@ -76,15 +83,25 @@ describe('initProject', () => {
     await writeFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'custom adr schema\n', 'utf8');
     if (force) {
       await mkdir(path.join(testRoot, '.stem'), { recursive: true });
-      await writeFile(path.join(testRoot, '.stem/config.json'), JSON.stringify({ projectId }), 'utf8');
+      await writeFile(
+        path.join(testRoot, '.stem/config.json'),
+        JSON.stringify({ projectId }),
+        'utf8'
+      );
     }
 
     const result = await initProject({ startDir: testRoot, force });
 
     expect(result.success).toBe(true);
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toBe('custom api schema\n');
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')).resolves.toBe('custom adr schema\n');
-    expect(await readJson(path.join(testRoot, '.stem/config.json'))).not.toHaveProperty('schemasDir');
+    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toBe(
+      'custom api schema\n'
+    );
+    await expect(readFile(path.join(testRoot, 'blocks/schemas/adr.yaml'), 'utf8')).resolves.toBe(
+      'custom adr schema\n'
+    );
+    expect(await readJson(path.join(testRoot, '.stem/config.json'))).not.toHaveProperty(
+      'schemasDir'
+    );
   });
 
   it('adds the cache entry to an existing gitignore without duplicating it', async () => {
@@ -94,7 +111,7 @@ describe('initProject', () => {
     await initProject({ startDir: testRoot, force: true });
 
     await expect(readFile(path.join(testRoot, '.gitignore'), 'utf8')).resolves.toBe(
-      'node_modules\n.stem/cache/\nrendered/\n'
+      'node_modules\n.stem/cache/\n'
     );
   });
 
@@ -117,47 +134,82 @@ describe('initProject', () => {
 
 describe('identity lifecycle', () => {
   let root: string;
-  beforeEach(async () => { vi.resetAllMocks(); root = await mkdtemp(path.join(tmpdir(), 'stem-identity-')); });
-  afterEach(async () => { await rm(root, { recursive: true, force: true }); });
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    root = await mkdtemp(path.join(tmpdir(), 'stem-identity-'));
+  });
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
 
   it('preserves config bytes on repeat and force, honoring configured paths', async () => {
     await mkdir(path.join(root, '.stem'));
     const configPath = path.join(root, '.stem/config.json');
-    const content = JSON.stringify({ projectId, blocksDir: 'custom/blocks', viewsDir: 'custom/views',
-      cacheDir: '.stem/state', namespace: 'docs', namespaces: { shared: { localPath: '../shared' } } }, null, 4) + '\n';
+    const content =
+      JSON.stringify(
+        {
+          projectId,
+          blocksDir: 'custom/blocks',
+          cacheDir: '.stem/state',
+          namespace: 'docs',
+          namespaces: { shared: { localPath: '../shared' } }
+        },
+        null,
+        4
+      ) + '\n';
     await writeFile(configPath, content);
-    expect(await initProject({ startDir: root })).toMatchObject({ success: false, error: { code: 'CONFLICT' } });
+    expect(await initProject({ startDir: root })).toMatchObject({
+      success: false,
+      error: { code: 'CONFLICT' }
+    });
     expect(await readdir(root)).toEqual(['.stem']);
-    expect(await initProject({ startDir: root, force: true })).toMatchObject({ success: true, data: {
-      blocksDir: path.join(root, 'custom/blocks'), viewsDir: path.join(root, 'custom/views')
-    } });
+    expect(await initProject({ startDir: root, force: true })).toMatchObject({
+      success: true,
+      data: {
+        blocksDir: path.join(root, 'custom/blocks')
+      }
+    });
     expect(await readFile(configPath, 'utf8')).toBe(content);
-    expect(await readFile(path.join(root, '.gitignore'), 'utf8')).toBe('.stem/state/\nrendered/\n');
+    expect(await readFile(path.join(root, '.gitignore'), 'utf8')).toBe('.stem/state/\n');
     vi.mocked(randomUUID).mockClear();
     expect((await initProject({ startDir: root, force: true })).success).toBe(true);
     expect(randomUUID).not.toHaveBeenCalled();
     expect(await readFile(configPath, 'utf8')).toBe(content);
   });
 
-  it.each([false, true])('rejects existing invalid config before writes (force=%s)', async (force) => {
-    await mkdir(path.join(root, '.stem'));
-    const configPath = path.join(root, '.stem/config.json');
-    for (const content of ['{}', '{"projectId":"bad"}', '{ broken', '[]',
-      JSON.stringify({ projectId, version: '1' }), JSON.stringify({ projectId, schemasDir: 'schemas' })]) {
-      await writeFile(configPath, content);
-      expect(await initProject({ startDir: root, force })).toMatchObject({ success: false, error: { code: 'CONFIG_ERROR' } });
-      expect(await readFile(configPath, 'utf8')).toBe(content);
+  it.each([false, true])(
+    'rejects existing invalid config before writes (force=%s)',
+    async (force) => {
+      await mkdir(path.join(root, '.stem'));
+      const configPath = path.join(root, '.stem/config.json');
+      for (const content of [
+        '{}',
+        '{"projectId":"bad"}',
+        '{ broken',
+        '[]',
+        JSON.stringify({ projectId, version: '1' }),
+        JSON.stringify({ projectId, schemasDir: 'schemas' })
+      ]) {
+        await writeFile(configPath, content);
+        expect(await initProject({ startDir: root, force })).toMatchObject({
+          success: false,
+          error: { code: 'CONFIG_ERROR' }
+        });
+        expect(await readFile(configPath, 'utf8')).toBe(content);
+      }
+      expect(await readdir(root)).toEqual(['.stem']);
+      expect(writer.writeFile).not.toHaveBeenCalled();
+      expect(writer.ensureDir).not.toHaveBeenCalled();
+      expect(randomUUID).not.toHaveBeenCalled();
     }
-    expect(await readdir(root)).toEqual(['.stem']);
-    expect(writer.writeFile).not.toHaveBeenCalled();
-    expect(writer.ensureDir).not.toHaveBeenCalled();
-    expect(randomUUID).not.toHaveBeenCalled();
-  });
+  );
 
   it('rejects unreadable configuration before creating scaffolding', async () => {
     await mkdir(path.join(root, '.stem/config.json'), { recursive: true });
-    expect(await initProject({ startDir: root, force: true })).toMatchObject({ success: false,
-      error: { code: 'CONFIG_ERROR', cause: { code: 'CONFIG_READ_FAILED' } } });
+    expect(await initProject({ startDir: root, force: true })).toMatchObject({
+      success: false,
+      error: { code: 'CONFIG_ERROR', cause: { code: 'CONFIG_READ_FAILED' } }
+    });
     expect(writer.writeFile).not.toHaveBeenCalled();
     expect(writer.ensureDir).not.toHaveBeenCalled();
     expect(randomUUID).not.toHaveBeenCalled();
@@ -197,33 +249,60 @@ describe('identity lifecycle', () => {
       await writeFile(file, content);
       return actual.writeFile(file, candidate, options);
     });
-    expect(await initProject({ startDir: root, force })).toMatchObject({ success: false, error: { code: 'CONFLICT' } });
+    expect(await initProject({ startDir: root, force })).toMatchObject({
+      success: false,
+      error: { code: 'CONFLICT' }
+    });
     expect(await readFile(path.join(root, '.stem/config.json'), 'utf8')).toBe(content);
     expect(await readdir(path.join(root, '.stem'))).toEqual(['config.json']);
     expect(writer.ensureDir).not.toHaveBeenCalled();
   });
 
   it('reports generation failure without writes', async () => {
-    vi.mocked(randomUUID).mockImplementationOnce(() => { throw new Error('entropy unavailable'); });
-    expect(await initProject({ startDir: root })).toMatchObject({ success: false, error: { code: 'FS_ERROR' } });
+    vi.mocked(randomUUID).mockImplementationOnce(() => {
+      throw new Error('entropy unavailable');
+    });
+    expect(await initProject({ startDir: root })).toMatchObject({
+      success: false,
+      error: { code: 'FS_ERROR' }
+    });
     expect(await readdir(root)).toEqual([]);
     expect(writer.writeFile).not.toHaveBeenCalled();
   });
 
   it('reports failed configuration publication and establishes no identity', async () => {
-    vi.mocked(writer.writeFile).mockResolvedValueOnce({ success: false, error: {
-      code: 'WRITE_FAILED', message: 'failed publication', path: path.join(root, '.stem/config.json')
-    } });
-    expect(await initProject({ startDir: root })).toMatchObject({ success: false, error: { code: 'FS_ERROR' } });
-    expect(await loadStemConfig(root)).toMatchObject({ success: false, error: { code: 'CONFIG_NOT_FOUND' } });
+    vi.mocked(writer.writeFile).mockResolvedValueOnce({
+      success: false,
+      error: {
+        code: 'WRITE_FAILED',
+        message: 'failed publication',
+        path: path.join(root, '.stem/config.json')
+      }
+    });
+    expect(await initProject({ startDir: root })).toMatchObject({
+      success: false,
+      error: { code: 'FS_ERROR' }
+    });
+    expect(await loadStemConfig(root)).toMatchObject({
+      success: false,
+      error: { code: 'CONFIG_NOT_FOUND' }
+    });
     expect(writer.ensureDir).not.toHaveBeenCalled();
   });
 
   it('preserves established identity when scaffolding fails and is retried', async () => {
-    vi.mocked(writer.ensureDir).mockResolvedValueOnce({ success: false, error: {
-      code: 'WRITE_FAILED', message: 'failed scaffold', path: root
-    } });
-    expect(await initProject({ startDir: root })).toMatchObject({ success: false, error: { code: 'FS_ERROR' } });
+    vi.mocked(writer.ensureDir).mockResolvedValueOnce({
+      success: false,
+      error: {
+        code: 'WRITE_FAILED',
+        message: 'failed scaffold',
+        path: root
+      }
+    });
+    expect(await initProject({ startDir: root })).toMatchObject({
+      success: false,
+      error: { code: 'FS_ERROR' }
+    });
     const configPath = path.join(root, '.stem/config.json');
     const content = await readFile(configPath, 'utf8');
     expect((await loadStemConfig(root)).success).toBe(true);

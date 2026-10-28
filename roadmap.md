@@ -6,14 +6,8 @@ The sole active/deferred work register. [Governance](docs/governance.md) owns ch
 
 ### R00: Establish which status items block implementation
 
-State: awaiting owner decisions; distribution not applicable.
-
-- Tag-only selection without a section remains an observed limitation; see the [current reference](docs/reference.md#references-and-selection).
-- Namespace identity in graph/rendering and the three legacy meanings of “tag” remain unresolved design questions. No tags-to-labels rename is approved. See [namespace work](#remaining-namespace-issues).
-- Current transclusion depth/cycle policy remains unresolved; accepted Pure Block rules do not establish current behavior.
-- The owner's previous extension-remediation gate waiver remains evidence in [historical R01](docs/history/2026-10-repository-audit.md#r01-use-core-semantics-when-opening-a-view-preview); it is not a general implementation waiver.
-
-Acceptance: owner disposes of the remaining policy/gate questions. See [prior corrections](docs/history/2026-10-repository-audit.md#assessment-corrections) and [resolved decisions](docs/history/2026-10-repository-audit.md#follow-up-corrections-20-october-2026).
+State: legacy policy questions resolved by the accepted Pure Block contracts and ADR-0011.
+Current integration acceptance is tracked [below](#integration-acceptance); deferred connection mechanics remain separate.
 
 ## Repository remediation
 
@@ -33,13 +27,13 @@ Separate serializers and automated coverage are recorded in [historical R02](doc
 
 State: investigation complete; bounded follow-up work remains. Distribution: consumer exposure unverified.
 
-The [11 October investigation](docs/history/2026-10-repository-audit.md#r05-determine-the-smallest-justified-advisory-remediation) preserves its exact environment, reachability evidence and limitations. Current lockfile observation: `js-yaml@3.15.2` is already present after the dependency update; the old lock-refresh proposal is no longer an active task. This is not a fresh security audit or proof of published-consumer remediation.
+The [11 October investigation](docs/history/2026-10-repository-audit.md#r05-determine-the-smallest-justified-advisory-remediation) preserves its exact environment, reachability evidence and limitations. The old lock-refresh proposal is no longer active; public Pure Block integration removes the obsolete parser dependency chain from the workspace lockfile. This is not a fresh security audit or proof of published-consumer remediation.
 
 Remaining selection:
 
 - The identified schema-path glob is removed by [Tag-schema retirement](#d23-schemas-structural-validation-and-templates); that specific follow-up no longer applies. This is not a new dependency advisory audit.
 - Reassess production advisories in the exact selected packed consumer before a release.
-- Gray-matter removal or a scanner replacement needs a bounded proposal justified by actual behavior/API effects; no removal is authorized here.
+- Obsolete parser dependencies are removed by the approved public Pure Block integration; this is not a new advisory audit.
 
 Acceptance: record current reproduction, chosen smallest scope, targeted checks and consumer evidence. Reconsider when selecting dependency remediation or a release candidate.
 
@@ -59,161 +53,67 @@ Select exact artifacts and obtain separate release authorization where publishin
 
 State: deferred design/implementation work under Remediation D07; trigger: selection of namespace/snapshot or Pure Block connection work.
 
-The local external-snapshot producer is absent; internal `graph.json` and external `stem-graph.json` are different formats. CLI/editor loading policy remains duplicated. Current graph/rendering identity does not consistently retain namespace context. External snapshot exports are provisional; stricter `fetchedAt` validation would change behavior preserved by ADR-0004. Follow accepted ADR-0007 for project connections and resolve the selected slice's open mechanics before implementation; acceptance does not replace the retained external-snapshot contract. [Current reference](docs/reference.md#namespace-snapshots) owns observable limitations.
+The local external-snapshot producer is absent; internal `graph.json` and external `stem-graph.json` are different formats. CLI/editor loading policy remains duplicated. Core evaluation retains supplied instance context; adapters do not yet resolve authored connection sources. External snapshot exports are provisional; stricter `fetchedAt` validation would change behavior preserved by ADR-0004. Follow accepted ADR-0007 for project connections and resolve the selected slice's open mechanics before implementation; acceptance does not replace the retained external-snapshot contract. [Current reference](docs/reference.md#namespace-snapshots) owns observable limitations.
 
 ## Pure Block migration
 
-State: design accepted; coordinated parser/model, composition and adapter replacement remains pending.
-Shared cycle tracking, Tag-schema retirement, safe file writing and durable project identity are
-implemented and locally verified. Host/consumer/distribution gaps remain under R01, R02 and R10.
-[Architecture](docs/architecture.md#proposed-pure-block-design) maps the contracts; the
-[checkpoint record](docs/history/2026-10-pure-block-checkpoints.md) preserves acceptance and verification evidence.
+State: coordinated public integration implemented and verified in the working tree; ready for owner-authorized commit.
+[ADR-0011](docs/decisions/0011-public-pure-block-integration.md) records the approved public boundary.
+[Architecture](docs/architecture.md#pure-block-design) maps contracts and implementation.
+[Private checkpoint evidence](docs/history/2026-10-pure-block-checkpoints.md) remains historical.
 
 ### Documentation and decision review
 
-ADR-0005, ADR-0007 and all four specifications were accepted at `a56203e` on 23 October 2026.
-Later approved refinements are recorded in [history](docs/history/2026-10-pure-block-checkpoints.md#acceptance-and-scope).
-The [decision map](docs/architecture.md#current-decision-applicability) owns applicability;
-[R00](#r00-establish-which-status-items-block-implementation) retains unresolved legacy policy questions.
+ADR-0005/0007 and four specifications were accepted at `a56203e`; later owner-approved
+refinements govern identity, authoring, queries, composition and output publication. Public integration
+updates current guides and generated declarations with runtime behavior. Accepted ADR bodies remain
+unchanged. The [decision map](docs/architecture.md#current-decision-applicability) owns applicability.
 
-### Pure Block decisions to finalize
+### Integration acceptance
 
-Select the next bounded implementation scope from the [open work](#pure-block-open-and-deferred-work).
-Resolve remaining declarations against their callers without reopening agreed names or behavior.
-Replacement must preserve useful authoring, checking/listing, sync, rendering and CLI/MCP/editor
-preview workflows. Retain graph construction, validation and cycle detection responsibilities;
-retire only accepted concepts. Do not integrate a parser-only switch with broken callers,
-compatibility aliases, legacy-cache reconstruction or withdrawn rendering.
-
-### Parser and model contract checkpoint
-
-Contracts and the private scanner, analysis/selection/graph and composition are complete; public replacement is pending. Follow the [parser contract](docs/specs/stem-syntax.md#parser-contract),
-[analysis/editing contracts](docs/specs/block-model.md#project-analysis) and
-[supplied context](docs/specs/project-connections.md#supplied-evaluation-context).
-The approved core inventory remains active below; it does not cover the still-unplanned adapter changes.
-Paths are relative to `packages/core/`:
-
-| Action                                                    | Files                                                                                                                                                                                                                                     |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Replace parser/model declarations and entry               | `src/parser/index.ts`, `src/types/ast.ts`, `src/types/block.ts`, `src/types/validation.ts`, `src/types/graph.ts`, `src/types/index.ts`, `src/index.ts`                                                                                    |
-| Replace semantic analysis and graph callers               | `src/project/types.ts`, `src/project/index.ts`, `src/graph/builder.ts`, `src/graph/types.ts`, `src/graph/traverser.ts`, `src/validator/rules.ts`                                                                                          |
-| Update existing acceptance coverage                       | `tests/parser/index.test.ts`, `tests/project/analyze.test.ts`, `tests/graph/builder.test.ts`, `tests/graph/traverser.test.ts`, `tests/validator/rules.test.ts`, `tests/portability/portability.test.ts`                                   |
-| Remove after caller replacement                           | `src/parser/frontmatter.ts`, `src/parser/stem-plugin.ts`, `src/parser/two-pass.ts`, `src/types/view.ts`, `src/types/position.ts`, `tests/parser/frontmatter.test.ts`, `tests/parser/stem-plugin.test.ts`, `tests/parser/two-pass.test.ts` |
-| Private scanner stage complete | `src/parser/scanner.ts`, `src/parser/syntax.ts`, `tests/parser/scanner.test.ts` |
-| Private analysis/selection/graph stage | `src/project/model.ts`, `src/project/analysis.ts`, `src/project/selection.ts`, `src/graph/analysis.ts`, `tests/project/analysis.test.ts`, `tests/project/selection.test.ts`, `tests/graph/analysis.test.ts` |
-| Private composition stage | `src/renderer/compose.ts`, `tests/renderer/compose.test.ts` |
-
-Composition is staged beside the active renderer; retire `src/renderer/index.ts` and replace its
-legacy tests during coordinated public integration. These private stages form a working replacement.
-Use specification examples and integration cases for deep traversal,
-instance-aware identity/cycles, safe edits, diagnostic scope and rejection of stale editor results.
-Run targeted checks per stage and the full workspace/artifact profile before integration is ready.
-
-Scanner checkpoint: `ba91d77`; analysis/selection/graph checkpoint: `d78e1aa`. Next: bound coordinated
-public caller integration; connection storage and transport remain a separate scope.
-
-### Shared file-writer prerequisite
-
-Complete in `cdd1389`. Reuse the writer under its [documented guarantees](docs/architecture.md#nodejs-adapters);
-publication ownership and coordination remain separate work. [Verification evidence](docs/history/2026-10-pure-block-checkpoints.md#verification-evidence).
-
-### Composition and adapter contract checkpoint
-
-Core composition contracts are recorded in `72b3862`; private composition is implemented and public
-replacement remains pending. The
-[composition specification](docs/specs/composition.md#composition-invocation) owns inputs, results,
-budgets and [preview/output separation](docs/specs/composition.md#preview-and-output-adapters).
-The owner approved the preview/stdout/MCP refinements on 25 October 2026; preserve these contracts
-in the coordinated implementation scope:
-
-| Caller                                        | Replacement                                                                                                 |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Core `renderViewMarkdown()` and both branches | One `compose()` implementation.                                                                             |
-| CLI `previewView()`                           | `previewSource()` with explicit Block/file selector and separate content/diagnostics.                       |
-| CLI `renderView()` / `renderAll()`            | `renderOutputs()` under the [publication contract](docs/specs/composition.md#publication-result-reporting). |
-| Editor `stem.previewToSide`                   | Retain command; compose active source and unsaved content without a frontmatter ID.                         |
-| MCP View composition                          | Read-only `preview_source` under the [MCP contract](docs/specs/composition.md#mcp-preview).                  |
-| Cached parsed Block/View reconstruction       | Fresh source analysis; remove `ZERO_POSITION` reconstruction.                                               |
-
-Private composition is complete in `0259412`. The reproducible measurement cases live in
-`packages/core/tests/renderer/compose.test.ts` (set `STEM_COMPOSITION_MEASURE=1` and run Vitest with
-`--silent=false`). They exercise 12,000-deep containment/inclusion, empty branching and 16 MiB output;
-timing is reported, never an acceptance threshold. Shared adapter defaults remain unselected.
-The owner approved the five-file private output-configuration scope on 27 October 2026.
-`packages/core/src/config/outputs.ts` and `packages/core/tests/config/outputs.test.ts` implement and verify
-readonly output sets, strict fields/policies and portable path validation. Public configuration,
-source discovery and caller integration remain pending; the active reader still rejects `outputSets`.
-Local verification: the full repository profile passed, including 1,220 workspace tests (102 new
-configuration tests), browser/worker portability, built CLI smoke and 11 documentation tests.
-Keep ADR-0004's external-snapshot decoder
-boundaries and implement the [external metadata projection](docs/specs/project-connections.md#external-metadata-projection) with coordinated producers and consumers.
-
-### Durable project identity checkpoint
-
-Complete in `225fdc8`, following documentation commit `32fbf66` and ADR-0010. The
-[identity lifecycle](docs/specs/project-connections.md#project-identity-configuration) is now available
-for later connection checks and producer-owned publication. [Verification evidence](docs/history/2026-10-pure-block-checkpoints.md#verification-evidence).
-
-### Publication bookkeeping and coordination checkpoint
-
-Private publication, tracking, coordination and cleanup are implemented; public integration remains pending. The specification owns
-[manifest encoding/validation](docs/specs/composition.md#manifest-encoding-and-validation),
-[local coordination](docs/specs/composition.md#local-writer-coordination) and
-[cleanup](docs/specs/composition.md#obsolete-output-cleanup). No new ADR or protected-file edit is required
-for these refinements of ADR-0005.
-
-Foundation helpers are complete in `7f06f08`; publication contracts are recorded in `079082d`.
-The owner approved the eight-file private coordinator/cleanup scope on 26 October 2026 against
-`d0b4f99`. It consumes prepared content and supplied protections, with no command, public export
-or legacy-rendering bridge. [Selection](docs/specs/composition.md#publication-selection-and-commands),
-[results](docs/specs/composition.md#publication-result-reporting) and
-[explicit cleanup](docs/specs/composition.md#explicit-cleanup-command) remain the owning contracts.
-Next: bound the public integration file scope alongside parser/composition and adapter replacement,
-with measured limits; preserve working workflows until coordinated integration.
-
-Local verification on 26 October 2026: the full workspace profile passed, including 892 workspace
-tests (144 output tests, 63 new) and 11 documentation tests. Coverage includes the run-wide pruning gate,
-root aliases/ownership, real process contention, late failures and write-free cleanup assessment.
-Public integration must verify configuration/selection/composition and command result mapping;
-preserve current rendering until coordinated replacement supplies the complete workflow.
-
-### Migration sequence
-
-1. Finalize the remaining caller declarations, edit inventories and publication scope listed below.
-2. Select shared limits from the private composition measurements before user-facing integration.
-3. Coordinate adapter replacement with working file export, manifest tracking and then selective cleanup. Update current guides and generated declarations with runtime behavior; preserve authored View files under the source-transition contract.
-4. Plan connection resolution separately under ADR-0007, resolving storage and transport before implementing those interfaces.
+Verified on 28 October 2026, Windows/Node 26.12.1, against `2aa87e6` plus the approved working-tree scope:
+build, typecheck, lint, 931 workspace tests (476 core, 331 CLI, 124 editor), dependency boundaries,
+built-CLI smoke, documentation budgets, 11 documentation tests, executable examples, generated-reference
+freshness and whitespace checks. Packed core checks, exact-tarball consumer workflows and bundled VSIX
+inspection passed. [Verification procedure](CONTRIBUTING.md#verification) owns commands; source tests
+own reproducible cases. Real-host acceptance remains under R01/R02 and distribution under R10.
 
 ### D15. Dependency review
 
-Deferred entirely from this migration. Reconsider when users need a signal that changed content may
-require review of dependent authored material. Such a signal inserts no content, permits cycles and
-does not itself make content incomplete or invalid. Missing targets are reported without rewriting
-content. Required composition refresh remains governed by [D16](docs/specs/composition.md#d16-affected-results).
+Deferred. Reconsider when authors need a signal that changed content may require dependent-content
+review. Such a signal inserts no content, permits cycles and does not itself invalidate composition.
+Required refresh remains governed by [D16](docs/specs/composition.md#d16-affected-results).
 
 ### D23. Schemas, structural validation, and templates
 
-Tag-schema retirement and generic unknown-field validation are complete in `d775326` under the
-[D23 transition contract](docs/specs/block-model.md#d23-schema-retirement-transition).
-[Verification evidence](docs/history/2026-10-pure-block-checkpoints.md#verification-evidence) is historical.
-Replacement schemas, structural validation and templates remain deferred; reconsider for a concrete
-validation/authoring need, including their relationship to Tags. ADR-0004's external-snapshot contract remains binding.
+Tag-schema retirement is complete under the [transition contract](docs/specs/block-model.md#d23-schema-retirement-transition).
+Replacement schemas/templates remain deferred until a concrete authoring or validation need appears.
 
 ### Pure Block open and deferred work
 
-- **Adapter integration:** Concrete operation declarations and coordinated edit scopes remain open. Initially use fresh parsing and no composition cache; later caching must satisfy the specification's invariance rules.
-- **Authoring callers:** The owner approved [creation, inclusion insertion, deletion, rename and failure handling](docs/specs/block-model.md#authoring-operations-and-destinations), with [output-selector effects](docs/specs/composition.md#output-selectors-during-authoring) and initialization refinements, on 26 October 2026. Coordinated implementation remains pending.
-- **Read-only callers:** The owner approved [listing, reference lookup, checking and Block source retrieval](docs/specs/block-model.md#read-only-cli-and-mcp-queries), plus [output discovery](docs/specs/composition.md#output-discovery), on 26 October 2026. Coordinated runtime integration remains pending.
-- **External metadata:** The owner directed the ADR-0005 amendment on 26 October 2026. The [Block-only projection contract](docs/specs/project-connections.md#external-metadata-projection) is recorded; concrete declarations and coordinated producer/consumer implementation scope remain pending.
-- **Output-usage warnings:** Private graph assessment implements the approved [configured-output reachability warnings](docs/specs/block-model.md#blocks-outside-configured-outputs). Supplying all configured roots and exposing results through public callers await coordinated integration.
-- **Sync replacement:** The owner approved the [position-free sync contract](docs/specs/composition.md#sync-records-and-results) on 26 October 2026. Implementation and its coordinated caller/file scope remain pending.
-- **D24 defaults:** Select shared caller limits using the [composition measurements](#composition-and-adapter-contract-checkpoint); [D24](docs/specs/composition.md#d24-resource-budgets) owns budget behavior.
-- **Publication integration:** Private publication/cleanup is implemented; coordinated configuration, composition and public caller integration remain open in the [bookkeeping checkpoint](#publication-bookkeeping-and-coordination-checkpoint).
-- **D5 mechanics:** Connection IDs/generation, source-binding serialization, resolved-instance representation, Git transport syntax and remote-content storage remain open. Follow the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle) when selecting that slice; project identity is complete.
-- **D5 deferred features:** Machine-local path overrides, nested-dependency overrides, connection-following mechanisms and background/time-based refresh remain deferred until a concrete workflow requires them.
-- **Output extensions:** Per-target policy overrides, asset copying/link rewriting, partial-file generation and distributed coordination remain outside the initial contract; reconsider for demonstrated consumer needs.
-- **D27 shorthand and formatter:** Defer shorthand until demonstrated demand and formatting until a concrete authoring need; neither blocks parsing, validation or export.
-- Dependency review and replacement validation/templates remain tracked only in D15 and D23 above.
+- **D5 mechanics:** Connection storage/serialization, connection IDs, resolved revisions, Git transport
+  and remote-source storage remain separate work under the [connection lifecycle](docs/specs/project-connections.md#connection-lifecycle).
+  Supplied source contexts and metadata exchange do not implement those mechanics.
+- **D5 extensions:** Machine-local and nested-dependency overrides, following mechanisms and background
+  refresh remain deferred until a demonstrated workflow requires them.
+- **Composition caching:** Fresh analysis is the current strategy. Any later cache must satisfy
+  [invariance](docs/specs/composition.md#d18-disposable-computation-caches), including budgets and diagnostics.
+- **Output extensions:** Per-target policies, asset rewriting/copying, partial-file generation and
+  distributed coordination remain outside the initial contract.
+- **D27 shorthand and formatter:** Deferred until demonstrated demand or a concrete authoring need.
+- Host/consumer/distribution acceptance stays under R01, R02 and R10; namespace producer work stays
+  in [remaining namespace issues](#remaining-namespace-issues).
+
+<a id="pure-block-decisions-to-finalize"></a>
+<a id="parser-and-model-contract-checkpoint"></a>
+<a id="shared-file-writer-prerequisite"></a>
+<a id="composition-and-adapter-contract-checkpoint"></a>
+<a id="durable-project-identity-checkpoint"></a>
+<a id="publication-bookkeeping-and-coordination-checkpoint"></a>
+<a id="migration-sequence"></a>
+
+Former checkpoints: [contract/code map](docs/architecture.md#pure-block-design),
+[private verification evidence](docs/history/2026-10-pure-block-checkpoints.md).
 
 ## Deferred and rejected suggestions
 
@@ -264,7 +164,7 @@ The documentation migration is recorded in [dated verification evidence](docs/hi
 
 ### Human decisions
 
-Resolve the remaining R00 questions, slice-specific open mechanics, and the private reporting route independently. Product ADR-0005/0007 and their specifications are accepted as recorded above. No publication or runtime change is authorized by this roadmap.
+Resolve deferred connection mechanics and the private reporting route independently. Product ADR-0005/0007 and their specifications are accepted as recorded above. No publication or runtime change is authorized by this roadmap.
 
 ## Historical navigation
 

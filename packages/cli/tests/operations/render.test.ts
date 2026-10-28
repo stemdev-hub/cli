@@ -1,154 +1,105 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import * as fs from 'node:fs/promises';
 import path from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { renderAll, renderView } from '../../src/runtime/operations/render.js';
-
-let testRoot: string;
-
-describe('render operations', () => {
-  beforeEach(async () => {
-    testRoot = path.join(tmpdir(), `stem-render-${randomUUID()}`);
-    await mkdir(testRoot, { recursive: true });
-    await createStemProject(testRoot);
-  });
-
-  afterEach(async () => {
-    await rm(testRoot, { recursive: true, force: true });
-  });
-
-  it('renders one view to the default rendered directory', async () => {
-    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth content.\n');
-    await writeProjectFile('views/api.md', '---\nid: api-view\ngroup: backend\n---\n# API\n\n@stem[block:auth]\n');
-
-    const result = await renderView('api-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: {
-        total: 1,
-        outDir: 'rendered',
-        views: [{ id: 'api-view', outputRelativePath: 'rendered/api.md', markdown: null }]
-      }
-    });
-    await expect(readProjectFile('rendered/api.md')).resolves.toBe(
-      '---\nid: api-view\ngroup: backend\n---\n# API\n\nAuth content.\n'
-    );
-    await expect(readProjectFile('views/api.md')).resolves.toContain('@stem[block:auth]');
-  });
-
-  it('renders all views and preserves group paths', async () => {
-    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth content.\n');
-    await writeProjectFile('views/backend/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
-    await writeProjectFile('views/ops/runbook.md', '---\nid: runbook-view\n---\nRunbook.\n');
-
-    const result = await renderAll({ startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: {
-        total: 2,
-        views: [
-          { id: 'api-view', outputRelativePath: 'rendered/backend/api.md' },
-          { id: 'runbook-view', outputRelativePath: 'rendered/ops/runbook.md' }
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it } from 'vitest';
+import * as cli from '../../src/index.js';
+let root: string;
+const f = {
+  put: async (relative: string, text: string) => {
+    const file = path.join(root, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text);
+  },
+  read: (relative: string) => fs.readFile(path.join(root, relative), 'utf8'),
+  config: async (extra: object) => {
+    const original = JSON.parse(await f.read('.stem/config.json')) as object;
+    await f.put('.stem/config.json', JSON.stringify({ ...original, ...extra }));
+  }
+};
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-integration-'));
+  expect((await cli.initProject({ startDir: root })).success).toBe(true);
+});
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true });
+});
+it('publishes eligible targets even when another is ineligible and retains scoped diagnostics', async () => {
+  await f.put(
+    'blocks/a.md',
+    '@stem:block(id:a)exact@stem:end()@stem:block(id:bad)pre@stem:include(missing)post@stem:end()'
+  );
+  await f.config({
+    outputSets: {
+      docs: {
+        outputDir: 'out',
+        targets: [
+          { source: { kind: 'block', ref: 'a' }, path: 'a.md' },
+          { source: { kind: 'block', ref: 'bad' }, path: 'bad.md' }
         ]
       }
-    });
+    }
   });
-
-  it('renders to a custom output directory', async () => {
-    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth content.\n');
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
-
-    const result = await renderView('api-view', { startDir: testRoot, outDir: 'published' });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: { views: [{ outputRelativePath: 'published/api.md' }] }
-    });
-    await expect(readProjectFile('published/api.md')).resolves.toContain('Auth content.');
-  });
-
-  it('returns rendered Markdown without writing when stdout is requested', async () => {
-    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth content.\n');
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
-
-    const result = await renderView('api-view', { startDir: testRoot, stdout: true });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: {
-        outDir: null,
-        views: [{ outputPath: null, outputRelativePath: null, markdown: '---\nid: api-view\n---\nAuth content.\n' }]
-      }
-    });
-    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
-  });
-
-  it('blocks rendering when validation has errors', async () => {
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:missing]\n');
-
-    const result = await renderView('api-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'INVALID_OPERATION',
-        message: 'Cannot render project with 1 validation error. Run stem check for details.'
-      }
-    });
-  });
-
-  it('allows validation warnings', async () => {
-    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nOrphan content.\n');
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\nLocal.\n');
-
-    const result = await renderView('api-view', { startDir: testRoot });
-
-    expect(result.success).toBe(true);
-  });
-
-  it('returns an invalid operation for a missing view id', async () => {
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\nLocal.\n');
-
-    const result = await renderView('missing-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'INVALID_OPERATION',
-        message: 'View "missing-view" was not found.'
-      }
-    });
-  });
+  const result = await cli.renderOutputs({ kind: 'all' }, { startDir: root });
+  expect(result.success).toBe(false);
+  expect(result.targets).toEqual([
+    expect.objectContaining({ status: 'published', tracking: 'persisted', diagnostics: [] }),
+    expect.objectContaining({
+      status: 'not-published',
+      reason: 'Composition is incomplete or has blocking diagnostics.'
+    })
+  ]);
+  expect(await f.read('out/a.md')).toBe('exact');
+  await expect(f.read('out/bad.md')).rejects.toMatchObject({ code: 'ENOENT' });
 });
-
-async function createStemProject(projectRoot: string): Promise<void> {
-  await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
-  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
-  await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'views'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'blocks/schemas'), { recursive: true });
-}
-
-async function writeProjectFile(relativePath: string, content: string): Promise<void> {
-  const filePath = path.join(testRoot, ...relativePath.split('/'));
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, content, 'utf8');
-}
-
-async function readProjectFile(relativePath: string): Promise<string> {
-  return readFile(path.join(testRoot, ...relativePath.split('/')), 'utf8');
-}
-
-async function expectPathMissing(filePath: string): Promise<void> {
-  try {
-    await readFile(filePath, 'utf8');
-    throw new Error(`Expected path to be missing: ${filePath}`);
-  } catch (error) {
-    expect(error).toMatchObject({ code: 'ENOENT' });
-  }
-}
+it('rejects whole-plan physical collisions and source destinations before writes', async () => {
+  await f.put('blocks/a.md', 'A');
+  await f.config({
+    outputSets: {
+      one: {
+        outputDir: 'out',
+        targets: [{ source: { kind: 'file', path: 'blocks/a.md' }, path: 'same.md' }]
+      },
+      two: {
+        outputDir: './out',
+        targets: [{ source: { kind: 'file', path: 'blocks/a.md' }, path: 'same.md' }]
+      }
+    }
+  });
+  expect((await cli.renderOutputs({ kind: 'all' }, { startDir: root })).success).toBe(false);
+  await expect(f.read('out/same.md')).rejects.toMatchObject({ code: 'ENOENT' });
+  await f.config({
+    outputSets: {
+      bad: { targets: [{ source: { kind: 'file', path: 'blocks/a.md' }, path: 'blocks/a.md' }] }
+    }
+  });
+  expect((await cli.renderOutputs({ kind: 'all' }, { startDir: root })).success).toBe(false);
+  expect(await f.read('blocks/a.md')).toBe('A');
+});
+it('skips intentionally and rejects invalid selections; library all is a no-op', async () => {
+  expect(await cli.renderOutputs({ kind: 'all' }, { startDir: root })).toEqual({
+    success: true,
+    targets: [],
+    cleanup: [],
+    errors: []
+  });
+  expect(
+    (await cli.renderOutputs({ kind: 'sets', sets: [{ name: 'missing' }] }, { startDir: root }))
+      .success
+  ).toBe(false);
+  await f.put('blocks/a.md', 'new');
+  await f.put('out/a.md', 'old');
+  await f.config({
+    outputSets: {
+      docs: {
+        outputDir: 'out',
+        ifExists: 'skip',
+        targets: [{ source: { kind: 'file', path: 'blocks/a.md' }, path: 'a.md' }]
+      }
+    }
+  });
+  expect(await cli.renderOutputs({ kind: 'all' }, { startDir: root })).toMatchObject({
+    success: true,
+    targets: [{ status: 'skipped', tracking: 'unchanged' }]
+  });
+  expect(await f.read('out/a.md')).toBe('old');
+});

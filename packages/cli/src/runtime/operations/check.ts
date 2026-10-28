@@ -1,28 +1,22 @@
-import { performance } from 'node:perf_hooks';
-
 import type { CheckResult, OperationResult, ProjectOperationOptions } from '../types/index.js';
-import { loadProjectForCheck, validateLoadedProject } from './project.js';
-
+import { loadProjectGraph, projectDiagnostics } from './project.js';
 export async function checkProject(
   options: ProjectOperationOptions = {}
 ): Promise<OperationResult<CheckResult>> {
-  const startedAt = performance.now();
-  const projectResult = await loadProjectForCheck(options);
-  const durationMs = Math.trunc(performance.now() - startedAt);
-
-  if (!projectResult.success) {
-    return projectResult;
-  }
-
+  const start = Date.now();
+  const loaded = await loadProjectGraph(options);
+  if (!loaded.success) return loaded;
+  const diagnostics = await projectDiagnostics(loaded.data, options);
+  const errors = diagnostics.filter((d) => d.severity === 'error').length;
   return {
     success: true,
-    data: {
-      validation: validateLoadedProject(projectResult.data, {
-        nowMs: Date.now(),
-        ...(options.strictExternal !== undefined ? { strictExternal: options.strictExternal } : {})
-      }),
-      scannedFiles: projectResult.data.blockFiles.length + projectResult.data.viewFiles.length,
-      durationMs
-    }
+    data: Object.freeze({
+      diagnostics,
+      errors,
+      warnings: diagnostics.length - errors,
+      valid: errors === 0,
+      scannedFiles: loaded.data.files.length,
+      durationMs: Date.now() - start
+    })
   };
 }

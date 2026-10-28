@@ -1,7 +1,7 @@
 # Pure Block model
 
 Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
-Implementation remains pending. Governing decision:
+Implementation state is tracked in the [roadmap](../../roadmap.md#pure-block-migration). Governing decision:
 [ADR-0005](../decisions/0005-pure-block-model.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.
@@ -95,7 +95,7 @@ Adapters own filesystem reads and writes; this contract does not introduce anoth
 
 #### Authoring operations and destinations
 
-These Node/CLI replacement contracts await coordinated implementation. Source-file destinations
+These Node/CLI contracts govern coordinated integration under ADR-0011. Source-file destinations
 are explicit project-relative Markdown paths within the current project's `blocksDir`; Block
 destinations select one local definition. Reject missing/ambiguous Block destinations, paths outside
 the source boundary, and uncertain ownership or insertion ranges. Do not edit connected projects.
@@ -245,7 +245,7 @@ data alongside diagnostics rather than a single success/failure result.
 
 ### Read-only CLI and MCP queries
 
-The following are replacement contracts under ADR-0005, awaiting coordinated implementation.
+The following contracts govern public replacement under ADR-0005 and ADR-0011.
 Node operations retain `OperationResult` envelopes; source-dependent queries use fresh analysis.
 Configuration and loading failures remain operation errors. Completed queries retain usable data and diagnostics
 even when authored content has errors. Results and nested collections are readonly. Queries never
@@ -386,4 +386,4 @@ Markdown sources. Core exports and analysis inputs carry no retired Tag-schema t
 - A definition has `tags:[guide] tags:[api]`. Both fields remain in the syntax representation, but neither supplies a chosen or merged membership; Tag queries report incomplete classification for the affected scope.
 - A file contains sibling Blocks `a` and `b` with surrounding text. Deleting `a` preserves `b` and that text; renaming `b` changes its recognized identity/reference tokens without renaming the file.
 
-These examples describe the accepted contracts, not the current implementation.
+These examples describe the accepted contracts; the roadmap tracks implementation verification.

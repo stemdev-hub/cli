@@ -1,4 +1,4 @@
-/** Private replacement declarations; public integration follows analysis and composition. */
+/** Readonly syntax declarations with original-source ranges. */
 export interface SourceDocument {
   readonly sourceId: string;
   readonly content: string;

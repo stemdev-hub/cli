@@ -29,11 +29,7 @@
   "engines": {
     "node": ">=22"
   },
-  "dependencies": {
-    "js-yaml": "5.4.3",
-    "remark": "^15.0.1",
-    "unist-util-visit": "^5.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@arethetypeswrong/core": "0.18.5",
     "esbuild": "0.28.2",

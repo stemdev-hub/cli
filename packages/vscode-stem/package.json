@@ -1,7 +1,7 @@
 {
   "name": "vscode-stem",
   "displayName": "Stem",
-  "description": "Preview Stem rendered Markdown views inside VS Code.",
+  "description": "Compose Markdown source with Stem Blocks and Tags, and configure Stem MCP.",
   "version": "0.4.1",
   "publisher": "stemdev",
   "author": "stemdev",
@@ -75,6 +75,20 @@
           "default": 250,
           "minimum": 0,
           "description": "Delay in milliseconds before refreshing open Stem previews after a watched project file changes."
+        },
+        "stem.preview.maxWork": {
+          "type": "integer",
+          "default": 100000,
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Maximum work units for one source preview."
+        },
+        "stem.preview.maxOutputBytes": {
+          "type": "integer",
+          "default": 16777216,
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "Maximum UTF-8 bytes for one source preview."
         }
       }
     },

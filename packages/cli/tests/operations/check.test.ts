@@ -1,330 +1,55 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import * as fs from 'node:fs/promises';
 import path from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { checkProject } from '../../src/runtime/operations/check.js';
-
-describe('checkProject', () => {
-  let testRoot: string;
-
-  beforeEach(async () => {
-    testRoot = path.join(tmpdir(), `stem-check-${randomUUID()}`);
-    await mkdir(testRoot, { recursive: true });
-  });
-
-  afterEach(async () => {
-    await rm(testRoot, { recursive: true, force: true });
-  });
-
-  it('validates a project without writing cache files', async () => {
-    await createStemProject(testRoot);
-    await writeProjectFile(
-      testRoot,
-      'blocks/auth.md',
-      `---
-id: auth
-tags:
-  - backend
----
-@stem[section:summary]
-@stem[tag:api]
-endpoint response
-@stem[end]
-@stem[end]
-`
-    );
-    await writeProjectFile(
-      testRoot,
-      'views/api.md',
-      `---
-id: api-view
-group: backend
----
-@stem[block:auth section=summary tag=api]
-`
-    );
-    await writeProjectFile(
-      testRoot,
-      'blocks/schemas/api.yaml',
-      `name: api
-required:
-  - endpoint
-  - response
-`
-    );
-
-    const result = await checkProject({ startDir: testRoot });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.scannedFiles).toBe(2);
-      expect(result.data.validation).toMatchObject({
-        errorCount: 0,
-        warningCount: 0,
-        hasErrors: false,
-        hasWarnings: false
-      });
-      expect(result.data.durationMs).toBeGreaterThanOrEqual(0);
-    }
-    await expectPathMissing(path.join(testRoot, '.stem/cache'));
-  });
-
-  it.each([undefined, '{}', '{"projectId":"invalid"}'])('does not establish or repair identity during checking: %j', async (content) => {
-    await mkdir(path.join(testRoot, '.stem'));
-    const configPath = path.join(testRoot, '.stem/config.json');
-    if (content !== undefined) await writeFile(configPath, content);
-    expect(await checkProject({ startDir: testRoot })).toMatchObject({ success: false, error: { code: 'CONFIG_ERROR' } });
-    expect(await readdir(path.join(testRoot, '.stem'))).toEqual(content === undefined ? [] : ['config.json']);
-    if (content !== undefined) expect(await readFile(configPath, 'utf8')).toBe(content);
-  });
-
-  it('merges parser and graph issues without running retired Tag-schema validation', async () => {
-    await createStemProject(testRoot);
-    await writeProjectFile(
-      testRoot,
-      'blocks/auth.md',
-      `---
-id: auth
----
-@stem[tag:api section=missing]
-endpoint only
-@stem[end]
-
-@stem[tag:api]
-endpoint only
-@stem[end]
-`
-    );
-    await writeProjectFile(
-      testRoot,
-      'views/api.md',
-      `---
-id: api-view
----
-@stem[block:missing-block]
-@stem[block:auth]
-`
-    );
-    await writeProjectFile(
-      testRoot,
-      'blocks/schemas/api.yaml',
-      `name: api
-required:
-  - endpoint
-  - response
-`
-    );
-
-    const result = await checkProject({ startDir: testRoot });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.validation.issues.map((issue) => issue.code)).toEqual([
-        'EXTERNAL_TAG_MISSING_SECTION',
-        'BROKEN_BLOCK_REF'
-      ]);
-      expect(result.data.validation.errorCount).toBe(2);
-      expect(result.data.validation.warningCount).toBe(0);
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it } from 'vitest';
+import * as cli from '../../src/index.js';
+let root: string;
+const f = {
+  put: async (relative: string, text: string) => {
+    const file = path.join(root, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text);
+  },
+  read: (relative: string) => fs.readFile(path.join(root, relative), 'utf8'),
+  config: async (extra: object) => {
+    const original = JSON.parse(await f.read('.stem/config.json')) as object;
+    await f.put('.stem/config.json', JSON.stringify({ ...original, ...extra }));
+  }
+};
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-integration-'));
+  expect((await cli.initProject({ startDir: root })).success).toBe(true);
+});
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true });
+});
+it('uses all configured outputs for reachability and suppresses warnings for incomplete roots', async () => {
+  await f.put('blocks/a.md', '@stem:block(id:a)A@stem:end()@stem:block(id:b)B@stem:end()');
+  await f.config({
+    outputSets: {
+      one: { targets: [{ source: { kind: 'block', ref: 'a' }, path: 'a.md' }] },
+      two: { targets: [{ source: { kind: 'block', ref: 'b' }, path: 'b.md' }] }
     }
   });
-
-  it('returns an operation error when no project root exists', async () => {
-    const result = await checkProject({ startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'PROJECT_ROOT_NOT_FOUND'
-      }
-    });
+  const check = await cli.checkProject({ startDir: root });
+  expect(check).toMatchObject({ success: true, data: { valid: true, warnings: 0 } });
+  await f.config({
+    outputSets: { one: { targets: [{ source: { kind: 'block', ref: 'missing' }, path: 'a.md' }] } }
   });
-
-  it('ignores and preserves existing schema YAML, including invalid files', async () => {
-    await createStemProject(testRoot);
-    await writeProjectFile(
-      testRoot,
-      'blocks/auth.md',
-      `---
-id: auth
----
-Plain block.
-`
-    );
-    await writeProjectFile(testRoot, 'blocks/schemas/api.yaml', 'required: endpoint\n');
-
-    const result = await checkProject({ startDir: testRoot });
-
-    expect(result).toMatchObject({ success: true, data: { validation: { hasErrors: false } } });
-    await expect(readFile(path.join(testRoot, 'blocks/schemas/api.yaml'), 'utf8')).resolves.toBe('required: endpoint\n');
+  const incomplete = await cli.checkProject({ startDir: root });
+  expect(
+    incomplete.success && incomplete.data.diagnostics.some((d) => d.code === 'ORPHANED_BLOCK')
+  ).toBe(false);
+});
+it('library projects need no roots; diagnostics remain an evaluated result', async () => {
+  await f.put('blocks/a.md', '@stem:block(id:a)A@stem:end()');
+  expect(await cli.checkProject({ startDir: root })).toMatchObject({
+    success: true,
+    data: { valid: true, warnings: 0 }
   });
-
-  it('rejects unknown configuration before validating source and preserves configuration', async () => {
-    await createStemProject(testRoot);
-    const config = '{"schemasDir":"blocks/schemas"}';
-    await writeProjectFile(testRoot, '.stem/config.json', config);
-    const result = await checkProject({ startDir: testRoot });
-    expect(result).toMatchObject({ success: false, error: {
-      code: 'CONFIG_ERROR'
-    } });
-    if (!result.success) {
-      expect(result.error.message).toBe('Unknown Stem config field "schemasDir".');
-      expect(result.error.cause).toMatchObject({ code: 'CONFIG_INVALID_SCHEMA' });
-    }
-    await expect(readFile(path.join(testRoot, '.stem/config.json'), 'utf8')).resolves.toBe(config);
-  });
-
-  describe('external references (Phase 1+2 features)', () => {
-    it('detects MISSING_SNAPSHOT for missing cache payloads', async () => {
-      await createStemProject(testRoot);
-      await writeProjectFile(
-        testRoot,
-        '.stem/config.json',
-        JSON.stringify({
-          projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
-          namespaces: { core: { graphUrl: 'https://example.com/graph.json' } }
-        })
-      );
-      await writeProjectFile(
-        testRoot,
-        'views/api.md',
-        '---\nid: test-view\n---\n@stem[block:core:auth]'
-      );
-
-      const result = await checkProject({ startDir: testRoot });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.validation.issues[0]).toMatchObject({
-          code: 'MISSING_SNAPSHOT',
-          severity: 'warning'
-        });
-      }
-    });
-
-    it('emits EXPIRED_SNAPSHOT if cache payload is too old', async () => {
-      await createStemProject(testRoot);
-      await writeProjectFile(
-        testRoot,
-        '.stem/config.json',
-        JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespaces: { core: { graphUrl: 'https://example.com' } } })
-      );
-      await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:auth]');
-
-      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
-      await writeProjectFile(
-        testRoot,
-        '.stem/cache/namespaces/core.json',
-        JSON.stringify({
-          fetchedAt: eightDaysAgo,
-          graph: {
-            version: '1',
-            namespace: 'core',
-            publishedAt: new Date().toISOString(),
-            contentSha: 'sha256:mock',
-            blocks: [{ id: 'auth', tags: [], sections: [] }],
-            renames: []
-          }
-        })
-      );
-
-      const result = await checkProject({ startDir: testRoot, strictExternal: true });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.validation.issues[0]).toMatchObject({
-          code: 'EXPIRED_SNAPSHOT',
-          severity: 'error'
-        });
-      }
-    });
-
-    it('emits BROKEN_BLOCK_REF with rename hint when referenced block was renamed', async () => {
-      await createStemProject(testRoot);
-      await writeProjectFile(
-        testRoot,
-        '.stem/config.json',
-        JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespaces: { core: { graphUrl: 'https://example.com' } } })
-      );
-      await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:old-auth]');
-
-      await writeProjectFile(
-        testRoot,
-        '.stem/cache/namespaces/core.json',
-        JSON.stringify({
-          fetchedAt: new Date().toISOString(),
-          graph: {
-            version: '1',
-            namespace: 'core',
-            publishedAt: new Date().toISOString(),
-            contentSha: 'sha256:mock',
-            blocks: [{ id: 'new-auth', tags: [], sections: [] }],
-            renames: [{ from: 'old-auth', to: 'new-auth', since: new Date().toISOString() }]
-          }
-        })
-      );
-
-      const result = await checkProject({ startDir: testRoot });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        const issue = result.data.validation.issues[0];
-        expect(issue?.code).toBe('BROKEN_BLOCK_REF');
-        expect(issue?.message).toContain('It was renamed to "new-auth"');
-      }
-    });
-
-    it('passes clean validation for valid external references', async () => {
-      await createStemProject(testRoot);
-      await writeProjectFile(
-        testRoot,
-        '.stem/config.json',
-        JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespaces: { core: { graphUrl: 'https://example.com' } } })
-      );
-      await writeProjectFile(testRoot, 'views/api.md', '---\nid: v\n---\n@stem[block:core:auth]');
-
-      await writeProjectFile(
-        testRoot,
-        '.stem/cache/namespaces/core.json',
-        JSON.stringify({
-          fetchedAt: new Date().toISOString(),
-          graph: {
-            version: '1',
-            namespace: 'core',
-            publishedAt: new Date().toISOString(),
-            contentSha: 'sha256:mock',
-            blocks: [{ id: 'auth', tags: [], sections: [] }],
-            renames: []
-          }
-        })
-      );
-
-      const result = await checkProject({ startDir: testRoot });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.validation.hasErrors).toBe(false);
-      }
-    });
+  await f.put('blocks/b.md', '@stem:include(missing)');
+  expect(await cli.checkProject({ startDir: root })).toMatchObject({
+    success: true,
+    data: { valid: false }
   });
 });
-
-async function createStemProject(projectRoot: string): Promise<void> {
-  await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
-  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
-  await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'views'), { recursive: true });
-}
-
-async function writeProjectFile(projectRoot: string, relativePath: string, content: string): Promise<void> {
-  const filePath = path.join(projectRoot, ...relativePath.split('/'));
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, content, 'utf8');
-}
-
-async function expectPathMissing(filePath: string): Promise<void> {
-  try {
-    await stat(filePath);
-    throw new Error(`Expected path to be missing: ${filePath}`);
-  } catch (error) {
-    expect(error).toMatchObject({ code: 'ENOENT' });
-  }
-}

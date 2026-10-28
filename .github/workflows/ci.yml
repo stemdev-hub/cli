@@ -87,25 +87,20 @@ jobs:
           export PATH="$smoke_dir/node_modules/.bin:$PATH"
           stem --help
           stem init
-          stem create block "Smoke Sample"
-          stem create view "Smoke Consumer"
-          stem add smoke-sample-block to smoke-consumer-view
-          stem check | tee check-output.txt
-          grep -F '0 errors, 0 warnings' check-output.txt
+          stem create block smoke --file blocks/smoke.md --tag guide
+          stem preview block smoke
+          stem check --json
           cat > core-smoke.mjs <<'EOF'
           import assert from 'node:assert/strict';
           import { readFile } from 'node:fs/promises';
-          import { parseBlockFile } from '@stemdev/core';
-
-          const filePath = 'blocks/smoke-sample-block.md';
-          const parsed = parseBlockFile({
-            content: await readFile(filePath, 'utf8'),
-            filePath,
-            relativePath: filePath
-          });
-          assert.equal(parsed.id, 'smoke-sample-block');
-          assert.deepEqual(parsed.errors, []);
-          console.log('Clean-install core ESM import and parser smoke passed.');
+          import { parse, analyzeProject, compose, DEFAULT_COMPOSITION_LIMITS } from '@stemdev/core';
+          const source = { sourceId: 'blocks/smoke.md', content: await readFile('blocks/smoke.md', 'utf8') };
+          assert.deepEqual(parse(source).diagnostics, []);
+          const localInstance = {};
+          const analysis = analyzeProject({ localInstance, instances: [{ handle: localInstance, sources: [source] }] });
+          assert.equal(analysis.graph.nodes[0].id, 'smoke');
+          assert.equal(compose(analysis, { kind: 'block', instance: analysis.localInstance, reference: { id: 'smoke' } }, DEFAULT_COMPOSITION_LIMITS).complete, true);
+          console.log('Clean-install core ESM and Pure Block smoke passed.');
           EOF
           node core-smoke.mjs
 

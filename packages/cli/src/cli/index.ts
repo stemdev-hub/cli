@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { registerCleanupCommand } from './commands/cleanup.js';
 import { Command } from 'commander';
 import { registerAddCommand } from './commands/add.js';
 import { registerCheckCommand } from './commands/check.js';
@@ -18,6 +19,7 @@ export function createStemProgram(): Command {
   const program = new Command();
   program.name('stem').description('Git-native documentation graphs for developers');
   registerInitCommand(program);
+  registerCleanupCommand(program);
   registerCreateCommand(program);
   registerDeleteCommand(program);
   registerAddCommand(program);

@@ -1,158 +1,134 @@
 # Stem Architecture
 
-Stem has two domain primitives: **Block** and **Tag**. Views and rendering are layered on that model. The extracted monorepo implements the boundaries established by [ADR-0001](decisions/0001-extract-core-package.md); [rules](rules.md) remain the binding package constraints.
-
-The package and runtime descriptions below cover the current implementation. The [accepted Pure Block design](#pure-block-design) remains a separate implementation target, not current runtime behavior.
+Stem has two domain primitives: **Block** and **Tag**. The portable engine and its adapters implement
+the accepted Pure Block contracts. [Rules](rules.md) bind package boundaries;
+[roadmap](../roadmap.md) owns work state, host acceptance and distribution.
 
 ## Packages and dependencies
 
 ```text
 @stemdev/cli                 vscode-stem
-Node.js project adapters    VS Code document adapters
+Node project adapters       VS Code source/buffer adapters
 CLI commands + MCP          preview + MCP configuration
           |                      |
           +----> @stemdev/core <--+
-                 portable domain engine
+                 portable engine
 ```
 
-| Package                | Responsibility                                                                                                           | Public consumer entry                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| `packages/core`        | Model types, parsing, graph construction/traversal, validation, rendering, and analysis of supplied project documents    | `@stemdev/core` (ESM)                        |
-| `packages/cli`         | Node.js project operations, filesystem/configuration/cache/network adapters, terminal commands, and the stdio MCP server | `@stemdev/cli` (ESM); `stem` executable      |
-| `packages/vscode-stem` | VS Code documents, unsaved buffers, preview lifecycle, and workspace MCP configuration                                   | Bundled extension entry, `dist/extension.js` |
-
-The CLI declares core as a runtime dependency. The extension bundles core for preview and configures a separate CLI process for MCP. Neither consumer imports another package's source tree. Core has no dependency on either consumer.
+Core and CLI expose ESM public entries. CLI declares core as a runtime dependency; the extension
+bundles core for preview and configures a separate CLI process for MCP. Consumers never import
+another package's source tree. The extension bundle leaves the host's `vscode` module external.
 
 ## Portable engine
 
-`packages/core/src/index.ts` is the public export surface. Its modules separate parsing, graph construction/traversal, validation, rendering, portable configuration, and project analysis. See the [core README](../packages/core/README.md) for an executable parsing and rendering example; declarations shipped with the package describe the API.
+`packages/core/src/index.ts` owns public exports. `parser/scanner.ts` retains original source
+and UTF-16 token ranges; `project/analysis.ts` builds recovered definitions and scoped diagnostics.
+Selection resolves unique IDs or known direct Tag matches without losing ambiguity or incompleteness.
+`graph/analysis.ts` checks containment/inclusion cycles and all-configured-output reachability.
+Mutable lookup indexes stay private. Analysis handles and source locations are never persisted.
 
-Consumers provide content and source identities. Core never opens a path, fetches a namespace, persists a cache, or reads the clock. Time-sensitive validation receives `nowMs`. These boundaries allow the same engine to process disk documents, unsaved editor buffers, or browser/worker inputs. Portability is a design contract, not a claim of exhaustive platform certification.
+`renderer/compose.ts` traverses supplied analysis iteratively, using the shared active-path helper
+and explicit per-output limits. It does not rescan generated text. Results separate exact content,
+completeness and applicable diagnostics. `project/editing.ts` prepares source-range edits;
+adapters own physical boundaries, current-input checks and writes.
 
-Private replacement modules implement [scanning](specs/stem-syntax.md#parser-contract) in
-`packages/core/src/parser/scanner.ts`, [analysis and selection](specs/block-model.md#project-analysis)
-in `src/project/analysis.ts` and `selection.ts`, and graph checks in `src/graph/analysis.ts`.
-They consume supplied instance contexts and output roots, retain recovered definitions and scoped
-diagnostics, and keep mutable lookup indexes private. Graph checking reuses the shared active-path
-helper; output reachability is independent of composition and publication. Source declarations/tests
-own their representations. Private composition in `src/renderer/compose.ts` consumes that analysis,
-uses the shared active-path helper with its own iterative traversal, and applies explicit work/UTF-8
-output limits to each result. It preserves source whitespace and recovery content without rescanning
-assembled text; composition diagnostics are scoped to evaluated occurrences. Private output-set
-validation in `src/config/outputs.ts` supplies readonly selectors, targets and effective policies
-under the [output contract](specs/composition.md#output-sets-and-targets). It checks shape and lexical
-paths; adapters retain host/filesystem validation, source resolution and selected-destination checks.
-These modules are not package exports; existing callers remain active until coordinated integration.
-[Roadmap](../roadmap.md#parser-and-model-contract-checkpoint) tracks that work.
+`config/portable.ts` and `config/outputs.ts` normalize strict configuration and readonly mappings.
+Core owns lexical validation; adapters own physical containment and destination checks.
+Core performs no I/O or clock reads. Time-sensitive external assessment takes `nowMs`.
 
-The pure external-snapshot decoder introduced by [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) remains supported, with consumers retaining I/O, timestamps, fallback policy, and contextual errors. [ADR-0005](decisions/0005-pure-block-model.md) retires Tag-schema requirements and replaces the legacy external metadata shape under the [projection contract](specs/project-connections.md#external-metadata-projection). Tag-schema decoding, validation and loading have been removed under the [transition contract](specs/block-model.md#d23-schema-retirement-transition); external metadata replacement remains pending. Remaining work is tracked in [roadmap](../roadmap.md#current-behavior-and-policy).
+The public pure external decoder and shape predicate retain ADR-0004's envelope/timestamp obligations.
+Block-only metadata contains identity and classification, never authored bodies or source locations.
+It cannot resolve an unavailable inclusion. See the [core guide](../packages/core/README.md),
+[reference](reference.md#namespace-snapshots) and [projection contract](specs/project-connections.md#external-metadata-projection).
 
 ## Node.js adapters
 
-`packages/cli/src/runtime/` owns project configuration, filesystem access, persisted cache records, and operation orchestration. `packages/cli/src/cli/commands/` registers arguments and formats operation results. `packages/cli/src/mcp/` exposes project operations over stdio. Public Node.js operations are exported through `packages/cli/src/index.ts`.
+`packages/cli/src/runtime/` owns filesystem, configuration, cache, network and operation orchestration.
+Commands and MCP delegate to those operations. `operations/project.ts` loads one fresh source
+inventory under `blocksDir`; it never reconstructs an analysis from persisted records.
+Reads and preview are write-free. Initialization alone generates new identity and force preserves
+valid configuration. Authoring prepares all edits and rechecks relevant inputs before each write;
+partial failures retain confirmed changed files, including late configuration/history failures.
 
-The CLI's public types describe its adapter inputs and results. Portable domain/configuration types belong to core; consumers of the pre-extraction CLI type surface must use the current public entries rather than source paths or compatibility re-exports.
+Sync freshly parses every source, persisting file metadata and a position-free graph projection.
+Internal `graph.json` and external `stem-graph.json` have distinct contracts. Ordinals in an internal
+snapshot address records only within that snapshot, not durable or evaluation-local identities.
 
-Project configuration requires durable identity under [ADR-0010](decisions/0010-project-identity-configuration.md).
-Core validates `projectId`; initialization generates it in the Node adapter and uses create-only
-publication. CLI/editor reads reject absent or invalid configuration without writes, and force
-initialization preserves existing valid configuration. Identity-free default constructors and the
-project-config `version` field are removed. [Current semantics](reference.md#project-identity)
-and the [lifecycle contract](specs/project-connections.md#configuration-reads-and-initialization)
-describe the behavior; connection identity checks and output ownership remain separate pending work.
+The shared CLI file writer exclusively creates a unique sibling temporary file, fully writes/closes
+it, then publishes. Create mode uses a hard link that fails on an existing destination. Replace mode
+renames the prepared file into place. There is no copy or delete-and-replace fallback. Concurrent
+replacement may succeed independently; this is not compare-and-swap, a batch transaction or a
+crash-durability guarantee. Only invocation-owned temporary files receive best-effort cleanup.
 
-For `stem check`, the Node adapter discovers and reads documents, loads external snapshots, and supplies them to core analysis with the current time. The operation returns validation results; the command formats output and sets the exit status. MCP's reference-checking tool uses that operation as well.
-
-For `stem sync`, the adapter scans documents, checks cache invalidation, parses changed content through core, builds the graph, and persists cache records. Parse-time positions stay out of persisted cache records. The internal `.stem/cache/graph.json` snapshot and external namespace snapshot are distinct formats; see the [remaining namespace issues](../roadmap.md#remaining-namespace-issues).
-
-For rendering, the adapter loads project documents and delegates Markdown composition to core. The CLI either writes output under `rendered/` by default or returns Markdown for stdout/preview. Generated output should be committed only when the project intentionally publishes it.
-
-The shared CLI file writer exclusively creates a unique sibling temporary file and finishes writing
-and closing it before publication. Create mode uses a hard link that fails if the destination already
-exists, including when another writer creates it during preparation. Replace mode renames the
-prepared file into place. Unsupported or failed publication returns an error without a copy or
-delete-and-replace fallback. Concurrent replacements may each succeed; this is not writer coordination
-or a compare-and-swap operation. Only invocation-owned temporary files are cleaned up, on a best-effort
-basis; cleanup failure preserves the original write outcome and may leave a temporary file. This
-provides no crash-durability, output-ownership, destination-containment or manifest guarantee.
-
-Private Node helpers in `packages/cli/src/runtime/output/` implement prepared-output publication,
-destination-local tracking, local writer coordination and selective cleanup under the
-[publication contract](specs/composition.md#d25-export-eligibility-and-publication). The coordinator
-uses the shared writer, retains partial outcomes and holds locks through the run-wide pruning decision.
-Callers supply eligible Markdown or preparation failures, selection scope, source/configuration
-protections and all current destinations; unavailable protection blocks cleanup. Explicit cleanup
-assessment is write-free, and application rechecks ownership, paths and exact-byte hashes.
-Current commands do not call these helpers; configuration/composition and public adapter integration
-remain pending. Source comments/tests own the private declarations and mechanics.
+`operations/render.ts` maps selected output sets to scoped composition, then calls the helpers in
+`runtime/output/` for whole-plan collision checks, root coordination, manifest tracking and selective
+cleanup. All current destinations protect cleanup, including unselected sets. The coordinator holds
+root locks through the run-wide pruning decision and retains confirmed outcomes on late failure.
+Explicit cleanup assessment is write-free; application rechecks ownership, paths and byte hashes.
+The [composition contract](specs/composition.md#d25-export-eligibility-and-publication) owns policies.
 
 ## Editor adapter
 
-`packages/vscode-stem/extension.js` manages the preview and workspace commands; `src/project.ts` supplies project documents and unsaved buffers to bundled core. VS Code provides the editor and filesystem APIs. The build produces a CommonJS extension bundle while leaving the host's `vscode` module external.
+`extension.js` manages commands and preview invalidation; `src/project.ts` supplies disk and captured
+unsaved source/configuration buffers to bundled core. A source URI selects preview without frontmatter
+identity. The virtual document contains exact composition content; a separate output channel presents
+diagnostics. Changed inputs invalidate both, including when auto-refresh is off. Obsolete evaluations
+are rejected and cannot substitute a cached last result. Preview never spawns a CLI process.
 
-Preview works without CLI installation. The separate MCP setup command discovers a configured or installed CLI, or falls back to npx, and writes editor-specific workspace configuration. See the [extension README](../packages/vscode-stem/README.md) for settings, configuration behavior, and limitations.
+MCP setup is a separate retained workflow. It discovers a configured/installed CLI or falls back to
+npx and writes editor-specific workspace configuration. See the [extension guide](../packages/vscode-stem/README.md).
 
 ## Development and distribution
 
-Use the [contribution guide](../CONTRIBUTING.md) for workspace commands and the package guides for consumer setup. Dependency boundaries are checked by the root dependency-cruiser configuration; implementation types and TSDoc remain the source for implementation documentation.
-
-Core and CLI are independently published npm packages. Core is published before a CLI release that depends on it, as required by ADR-0001. The extension bundles core into a VSIX. Repository fixes and published-consumer verification are tracked separately in the [remediation backlog](../roadmap.md#repository-remediation).
+[Contributing](../CONTRIBUTING.md) owns setup, sequential verification and release procedures.
+Core is published before a dependent CLI release. The extension bundles core into a VSIX.
+Repository checks do not establish real-host acceptance or delivery of published artifacts.
 
 <a id="proposed-pure-block-design"></a>
 
 ## Pure Block design
 
-Status: accepted design; implementation pending. [ADR-0005](decisions/0005-pure-block-model.md) and [ADR-0007](decisions/0007-independent-project-connections.md) record the accepted model and independent-connection choices, with their four specifications. [ADR-0006](decisions/0006-documentation-ownership.md) governs documentation structure; the [roadmap](../roadmap.md#documentation-and-decision-review) records the acceptance checkpoint and remaining work.
+[ADR-0005](decisions/0005-pure-block-model.md) governs the model and composition;
+[ADR-0011](decisions/0011-public-pure-block-integration.md) covers the concrete public replacement.
+[ADR-0007](decisions/0007-independent-project-connections.md) governs deferred source connections.
+Core accepts supplied finite source-instance graphs; adapters do not yet implement connection storage,
+Git transport or lifecycle resolution. Existing namespace metadata is not a substitute.
 
-The accepted model separates authored Block ownership and classification from source syntax and composition. Project connections supply source instances and their reference contexts to that evaluation. The existing package boundaries remain the framework for core contracts and adapter I/O; the documents below own the detailed contracts.
-
-Ordinary Blocks and whole files provide document assembly through the same parser and composition
-engine. [Output sets](specs/composition.md#output-sets-and-targets) map those sources to named files;
-there is no separate Page primitive. Portable configuration validation and composition belong in
-core. Adapters resolve destinations, publish files, persist the
-[output manifest](specs/composition.md#output-manifest), and apply selective cleanup. Source connections
-provide content; they do not cause connected projects' output sets to execute.
-
-```text
-source files / selected Blocks -> core composition -> eligible Markdown
-output-set mappings + existing destination state  -> adapter publication / cleanup
-```
-
-| Specification                                           | Owns                                                                                                      | Original D-labels                                    |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| [Block model](specs/block-model.md)                     | Content, containment, identity, classification, selection, Tag equality, and schema-retirement transition | D1–D4, D4a–D4c, D6–D10, D22–D23, D29                 |
-| [Stem syntax](specs/stem-syntax.md)                     | Directives, metadata, escaping, boundaries, and syntax recovery                                           | D11 syntax; D26–D28                                  |
-| [Composition](specs/composition.md)                     | Substitution, evaluation, budgets, output sets, destinations, publication, tracking and cleanup           | D11 behavior; D12–D14, D16–D21, D24–D25              |
-| [Project connections](specs/project-connections.md)     | Identity, aliases, sources, revisions, dependency resolution, refresh, and lifecycle                      | D5                                                   |
-| [Migration backlog](../roadmap.md#pure-block-migration) | Dependency-review deferral, schema retirement execution/deferral, and open mechanics                      | D15; D23 planning; deferred portions of D5, D24, D27 |
-
-D-labels are retained for traceability, not separate ADRs. D11 is split between syntax and substitution; D29 owns decoded Tag-name validation, with parsing linked from the syntax specification. Existing ADR dispositions and remaining implementation prerequisites are tracked in the [decision review](../roadmap.md#documentation-and-decision-review).
+| Specification | Canonical ownership |
+| --- | --- |
+| [Block model](specs/block-model.md) | Content, containment, identity, direct classification, selection, authoring/query contracts; D1–D4, D4a–D4c, D6–D10, D22–D23, D29 |
+| [Stem syntax](specs/stem-syntax.md) | Directives, metadata, escaping, boundaries and recovery; D11 syntax, D26–D28 |
+| [Composition](specs/composition.md) | Expansion, budgets, output mapping/publication/cleanup and sync; D11 behavior, D12–D14, D16–D21, D24–D25 |
+| [Project connections](specs/project-connections.md) | Identity, supplied contexts, external metadata and connection lifecycle; D5 |
+| [Roadmap](../roadmap.md#pure-block-migration) | Active/deferred work, including D15 and deferred D5/D23/D27 mechanics |
 
 ## Current-decision applicability
 
-ADR status is the canonical decision state; this map is navigation. Acceptance does not establish implementation, host acceptance or distribution. [Roadmap](../roadmap.md) owns those work states, and the [current reference](reference.md) describes observed user behavior.
+ADR status owns decision state; this map supplies navigation.
 
-| Topic                                                                        | Governing record                                                   | Applicability                                                                                 |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Package extraction, portability, public entries and core-first release order | [ADR-0001](decisions/0001-extract-core-package.md)                 | Applicable; API removals/renames require an ADR                                               |
-| Frontmatter schema                                                           | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)         | Superseded in full by ADR-0005; legacy runtime parsing remains until replacement              |
-| Model versus core package                                                    | [ADR-0003](decisions/0003-clarify-axiom-4.md)                      | Applicable; completed clarification is not supersession                                       |
-| Pure schema and external-snapshot decoders                                   | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md)    | Tag-schema requirements and legacy snapshot shape superseded by ADR-0005; pure decoding, envelope, timestamp and adapter boundaries remain binding |
-| Pure Block model and composition                                             | [ADR-0005](decisions/0005-pure-block-model.md) and the specs above | Accepted; implementation pending, with open mechanics retained                                |
-| Separation of ADRs, specifications and navigation                            | [ADR-0006](decisions/0006-documentation-ownership.md)              | Remaining provisions apply; its blanket ADR triggers are superseded by ADR-0008               |
-| Independent project connections                                              | [ADR-0007](decisions/0007-independent-project-connections.md)      | Accepted; existing namespace snapshots do not implement this contract                         |
-| Documentation ownership and lifecycle                                        | [ADR-0008](decisions/0008-documentation-lifecycle.md)              | Applicable; operational policy lives in [governance](governance.md)                           |
-| Retirement of the hard/soft-edge axiom                                       | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)          | Applicable; retires only the former axiom, with no runtime behavior change                    |
-| Durable project identity and configuration API replacement                   | [ADR-0010](decisions/0010-project-identity-configuration.md)       | Implemented; connection identity checks and producer-owned publication remain pending         |
+| Topic | Governing record | Applicability |
+| --- | --- | --- |
+| Package boundaries, portability, public entry and release order | [ADR-0001](decisions/0001-extract-core-package.md) | Binding; public replacement covered by ADR-0011 |
+| Frontmatter schema | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md) | Superseded by ADR-0005 |
+| Model versus core package | [ADR-0003](decisions/0003-clarify-axiom-4.md) | Applicable clarification |
+| Pure decoders | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) | Tag-schema/legacy shape superseded by ADR-0005; pure decoder, envelope, permissive timestamps and adapter boundaries retained |
+| Pure Block model | [ADR-0005](decisions/0005-pure-block-model.md) | Governs replacement contracts |
+| Documentation structure | [ADR-0006](decisions/0006-documentation-ownership.md) | Blanket ADR triggers superseded by ADR-0008; remaining provisions apply |
+| Independent connections | [ADR-0007](decisions/0007-independent-project-connections.md) | Source-resolution mechanics deferred |
+| Documentation lifecycle | [ADR-0008](decisions/0008-documentation-lifecycle.md) | Operational policy in [governance](governance.md) |
+| Hard/soft-edge axiom retirement | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md) | Applicable |
+| Durable configuration identity | [ADR-0010](decisions/0010-project-identity-configuration.md) | Read/init lifecycle implemented; connection checks deferred |
+| Public Pure Block integration | [ADR-0011](decisions/0011-public-pure-block-integration.md) | Concrete engine and caller replacement |
 
 ## Terms used in this guide
 
-- **Core model:** Block and Tag; **core package:** portable implementation, which may also contain layered rendering and validation.
-- **View:** current authored composition input; it is not a third core-model primitive.
-- **Section/tag fragment:** legacy authoring structures described by the [current reference](reference.md#body-markers-and-classification), distinct from the accepted nested Block model awaiting implementation.
-- **Namespace snapshot:** current structural metadata used for external checking; **project connection:** accepted independent source/revision context awaiting implementation.
-- **Acceptance:** an owner design decision; **implementation/host acceptance/distribution:** separately evidenced work outcomes.
+A Block owns authored content; a Tag classifies a whole Block. An output set maps existing sources to
+files and adds no primitive. A source instance is an evaluation context, not a persisted analysis
+handle. A namespace snapshot carries metadata; a project connection supplies authored source.
 
 ## Historical evidence
 
-The [October repository assessment](history/2026-10-repository-audit.md) contains scope, research, corrections, migration traceability and preserved audit/task evidence. The [legacy CLI PRD](history/legacy-cli-prd.md) and [decision journal](history/legacy-cli-decisions.md) retain earlier thinking with dated qualifications. They do not override current guidance or accepted records. Superseded decisions stay at their original paths.
+[Repository assessment](history/2026-10-repository-audit.md) and
+[private checkpoint evidence](history/2026-10-pure-block-checkpoints.md) retain dated observations.
+[Legacy PRD](history/legacy-cli-prd.md) and [decision journal](history/legacy-cli-decisions.md) are
+nonbinding historical material. Accepted records retain their original paths.

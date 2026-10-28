@@ -1,159 +1,57 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import * as fs from 'node:fs/promises';
 import path from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { addBlockToView } from '../../src/runtime/operations/add.js';
-
-describe('addBlockToView', () => {
-  let testRoot: string;
-
-  beforeEach(async () => {
-    testRoot = await mkdtemp(path.join(tmpdir(), 'stem-add-'));
-    await createStemProject(testRoot);
-  });
-
-  afterEach(async () => {
-    await rm(testRoot, { recursive: true, force: true });
-  });
-
-  it('appends an unfiltered block reference to a view', async () => {
-    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\nIntro.\n');
-
-    const result = await addBlockToView('auth', 'api-view', { startDir: testRoot });
-
-    expect(result).toEqual({
-      success: true,
-      data: {
-        blockId: 'auth',
-        viewId: 'api-view',
-        viewFilePath: path.join(testRoot, 'views/api.md'),
-        section: null,
-        tag: null,
-        refString: '@stem[block:auth]'
-      }
-    });
-    await expect(readFile(path.join(testRoot, 'views/api.md'), 'utf8')).resolves.toBe(
-      `---
-id: api-view
----
-Intro.
-
-@stem[block:auth]
-`
-    );
-  });
-
-  it('appends a section and tag filtered block reference', async () => {
-    await writeProjectFile(
-      testRoot,
-      'blocks/auth.md',
-      `---
-id: auth
----
-@stem[section:summary]
-@stem[tag:api]
-Endpoint summary.
-@stem[end]
-@stem[end]
-`
-    );
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\n');
-
-    const result = await addBlockToView('auth', 'api-view', {
-      startDir: testRoot,
-      section: 'summary',
-      tag: 'api'
-    });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data).toMatchObject({
-        section: 'summary',
-        tag: 'api',
-        refString: '@stem[block:auth section=summary tag=api]'
-      });
-    }
-    await expect(readFile(path.join(testRoot, 'views/api.md'), 'utf8')).resolves.toContain(
-      '@stem[block:auth section=summary tag=api]'
-    );
-  });
-
-  it('returns an operation error for missing block or view IDs', async () => {
-    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\n');
-
-    await expect(addBlockToView('missing', 'api-view', { startDir: testRoot })).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-    await expect(addBlockToView('auth', 'missing-view', { startDir: testRoot })).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-  });
-
-  it('rejects invalid or unresolved filters', async () => {
-    await writeProjectFile(
-      testRoot,
-      'blocks/auth.md',
-      `---
-id: auth
----
-@stem[section:summary]
-@stem[tag:api]
-Endpoint summary.
-@stem[end]
-@stem[end]
-`
-    );
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\n');
-
-    await expect(addBlockToView('auth', 'api-view', { startDir: testRoot, tag: 'api' })).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-    await expect(
-      addBlockToView('auth', 'api-view', { startDir: testRoot, section: 'missing' })
-    ).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-    await expect(
-      addBlockToView('auth', 'api-view', { startDir: testRoot, section: 'summary', tag: 'bad tag' })
-    ).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-  });
-
-  it('returns an operation error when no project root exists', async () => {
-    const outsideRoot = await mkdtemp(path.join(tmpdir(), 'stem-add-outside-'));
-
-    try {
-      const result = await addBlockToView('auth', 'api-view', { startDir: outsideRoot });
-
-      expect(result).toMatchObject({
-        success: false,
-        error: { code: 'PROJECT_ROOT_NOT_FOUND' }
-      });
-    } finally {
-      await rm(outsideRoot, { recursive: true, force: true });
-    }
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it } from 'vitest';
+import * as cli from '../../src/index.js';
+let root: string;
+const f = {
+  put: async (relative: string, text: string) => {
+    const file = path.join(root, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text);
+  },
+  read: (relative: string) => fs.readFile(path.join(root, relative), 'utf8'),
+  config: async (extra: object) => {
+    const original = JSON.parse(await f.read('.stem/config.json')) as object;
+    await f.put('.stem/config.json', JSON.stringify({ ...original, ...extra }));
+  }
+};
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-integration-'));
+  expect((await cli.initProject({ startDir: root })).success).toBe(true);
+});
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true });
+});
+it('inserts repeated and file-level inclusions without expanding them', async () => {
+  await f.put('blocks/a.md', '@stem:block(id:a)A@stem:end()');
+  await f.put('blocks/b.md', 'prefix');
+  for (let n = 0; n < 2; n++)
+    expect(
+      (
+        await cli.addInclusion('a', {
+          startDir: root,
+          destination: { kind: 'file', path: 'blocks/b.md' }
+        })
+      ).success
+    ).toBe(true);
+  expect(await f.read('blocks/b.md')).toBe('prefix\n@stem:include(a)\n@stem:include(a)\n');
+  expect(await cli.listReferences('a', { startDir: root })).toMatchObject({
+    success: true,
+    data: { total: 2, complete: true }
   });
 });
-
-async function createStemProject(projectRoot: string): Promise<void> {
-  await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
-  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
-  await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'views'), { recursive: true });
-}
-
-async function writeProjectFile(projectRoot: string, relativePath: string, content: string): Promise<void> {
-  const filePath = path.join(projectRoot, ...relativePath.split('/'));
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, content, 'utf8');
-}
+it('rejects missing and ambiguous targets before writes', async () => {
+  await f.put('blocks/a.md', '@stem:block(id:a)A@stem:end()@stem:block(id:a)B@stem:end()');
+  const before = await f.read('blocks/a.md');
+  for (const ref of ['a', 'missing', 'bad.ref'])
+    expect(
+      (
+        await cli.addInclusion(ref, {
+          startDir: root,
+          destination: { kind: 'file', path: 'blocks/a.md' }
+        })
+      ).success
+    ).toBe(false);
+  expect(await f.read('blocks/a.md')).toBe(before);
+});

@@ -9,7 +9,8 @@ import type { ResolvedStemConfig } from '../../src/runtime/types/index.js';
 import type { ExternalStemGraph } from '@stemdev/core';
 
 const mockGraph: ExternalStemGraph = {
-  version: '1',
+  version: '2',
+  projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
   namespace: 'test-api',
   publishedAt: '2026-08-15T10:00:00Z',
   contentSha: 'sha256:mock',
@@ -30,8 +31,9 @@ describe('fetchNamespaces', () => {
       projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
       projectRoot: testRoot,
       blocksDir: 'blocks',
-      viewsDir: 'views',
+
       cacheDir: '.stem/cache',
+      outputSets: {},
       namespaces: {
         'test-api': {
           graphUrl: 'https://example.com/graph.json'
@@ -74,8 +76,20 @@ describe('fetchNamespaces', () => {
   });
 
   it('skips namespace if localPath is set and exists', async () => {
-    config.namespaces['test-api']!.localPath = '../test-api-local';
-    const localGraphPath = path.join(testRoot, '../test-api-local', '.stem', 'cache', 'stem-graph.json');
+    config = {
+      ...config,
+      namespaces: {
+        ...config.namespaces,
+        'test-api': { ...config.namespaces['test-api'], localPath: '../test-api-local' }
+      }
+    };
+    const localGraphPath = path.join(
+      testRoot,
+      '../test-api-local',
+      '.stem',
+      'cache',
+      'stem-graph.json'
+    );
     await mkdir(path.dirname(localGraphPath), { recursive: true });
     await writeFile(localGraphPath, JSON.stringify(mockGraph));
 
@@ -93,7 +107,13 @@ describe('fetchNamespaces', () => {
   });
 
   it('warns and proceeds to fetch if localPath is set but missing', async () => {
-    config.namespaces['test-api']!.localPath = '../missing-dir';
+    config = {
+      ...config,
+      namespaces: {
+        ...config.namespaces,
+        'test-api': { ...config.namespaces['test-api'], localPath: '../missing-dir' }
+      }
+    };
     (global.fetch as Mock).mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -105,7 +125,9 @@ describe('fetchNamespaces', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.successes).toEqual(['test-api']);
-      expect(result.data.warnings).toContain('Local path for namespace "test-api" not found. Falling back to graphUrl.');
+      expect(result.data.warnings).toContain(
+        'Local path for namespace "test-api" not found. Falling back to graphUrl.'
+      );
     }
     expect(global.fetch).toHaveBeenCalled();
   });
@@ -122,7 +144,9 @@ describe('fetchNamespaces', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.successes).toEqual([]);
-      expect(result.data.warnings).toContain('Downloaded JSON claims namespace "wrong-api", but configured as "test-api".');
+      expect(result.data.warnings).toContain(
+        'Downloaded JSON claims namespace "wrong-api", but configured as "test-api".'
+      );
     }
   });
 
@@ -134,7 +158,9 @@ describe('fetchNamespaces', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.successes).toEqual([]);
-      expect(result.data.warnings).toContain('Failed to download namespace "test-api": Network error');
+      expect(result.data.warnings).toContain(
+        'Failed to download namespace "test-api": Network error'
+      );
     }
   });
 });

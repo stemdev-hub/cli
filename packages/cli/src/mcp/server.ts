@@ -1,203 +1,175 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod/v4';
-
-import { listBlocks, listViews } from '../runtime/operations/list.js';
-import { renderView } from '../runtime/operations/render.js';
+import { isBlockId, resolveBlockReference } from '@stemdev/core';
+import { listBlocks, listReferences, listOutputs } from '../runtime/operations/list.js';
+import { previewSource } from '../runtime/operations/preview.js';
 import { checkProject } from '../runtime/operations/check.js';
 import { loadProjectGraph } from '../runtime/operations/project.js';
-import { readFile } from '../runtime/fs/reader.js';
-
+import type { OperationResult } from '../runtime/types/index.js';
+const range = z.object({ startOffset: z.number(), endOffset: z.number() });
+const location = z.object({ sourceId: z.string(), range });
+const diagnostic = z.object({
+  code: z.string(),
+  message: z.string(),
+  severity: z.enum(['error', 'warning']),
+  location: location.optional(),
+  related: z.array(location).optional()
+});
+const block = z.object({
+  sourceId: z.string(),
+  range,
+  id: z.string().optional(),
+  tags: z.array(z.string())
+});
+const source = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('block'), ref: z.string() }),
+  z.object({ kind: z.literal('file'), path: z.string() })
+]);
+const error = z.object({ code: z.string(), message: z.string(), path: z.string().optional() });
+const envelope = <T extends z.ZodType>(data: T) =>
+  z.object({ success: z.boolean(), data: data.optional(), error: error.optional() });
+function response<T>(result: OperationResult<T>) {
+  const payload = result.success
+    ? result
+    : {
+        success: false,
+        error: {
+          code: result.error.code,
+          message: result.error.message,
+          ...(result.error.path === undefined ? {} : { path: result.error.path })
+        }
+      };
+  return {
+    isError: !result.success,
+    structuredContent: payload,
+    content: [{ type: 'text' as const, text: JSON.stringify(payload) }]
+  };
+}
 export function createMcpServer(): McpServer {
-  const server = new McpServer({
-    name: 'stem',
-    version: '0.1.0'
-  });
-
-  // ==========================================
-  // RESOURCES (For large payloads)
-  // ==========================================
-
+  const server = new McpServer({ name: 'stem', version: '0.1.0' });
   server.registerResource(
     'stem-block',
     new ResourceTemplate('stem://blocks/{id}', { list: undefined }),
-    {
-      description: 'Raw Markdown source of a Stem block',
-    },
+    { description: 'Exact authored range of one local Block' },
     async (uri, { id }) => {
-      const blockId = String(id);
-      const projectResult = await loadProjectGraph({ startDir: process.cwd() });
-      if (!projectResult.success) {
-        throw new Error(`Failed to load project: ${projectResult.error.message}`);
-      }
-
-      const block = projectResult.data.blocks.find(b => b.id === blockId);
-      if (!block) {
-        throw new Error(`Block not found: ${blockId}`);
-      }
-
-      const readResult = await readFile(block.filePath);
-      if (!readResult.success) {
-        throw new Error(`Failed to read block file: ${readResult.error.message}`);
-      }
-
+      if (typeof id !== 'string' || !isBlockId(id)) throw new Error('Invalid local Block ID.');
+      const loaded = await loadProjectGraph();
+      if (!loaded.success) throw new Error(loaded.error.message);
+      const analysis = loaded.data.analysis;
+      const selected = resolveBlockReference(analysis, analysis.localInstance, { id });
+      if (selected.status !== 'resolved')
+        throw new Error('Block selection is missing, ambiguous or unavailable.');
+      const { source, syntax } = selected.target;
       return {
         contents: [
           {
             uri: uri.href,
-            text: readResult.data,
-            mimeType: 'text/markdown'
+            mimeType: 'text/markdown',
+            text: source.tree.source.content.slice(syntax.range.startOffset, syntax.range.endOffset)
           }
         ]
       };
     }
   );
-
-  server.registerResource(
-    'stem-view',
-    new ResourceTemplate('stem://views/{id}', { list: undefined }),
-    {
-      description: 'Composed Markdown output of a Stem view',
-    },
-    async (uri, { id }) => {
-      const viewId = String(id);
-      const renderResult = await renderView(viewId, { startDir: process.cwd(), stdout: true });
-      if (!renderResult.success) {
-        throw new Error(`Failed to render view: ${renderResult.error.message}`);
-      }
-
-      const markdown = renderResult.data.views[0]?.markdown;
-      if (markdown === undefined || markdown === null) {
-        throw new Error(`View markdown was not generated for: ${viewId}`);
-      }
-
-      return {
-        contents: [
-          {
-            uri: uri.href,
-            text: markdown,
-            mimeType: 'text/markdown'
-          }
-        ]
-      };
-    }
-  );
-
-  // ==========================================
-  // TOOLS (For intelligent graph navigation)
-  // ==========================================
-
   server.registerTool(
     'list_blocks',
     {
-      description: 'List all Stem blocks',
-      inputSchema: z.object({
-        tag: z.string().optional().describe('Filter blocks by tag')
-      }),
-      // Defining output schema as per July 2026 spec recommendations
-      outputSchema: z.object({
-        blocks: z.array(z.object({
-          id: z.string(),
-          relativePath: z.string(),
-          tags: z.array(z.string()),
-          usedInViews: z.array(z.string()),
-          sectionCount: z.number(),
-          standaloneTagCount: z.number()
-        })),
-        total: z.number()
-      }),
+      description: 'List local recovered definitions and direct Tags',
+      inputSchema: z.object({ tag: z.string().optional() }),
+      outputSchema: envelope(
+        z.object({
+          blocks: z.array(block),
+          total: z.number(),
+          classificationComplete: z.boolean(),
+          diagnostics: z.array(diagnostic)
+        })
+      ),
       annotations: { readOnlyHint: true }
     },
-    async ({ tag }) => {
-      const result = await listBlocks({ startDir: process.cwd(), ...(tag !== undefined ? { tag } : {}) });
-      if (!result.success) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Operation failed: ${result.error.message}` }]
-        };
-      }
-      
-      // With output schemas, we return structured JSON directly alongside a text fallback
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result.data) }],
-        structuredContent: result.data
-      };
-    }
+    async ({ tag }) => response(await listBlocks(tag === undefined ? {} : { tag }))
   );
-
   server.registerTool(
-    'list_views',
+    'list_references',
     {
-      description: 'List all Stem views',
-      inputSchema: z.object({
-        blockId: z.string().optional().describe('Filter views that use a specific block')
-      }),
-      outputSchema: z.object({
-        views: z.array(z.object({
-          id: z.string(),
-          group: z.string().nullable(),
-          relativePath: z.string(),
-          blockCount: z.number(),
-          blockIds: z.array(z.string())
-        })),
-        total: z.number()
-      }),
+      description: 'List authored inclusions of one local Block',
+      inputSchema: z.object({ id: z.string() }),
+      outputSchema: envelope(
+        z.object({
+          references: z.array(z.object({ sourceId: z.string(), range, owner: block.optional() })),
+          total: z.number(),
+          complete: z.boolean(),
+          diagnostics: z.array(diagnostic)
+        })
+      ),
       annotations: { readOnlyHint: true }
     },
-    async ({ blockId }) => {
-      const result = await listViews({ startDir: process.cwd(), ...(blockId !== undefined ? { blockId } : {}) });
-      if (!result.success) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Operation failed: ${result.error.message}` }]
-        };
-      }
-
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result.data) }],
-        structuredContent: result.data
-      };
-    }
+    async ({ id }) => response(await listReferences(id))
   );
-
+  server.registerTool(
+    'list_outputs',
+    {
+      description: 'List normalized configured output mappings',
+      inputSchema: z.object({}),
+      outputSchema: envelope(
+        z.object({
+          outputSets: z.record(
+            z.string(),
+            z.object({
+              outputDir: z.string(),
+              ifExists: z.enum(['replace', 'skip', 'error']),
+              cleanup: z.enum(['keep', 'prune']),
+              targets: z.array(z.object({ source, path: z.string() }))
+            })
+          )
+        })
+      ),
+      annotations: { readOnlyHint: true }
+    },
+    async () => response(await listOutputs())
+  );
   server.registerTool(
     'check_references',
     {
-      description: 'Check Stem project for broken references, validation errors, and cycles',
+      description: 'Check current source and configured-output reachability',
       inputSchema: z.object({}),
-      outputSchema: z.object({
-        issues: z.array(z.object({
-          code: z.string(),
-          message: z.string(),
-          severity: z.enum(['error', 'warning']),
-          relativePath: z.string()
-        })),
-        errorCount: z.number(),
-        warningCount: z.number(),
-        hasErrors: z.boolean(),
-        hasWarnings: z.boolean()
-      }),
+      outputSchema: envelope(
+        z.object({
+          diagnostics: z.array(diagnostic),
+          errors: z.number(),
+          warnings: z.number(),
+          valid: z.boolean(),
+          scannedFiles: z.number(),
+          durationMs: z.number()
+        })
+      ),
       annotations: { readOnlyHint: true }
     },
-    async () => {
-      const result = await checkProject({ startDir: process.cwd() });
-      if (!result.success) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Operation failed: ${result.error.message}` }]
-        };
-      }
-
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result.data.validation) }],
-        structuredContent: result.data.validation
-      };
-    }
+    async () => response(await checkProject())
   );
-
+  server.registerTool(
+    'preview_source',
+    {
+      description: 'Compose a source with separate partial content and diagnostics',
+      inputSchema: z.object({
+        source,
+        limits: z
+          .object({
+            maxWork: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+            maxOutputBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
+          })
+          .optional()
+      }),
+      outputSchema: envelope(
+        z.object({ content: z.string(), complete: z.boolean(), diagnostics: z.array(diagnostic) })
+      ),
+      annotations: { readOnlyHint: true }
+    },
+    async ({ source: selector, limits }) =>
+      response(await previewSource(selector, limits === undefined ? {} : { limits }))
+  );
   return server;
 }
-
 export function startMcpServer(): void {
   void serveStdio(() => createMcpServer());
 }

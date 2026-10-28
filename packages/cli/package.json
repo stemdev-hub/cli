@@ -50,8 +50,6 @@
     "@stemdev/core": "workspace:^",
     "commander": "^15.0.0",
     "fast-glob": "^3.3.3",
-    "gray-matter": "^4.0.3",
-    "js-yaml": "5.4.3",
     "zod": "^4.6.5"
   },
   "devDependencies": {

@@ -1,32 +1,62 @@
-export type { BlockParameter, BlockRefSyntax } from './types/ast.js';
-export { analyzeProject } from './project/index.js';
-export { decodeExternalSnapshotEnvelope } from './project/external.js';
-export type { SourceDocument, ProjectSnapshot, AnalysisOptions, ProjectAnalysis } from './project/types.js';
-export { buildGraph } from './graph/builder.js';
-export type { ConfigResult, PortableStemConfig } from './config/portable.js';
-export type { DependencyRef, ParsedBlock } from './types/block.js';
-export { detectCycles, getOrphanedBlocks } from './graph/traverser.js';
+export { parse } from './parser/scanner.js';
+export { isBlockId, parseBlockReference } from './parser/grammar.js';
+export type * from './parser/syntax.js';
+export { analyzeProject } from './project/analysis.js';
+export { resolveBlockReference, findBlocksByTag } from './project/selection.js';
 export type {
-  ExternalBlockEntry,
-  ExternalRenameEntry,
-  ExternalSnapshotState,
-  ExternalStemGraph,
+  InstanceInput,
+  BlockReference,
+  OutputScope,
+  ProjectSnapshot,
+  AliasBinding,
+  InstanceContext,
+  AnalyzedSource,
+  Definition,
+  BlockResolution,
+  InclusionOccurrence,
   GraphEdge,
-  GraphNode,
-  StemGraph
-} from './types/graph.js';
+  StemGraph,
+  GraphCycle,
+  OutputUsage,
+  ProjectAnalysis,
+  AnalysisScope
+} from './project/model.js';
+export { buildGraph, detectCycles, validateGraph, getOrphanedBlocks } from './graph/analysis.js';
+export { compose, DEFAULT_COMPOSITION_LIMITS } from './renderer/compose.js';
+export type {
+  CompositionTarget,
+  CompositionLimits,
+  CompositionResult
+} from './renderer/compose.js';
+export {
+  planCreateBlock,
+  planAddInclusion,
+  planDeleteBlock,
+  planRenameBlock
+} from './project/editing.js';
+export type { EditDestination, SourceEdit, SourceEditPlan } from './project/editing.js';
 export {
   normalizeStemConfig,
   parseConfigJson,
   STEM_CONFIG_DEFAULTS,
   STEM_CONFIG_FILE
 } from './config/portable.js';
-export type { GraphBuildIssue } from './graph/types.js';
+export type { ConfigResult, PortableStemConfig } from './config/portable.js';
+export type { StemConfig, NamespaceConfig } from './types/config.js';
+export type {
+  OutputSource,
+  OutputTarget,
+  OutputSet,
+  OutputSetConfig,
+  OutputSets
+} from './config/outputs.js';
+export { decodeExternalSnapshotEnvelope, projectExternalBlocks } from './project/external.js';
 export { isExternalStemGraphShape } from './types/graph.js';
-export { parseBlockFile, parseViewFile } from './parser/index.js';
-export type { ParsedView } from './types/view.js';
-export type { Position } from './types/position.js';
-export { renderViewMarkdown } from './renderer/index.js';
-export type { StemConfig } from './types/config.js';
-export { validateGraph } from './validator/rules.js';
-export type { ValidationIssue, ValidationResult } from './types/validation.js';
+export type {
+  ExternalBlockEntry,
+  ExternalRenameEntry,
+  ExternalSnapshotState,
+  ExternalStemGraph
+} from './types/graph.js';
+export { validateExternalReferences } from './validator/rules.js';
+export type { ExternalValidationOptions } from './validator/rules.js';

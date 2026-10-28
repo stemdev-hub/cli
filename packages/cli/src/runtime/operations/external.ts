@@ -19,7 +19,7 @@ export async function loadExternalGraphs(
         'cache',
         'stem-graph.json'
       );
-      
+
       const readResult = await readFile(localGraphPath);
       if (readResult.success) {
         try {
@@ -35,8 +35,6 @@ export async function loadExternalGraphs(
         } catch {
           // Fall through to MISSING_SNAPSHOT if JSON parsing fails
         }
-      } else {
-        console.warn(`Local path for namespace "${namespace}" not found. Falling back to graphUrl cache.`);
       }
     }
 

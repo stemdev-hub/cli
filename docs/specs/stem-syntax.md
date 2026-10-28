@@ -1,7 +1,7 @@
 # Stem source syntax
 
 Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
-Implementation remains pending. Governing decision:
+Implementation state is tracked in the [roadmap](../../roadmap.md#pure-block-migration). Governing decision:
 [ADR-0005](../decisions/0005-pure-block-model.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.

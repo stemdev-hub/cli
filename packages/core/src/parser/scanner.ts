@@ -5,7 +5,7 @@ import type {
 
 const PREFIX = '@stem:';
 const OPEN = '@stem:block(';
-const ID = /^[A-Za-z0-9_-]+$/;
+import { isBlockId } from './grammar.js';
 const TARGET = /^(?:([a-z0-9]+(?:-[a-z0-9]+)*):)?([A-Za-z0-9_-]+)$/;
 const space = (character: string | undefined): boolean => character === ' ' || character === '\t';
 const newline = (character: string | undefined): boolean => character === '\r' || character === '\n';
@@ -35,7 +35,7 @@ function freezeRecords(value: object): void {
   }
 }
 
-/** Parse supplied source only. This module is deliberately not a package export yet. */
+/** Parse supplied source only. No project resolution or I/O. */
 export function parse(source: SourceDocument): {
   readonly tree: SyntaxTree;
   readonly diagnostics: readonly Diagnostic[];
@@ -229,7 +229,7 @@ export function parse(source: SourceDocument): {
       let id: string | undefined;
       let tags: TagToken[] | undefined;
       if (name === 'id') {
-        if (ID.test(raw)) id = raw;
+        if (isBlockId(raw)) id = raw;
         else { valid = false; report(owned, 'INVALID_BLOCK_ID', 'Block ID must contain only ASCII letters, digits, hyphens or underscores.', valueRange); }
       } else if (name === 'tags') {
         const parsed = tagList(valueStart, at, owned);

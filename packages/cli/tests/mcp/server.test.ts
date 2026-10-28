@@ -1,162 +1,92 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs/promises';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it } from 'vitest';
+import * as cli from '../../src/index.js';
+let root: string;
+const f = {
+  put: async (relative: string, text: string) => {
+    const file = path.join(root, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text);
+  },
+  read: (relative: string) => fs.readFile(path.join(root, relative), 'utf8'),
+  config: async (extra: object) => {
+    const original = JSON.parse(await f.read('.stem/config.json')) as object;
+    await f.put('.stem/config.json', JSON.stringify({ ...original, ...extra }));
+  }
+};
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-integration-'));
+  expect((await cli.initProject({ startDir: root })).success).toBe(true);
+});
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true });
+});
+import { vi } from 'vitest';
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
-
 import { createMcpServer } from '../../src/mcp/server.js';
-import * as listOps from '../../src/runtime/operations/list.js';
-import * as projectOps from '../../src/runtime/operations/project.js';
-import * as checkOps from '../../src/runtime/operations/check.js';
-import * as renderOps from '../../src/runtime/operations/render.js';
-import * as readerOps from '../../src/runtime/fs/reader.js';
-
-// Mock dependencies
-vi.mock('../../src/runtime/operations/list.js');
-vi.mock('../../src/runtime/operations/project.js');
-vi.mock('../../src/runtime/operations/check.js');
-vi.mock('../../src/runtime/operations/render.js');
-vi.mock('../../src/runtime/fs/reader.js');
-
-describe('MCP Server', () => {
-  let client: Client;
-  let serverTransport: InMemoryTransport;
-  let clientTransport: InMemoryTransport;
-
-  beforeEach(async () => {
-    vi.resetAllMocks();
-
-    const mcpServer = createMcpServer();
-    const [cTransport, sTransport] = InMemoryTransport.createLinkedPair();
-    clientTransport = cTransport;
-    serverTransport = sTransport;
-
-    await mcpServer.connect(serverTransport);
-
-    client = new Client({ name: 'test', version: '1.0.0' }, { capabilities: {} });
-    await client.connect(clientTransport);
+let client: Client;
+let server: ReturnType<typeof createMcpServer>;
+beforeEach(async () => {
+  vi.spyOn(process, 'cwd').mockReturnValue(root);
+  server = createMcpServer();
+  const [a, b] = InMemoryTransport.createLinkedPair();
+  await server.connect(b);
+  client = new Client({ name: 'tests', version: '1' }, { capabilities: {} });
+  await client.connect(a);
+});
+afterEach(async () => {
+  await client.close();
+  await server.close();
+  vi.restoreAllMocks();
+});
+it('advertises read-only replacement tools and no View resource', async () => {
+  const tools = await client.listTools();
+  expect(tools.tools.map((t) => t.name)).toEqual([
+    'list_blocks',
+    'list_references',
+    'list_outputs',
+    'check_references',
+    'preview_source'
+  ]);
+  expect(tools.tools.every((t) => t.annotations?.readOnlyHint)).toBe(true);
+  expect(
+    (await client.listResourceTemplates()).resourceTemplates.map((t) => t.uriTemplate)
+  ).toEqual(['stem://blocks/{id}']);
+});
+it('returns matching structured/text envelopes including partial preview', async () => {
+  await f.put('blocks/a.md', 'pre@stem:include(missing)post');
+  const result = await client.callTool({
+    name: 'preview_source',
+    arguments: { source: { kind: 'file', path: 'blocks/a.md' } }
   });
-
-  afterEach(async () => {
-    await client.close();
-    await serverTransport.close();
+  expect(result.isError).toBe(false);
+  expect(result.structuredContent).toMatchObject({
+    success: true,
+    data: { content: 'prepost', complete: false }
   });
-
-  describe('Tools', () => {
-    it('reports configuration failures without invoking content reads', async () => {
-      const message = 'Stem config field "projectId" is required and must be a lowercase hyphenated UUIDv4.';
-      vi.mocked(checkOps.checkProject).mockResolvedValue({ success: false, error: { code: 'CONFIG_ERROR', message } });
-      const result = await client.callTool({ name: 'check_references', arguments: {} });
-      expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{ type: 'text', text: `Operation failed: ${message}` }]);
-      expect(readerOps.readFile).not.toHaveBeenCalled();
-    });
-    it('list_blocks returns blocks data', async () => {
-      const mockResult = {
-        success: true as const,
-        data: {
-          blocks: [{ id: 'b1', tags: [], relativePath: 'b1.md', usedInViews: [], sectionCount: 0, standaloneTagCount: 0 }],
-          total: 1
-        }
-      };
-      vi.spyOn(listOps, 'listBlocks').mockResolvedValue(mockResult);
-
-      const result = await client.callTool({
-        name: 'list_blocks',
-        arguments: { tag: 'foo' }
-      });
-
-      expect(listOps.listBlocks).toHaveBeenCalledWith({ startDir: process.cwd(), tag: 'foo' });
-      expect(result.structuredContent).toEqual(mockResult.data);
-      expect(result.isError).toBeUndefined();
-    });
-
-    it('list_views returns views data', async () => {
-      const mockResult = {
-        success: true as const,
-        data: {
-          views: [{ id: 'v1', group: null, relativePath: 'v1.md', blockCount: 0, blockIds: [] }],
-          total: 1
-        }
-      };
-      vi.spyOn(listOps, 'listViews').mockResolvedValue(mockResult);
-
-      const result = await client.callTool({
-        name: 'list_views',
-        arguments: {}
-      });
-
-      expect(listOps.listViews).toHaveBeenCalledWith({ startDir: process.cwd() });
-      expect(result.structuredContent).toEqual(mockResult.data);
-    });
-
-    it('check_references returns validation issues', async () => {
-      const mockValidation = {
-        issues: [{ code: 'ERR_BROKEN', message: 'Broken link', severity: 'error', relativePath: 'b1.md' }],
-        errorCount: 1,
-        warningCount: 0,
-        hasErrors: true,
-        hasWarnings: false
-      };
-      const checkResult = {
-        success: true,
-        data: { validation: mockValidation, scannedFiles: 1, durationMs: 10 }
-      } as unknown as Awaited<ReturnType<typeof checkOps.checkProject>>;
-      vi.spyOn(checkOps, 'checkProject').mockResolvedValue(checkResult);
-
-      const result = await client.callTool({
-        name: 'check_references',
-        arguments: {}
-      });
-
-      expect(checkOps.checkProject).toHaveBeenCalled();
-      expect(result.structuredContent).toEqual(mockValidation);
-    });
+  expect(result.content).toEqual([
+    { type: 'text', text: JSON.stringify(result.structuredContent) }
+  ]);
+});
+it('flags only operation failures and preserves their structured envelope', async () => {
+  await f.config({ viewsDir: 'retired' });
+  const result = await client.callTool({ name: 'list_blocks', arguments: {} });
+  expect(result.isError).toBe(true);
+  expect(result.structuredContent).toMatchObject({
+    success: false,
+    error: { code: 'CONFIG_ERROR' }
   });
-
-  describe('Resources', () => {
-    it('stem://blocks/{id} returns raw markdown', async () => {
-      const mockProjectResult = {
-        success: true,
-        data: {
-          blocks: [{ id: 'b1', filePath: '/fake/path/b1.md' }]
-        }
-      } as unknown as Awaited<ReturnType<typeof projectOps.loadProjectGraph>>;
-      vi.spyOn(projectOps, 'loadProjectGraph').mockResolvedValue(mockProjectResult);
-      vi.spyOn(readerOps, 'readFile').mockResolvedValue({ success: true, data: '# Block 1' });
-
-      const result = await client.readResource({
-        uri: 'stem://blocks/b1'
-      });
-
-      expect(result.contents).toEqual([
-        {
-          uri: 'stem://blocks/b1',
-          mimeType: 'text/markdown',
-          text: '# Block 1'
-        }
-      ]);
-      expect(readerOps.readFile).toHaveBeenCalledWith('/fake/path/b1.md');
-    });
-
-    it('stem://views/{id} returns composed markdown', async () => {
-      const mockRenderResult = {
-        success: true,
-        data: {
-          views: [{ id: 'v1', markdown: '# View 1 composed' }]
-        }
-      } as unknown as Awaited<ReturnType<typeof renderOps.renderView>>;
-      vi.spyOn(renderOps, 'renderView').mockResolvedValue(mockRenderResult);
-
-      const result = await client.readResource({
-        uri: 'stem://views/v1'
-      });
-
-      expect(renderOps.renderView).toHaveBeenCalledWith('v1', { startDir: process.cwd(), stdout: true });
-      expect(result.contents).toEqual([
-        {
-          uri: 'stem://views/v1',
-          mimeType: 'text/markdown',
-          text: '# View 1 composed'
-        }
-      ]);
-    });
-  });
+  expect(result.content).toEqual([
+    { type: 'text', text: JSON.stringify(result.structuredContent) }
+  ]);
+});
+it('extracts exactly the selected authored range from the analyzed source', async () => {
+  await f.put(
+    'blocks/a.md',
+    'before@stem:block(id:a)@stem:block(id:b)Child@stem:end(id:b)@stem:end(id:a)after'
+  );
+  const result = await client.readResource({ uri: 'stem://blocks/b' });
+  expect(result.contents[0]).toMatchObject({ text: '@stem:block(id:b)Child@stem:end(id:b)' });
 });

@@ -1,26 +1,6 @@
-import type { ConfigError, ConfigErrorCode } from './portable.js';
-
-/** Explicit adapter-facing selectors; neither spelling nor Tags imply a selector kind. */
-export type OutputSource =
-  | { readonly kind: 'block'; readonly ref: string }
-  | { readonly kind: 'file'; readonly path: string };
-
-export interface OutputTarget {
-  readonly source: OutputSource;
-  /** Canonical slash-separated file path relative to this set's output directory. */
-  readonly path: string;
-}
-
-export interface OutputSet {
-  /** Original spelling; the adapter resolves this against the configuring project. */
-  readonly outputDir: string;
-  readonly ifExists: 'replace' | 'skip' | 'error';
-  readonly cleanup: 'keep' | 'prune';
-  readonly targets: readonly OutputTarget[];
-}
-
-/** Own set names only, including names such as __proto__; no inherited dictionary entries. */
-export type OutputSets = Readonly<Record<string, OutputSet>>;
+export type { OutputSource, OutputTarget, OutputSet, OutputSetConfig, OutputSets } from '../types/config.js';
+import { parseBlockReference } from '../parser/grammar.js';
+import type { ConfigError, ConfigErrorCode, OutputSource, OutputTarget, OutputSet, OutputSets } from '../types/config.js';
 
 type Result<T> = { readonly success: true; readonly data: T }
   | { readonly success: false; readonly error: Readonly<ConfigError> };
@@ -87,8 +67,7 @@ function sourceSelector(raw: unknown, directory: string, prefix: string, configP
   if (raw['kind'] === 'block') {
     const ref = raw['ref'];
     // Use the authored inclusion target grammar; do not trim, case-fold or resolve it.
-    if (typeof ref !== 'string' || !/^(?:[a-z0-9]+(?:-[a-z0-9]+)*:)?[A-Za-z0-9_-]+$/.test(ref)
-      || /\s/.test(ref)) return invalid(`${prefix}.ref`, 'must be an ID or alias:ID reference', configPath);
+    if (typeof ref !== 'string' || !parseBlockReference(ref)) return invalid(`${prefix}.ref`, 'must be an ID or alias:ID reference', configPath);
     return { success: true, data: Object.freeze({ kind: 'block', ref }) };
   }
   const path = relativePath(raw['path'], `${prefix}.path`, configPath);
@@ -100,7 +79,7 @@ function sourceSelector(raw: unknown, directory: string, prefix: string, configP
 }
 
 /**
- * Private pure validation of the outputSets field, not a replacement config reader.
+ * Pure validation of the outputSets field within the public config reader.
  * blocksDir is supplied by the enclosing configuration validator. Results are copied
  * and frozen; absent outputSets is an empty library configuration. No discovery,
  * reference resolution, collision assessment or publication is performed here.

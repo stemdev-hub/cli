@@ -32,7 +32,12 @@ export async function initProject(
   let configResult = await loadStemConfig(projectRoot);
   if (configResult.success) {
     if (!options.force) {
-      return { success: false, error: operationError('CONFLICT', `File already exists: ${configPath}.`, { path: configPath }) };
+      return {
+        success: false,
+        error: operationError('CONFLICT', `File already exists: ${configPath}.`, {
+          path: configPath
+        })
+      };
     }
   } else {
     if (configResult.error.code !== 'CONFIG_NOT_FOUND') {
@@ -42,7 +47,13 @@ export async function initProject(
     try {
       projectId = randomUUID();
     } catch (cause) {
-      return { success: false, error: operationError('FS_ERROR', 'Failed to generate project identity.', { path: configPath, cause }) };
+      return {
+        success: false,
+        error: operationError('FS_ERROR', 'Failed to generate project identity.', {
+          path: configPath,
+          cause
+        })
+      };
     }
     const raw = { projectId, ...STEM_CONFIG_DEFAULTS };
     configResult = resolveStemConfig(raw, projectRoot);
@@ -69,15 +80,13 @@ export async function initProject(
     success: true,
     data: {
       projectRoot,
-      blocksDir: path.join(projectRoot, config.blocksDir),
-      viewsDir: path.join(projectRoot, config.viewsDir)
+      blocksDir: path.join(projectRoot, config.blocksDir)
     }
   };
 }
 
 interface InitConfigPaths {
   blocksDir: string;
-  viewsDir: string;
 }
 
 async function ensureProjectDirs(
@@ -86,8 +95,7 @@ async function ensureProjectDirs(
 ): Promise<OperationResult<void>> {
   for (const dirPath of [
     path.join(projectRoot, '.stem'),
-    path.join(projectRoot, config.blocksDir),
-    path.join(projectRoot, config.viewsDir)
+    path.join(projectRoot, config.blocksDir)
   ]) {
     const result = await ensureDir(dirPath);
     if (!result.success) {
@@ -112,13 +120,19 @@ async function writeProjectFile(
     success: false,
     error:
       result.error.code === 'ALREADY_EXISTS'
-        ? operationError('CONFLICT', result.error.message, { path: result.error.path, cause: result.error })
+        ? operationError('CONFLICT', result.error.message, {
+            path: result.error.path,
+            cause: result.error
+          })
         : fromFsError(result.error)
   };
 }
 
-async function ensureGitignoreCacheEntry(projectRoot: string, cacheDir: string): Promise<OperationResult<void>> {
-  const entries = [`${cacheDir}/`, 'rendered/'];
+async function ensureGitignoreCacheEntry(
+  projectRoot: string,
+  cacheDir: string
+): Promise<OperationResult<void>> {
+  const entries = [`${cacheDir}/`];
   const gitignorePath = path.join(projectRoot, '.gitignore');
   const readResult = await readFile(gitignorePath);
 
@@ -136,7 +150,11 @@ async function ensureGitignoreCacheEntry(projectRoot: string, cacheDir: string):
   }
 
   const separator = readResult.data.length === 0 || readResult.data.endsWith('\n') ? '' : '\n';
-  return writeProjectFile(gitignorePath, `${readResult.data}${separator}${missingEntries.join('\n')}\n`, true);
+  return writeProjectFile(
+    gitignorePath,
+    `${readResult.data}${separator}${missingEntries.join('\n')}\n`,
+    true
+  );
 }
 
 function hasGitignoreEntry(content: string, entry: string): boolean {

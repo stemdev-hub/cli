@@ -1,144 +1,44 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import * as fs from 'node:fs/promises';
 import path from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { deleteBlock, deleteView } from '../../src/runtime/operations/delete.js';
-
-describe('delete operations', () => {
-  let testRoot: string;
-
-  beforeEach(async () => {
-    testRoot = await mkdtemp(path.join(tmpdir(), 'stem-delete-'));
-    await createStemProject(testRoot);
-  });
-
-  afterEach(async () => {
-    await rm(testRoot, { recursive: true, force: true });
-  });
-
-  it('deletes an unreferenced block', async () => {
-    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
-
-    const result = await deleteBlock('auth', { startDir: testRoot });
-
-    expect(result).toEqual({
-      success: true,
-      data: {
-        id: 'auth',
-        filePath: path.join(testRoot, 'blocks/auth.md'),
-        relativePath: 'blocks/auth.md',
-        referencingIds: [],
-        forced: false
-      }
-    });
-    await expectPathMissing(path.join(testRoot, 'blocks/auth.md'));
-  });
-
-  it('refuses to delete a referenced block without force', async () => {
-    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
-    await writeProjectFile(testRoot, 'blocks/api.md', '---\nid: api\ndepends-on:\n  - auth\n---\nAPI block.\n');
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
-
-    const result = await deleteBlock('auth', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'CONFLICT',
-        path: path.join(testRoot, 'blocks/auth.md')
-      }
-    });
-    await expect(readFile(path.join(testRoot, 'blocks/auth.md'), 'utf8')).resolves.toContain('Auth block');
-  });
-
-  it('deletes a referenced block when force is true and reports referencing IDs', async () => {
-    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
-    await writeProjectFile(testRoot, 'blocks/api.md', '---\nid: api\ndepends-on:\n  - auth\n---\nAPI block.\n');
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
-
-    const result = await deleteBlock('auth', { startDir: testRoot, force: true });
-
-    expect(result).toEqual({
-      success: true,
-      data: {
-        id: 'auth',
-        filePath: path.join(testRoot, 'blocks/auth.md'),
-        relativePath: 'blocks/auth.md',
-        referencingIds: ['api', 'api-view'],
-        forced: true
-      }
-    });
-    await expectPathMissing(path.join(testRoot, 'blocks/auth.md'));
-  });
-
-  it('deletes a view by ID', async () => {
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\nView.\n');
-
-    const result = await deleteView('api-view', { startDir: testRoot });
-
-    expect(result).toEqual({
-      success: true,
-      data: {
-        id: 'api-view',
-        filePath: path.join(testRoot, 'views/api.md'),
-        relativePath: 'views/api.md',
-        referencingIds: [],
-        forced: false
-      }
-    });
-    await expectPathMissing(path.join(testRoot, 'views/api.md'));
-  });
-
-  it('returns an operation error for missing IDs', async () => {
-    await writeProjectFile(testRoot, 'blocks/auth.md', '---\nid: auth\n---\nAuth block.\n');
-    await writeProjectFile(testRoot, 'views/api.md', '---\nid: api-view\n---\nView.\n');
-
-    await expect(deleteBlock('missing', { startDir: testRoot })).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-    await expect(deleteView('missing-view', { startDir: testRoot })).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-  });
-
-  it('returns an operation error when no project root exists', async () => {
-    const outsideRoot = await mkdtemp(path.join(tmpdir(), 'stem-delete-outside-'));
-
-    try {
-      const result = await deleteBlock('auth', { startDir: outsideRoot });
-
-      expect(result).toMatchObject({
-        success: false,
-        error: { code: 'PROJECT_ROOT_NOT_FOUND' }
-      });
-    } finally {
-      await rm(outsideRoot, { recursive: true, force: true });
-    }
-  });
-});
-
-async function createStemProject(projectRoot: string): Promise<void> {
-  await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
-  await writeFile(path.join(projectRoot, '.stem/config.json'), JSON.stringify({ projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a' }));
-  await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'views'), { recursive: true });
-}
-
-async function writeProjectFile(projectRoot: string, relativePath: string, content: string): Promise<void> {
-  const filePath = path.join(projectRoot, ...relativePath.split('/'));
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, content, 'utf8');
-}
-
-async function expectPathMissing(filePath: string): Promise<void> {
-  try {
-    await stat(filePath);
-    throw new Error(`Expected path to be missing: ${filePath}`);
-  } catch (error) {
-    expect(error).toMatchObject({ code: 'ENOENT' });
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it } from 'vitest';
+import * as cli from '../../src/index.js';
+let root: string;
+const f = {
+  put: async (relative: string, text: string) => {
+    const file = path.join(root, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text);
+  },
+  read: (relative: string) => fs.readFile(path.join(root, relative), 'utf8'),
+  config: async (extra: object) => {
+    const original = JSON.parse(await f.read('.stem/config.json')) as object;
+    await f.put('.stem/config.json', JSON.stringify({ ...original, ...extra }));
   }
-}
+};
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-integration-'));
+  expect((await cli.initProject({ startDir: root })).success).toBe(true);
+});
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true });
+});
+it('preserves the source file and surrounding text; checks descendant output references', async () => {
+  await f.put(
+    'blocks/a.md',
+    'before@stem:block(id:p)@stem:block(id:c)C@stem:end()@stem:end()after'
+  );
+  await f.config({
+    outputSets: { docs: { targets: [{ source: { kind: 'block', ref: 'c' }, path: 'c.md' }] } }
+  });
+  expect((await cli.deleteBlock('p', { startDir: root })).success).toBe(false);
+  expect(await cli.deleteBlock('p', { startDir: root, force: true })).toMatchObject({
+    success: true,
+    affectedReferences: 1
+  });
+  expect(await f.read('blocks/a.md')).toBe('beforeafter');
+});
+it('force cannot bypass incomplete reference assessment', async () => {
+  await f.put('blocks/a.md', '@stem:block(id:a)A@stem:end()@stem:include(missing)');
+  expect((await cli.deleteBlock('a', { startDir: root, force: true })).success).toBe(false);
+});

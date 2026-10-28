@@ -3,7 +3,7 @@
 [![CI Status](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Stem is a Git-native, file-based documentation system for software developers. It keeps reusable knowledge in Markdown blocks and lets teams compose those blocks into multiple view files without duplicating content.
+Stem is a Git-native, file-based documentation system for software developers. It keeps reusable knowledge in Markdown blocks and lets teams compose those blocks into multiple outputs without duplicating content.
 
 Reusability is Stem's primary purpose; identity, ownership, Tags, and diagnostics support reliable reuse and composition.
 
@@ -41,11 +41,11 @@ Stem is beta, maintained by its owner. Current usage and accepted design awaitin
 
 Core and CLI expose separate ESM public entries. Import portable domain functions and types from `@stemdev/core`; import Node.js project operations from `@stemdev/cli`. The CLI no longer re-exports the former domain/configuration type surface. See [ADR-0001](docs/decisions/0001-extract-core-package.md) for the extraction decision.
 
-Rendered Markdown is generated under `rendered/` by default and should not be committed unless a project intentionally publishes generated output.
+Configured output sets select Blocks or source files and map them to destination files. No output mapping is implicit; generated Markdown may be committed when a project intentionally publishes it.
 
 See [docs/architecture.md](./docs/architecture.md) for package boundaries and data flow.
 
-The [Pure Block design](docs/architecture.md#pure-block-design) is accepted, with implementation pending. Its specifications and migration work are separate from the current package usage guides and do not establish released behavior.
+The [Pure Block design](docs/architecture.md#pure-block-design) governs the coordinated implementation. Connection storage and Git transport remain deferred. Repository implementation does not establish released behavior or real-host acceptance.
 
 ## Contributing
 

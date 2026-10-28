@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Stem for VS Code</h1>
-  <p>Preview Stem views natively in VS Code using bundled @stemdev/core.</p>
+  <p>Preview Stem sources natively in VS Code using bundled @stemdev/core.</p>
 
 [![Version](https://img.shields.io/visual-studio-marketplace/v/stemdev.vscode-stem.svg?color=blue&label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/stemdev.vscode-stem.svg)](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem)
@@ -10,20 +10,20 @@
 
 ---
 
-Stem is a Git-native, file-based documentation system for software developers. This extension provides a seamless, side-by-side live preview of your composed Stem Markdown views directly inside your editor.
+Stem is a Git-native, file-based documentation system for software developers. This extension provides a seamless, side-by-side live preview of your composed Stem Markdown sources directly inside your editor.
 
 ## Installation
 
 Requires VS Code 1.101 or later. Install [Stem from the Marketplace](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem), or install a release VSIX using **Extensions: Install from VSIX**. See the [repository](https://github.com/stemdev-hub/cli) for the CLI and portable engine packages.
 
-See the [shared current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md) for authoring semantics and known rendering/namespace limitations. Proposed Pure Block specifications describe future design, not this extension's current format.
+See the [shared current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md) for authoring semantics and known rendering/namespace limitations. The accepted Pure Block specifications govern the source model; source-connection resolution remains deferred.
 
 ## Features
 
-- **Live Preview:** See your rendered Stem views side-by-side as you type.
+- **Live Preview:** See your composed source files side-by-side as you type.
 - **Auto-Refresh:** Previews automatically update when project files or unsaved editor contents change.
 - **Native Rendering:** Uses VS Code's built-in Markdown preview window so your themes and styling match perfectly.
-- **Error Reporting:** Instantly displays markdown-formatted error logs if you have broken block references or syntax errors.
+- **Error Reporting:** Keeps partial content in the preview and diagnostics in the separate Stem Preview Diagnostics output channel.
 
 ## Prerequisites
 
@@ -38,12 +38,12 @@ resume without saving it. Opening or previewing a project never creates or repai
 
 ## Usage
 
-1. Open a Markdown view from a Stem project.
+1. Open a Markdown source beneath the project's configured `blocksDir`.
 2. Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
 3. Run **`Stem: Open Preview to Side`**.
-4. A preview window will open. Unsaved changes to the view or its referenced blocks also refresh the preview.
+4. A preview window will open. Unsaved changes to sources or configuration also refresh the preview.
 
-View selection uses core's YAML frontmatter semantics, including quoted keys and IDs, `---yaml` openers, and Unicode escapes such as `id: "api\u002dview"`. Invalid YAML or a missing string `id` produces a notification; correct the active buffer and rerun the command.
+The active source URI selects the file. No frontmatter ID is needed, and frontmatter remains ordinary content. Composition preserves exact content and reports scoped diagnostics separately. Relevant changes invalidate content and diagnostics together, even with auto-refresh off; use manual refresh to evaluate again.
 
 You can also manually refresh all open previews by running **`Stem: Refresh Preview`**.
 
@@ -91,11 +91,13 @@ This extension contributes the following settings:
 | `stem.preview.autoRefresh`       | `true`  | Automatically refresh open previews when project files or unsaved editor contents change.                   |
 | `stem.preview.refreshDebounceMs` | `250`   | Debounce delay in milliseconds before refreshing open previews after a file change.                         |
 
+`stem.preview.maxWork` and `stem.preview.maxOutputBytes` override the [shared composition limits](https://github.com/stemdev-hub/cli/blob/main/docs/specs/composition.md#d24-resource-budgets). Both accept nonnegative safe integers, including zero. Invalid values are diagnosed rather than clamped.
+
 ## Troubleshooting
 
-- **Preview doesn't open?** Ensure the active editor is a Markdown file saved on disk inside a project with valid `.stem/config.json` and contains a frontmatter `id`.
+- **Preview doesn't open?** Ensure the active editor is a Markdown file saved on disk beneath `blocksDir` inside a project with valid `.stem/config.json`.
 - **Configuration error?** Supply a valid `projectId` and supported settings. Configuration has no `version` field. Restore a lost configuration from version control to retain the project's identity.
-- **Invalid view notification?** Fix the YAML frontmatter and supply a nonempty string `id`, then reopen the preview.
+- **Partial or blank preview?** Read the Stem Preview Diagnostics output channel, correct the indicated source/configuration, then refresh.
 - **Workspace Untrusted?** Stem preview is available only in trusted workspaces. Trust the workspace in VS Code before opening a Stem preview.
 - **Preview refreshes too slow/fast?** Adjust the `stem.preview.refreshDebounceMs` setting in your VS Code preferences.
 

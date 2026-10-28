@@ -2,44 +2,40 @@
 
 ## How Preview Works (Architecture)
 
-Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`. The extension:
+Open a Markdown source under `blocksDir` and run `Stem: Open Preview to Side`. The extension:
 
-1. Parses the active buffer with the public `@stemdev/core` `parseViewFile` API and uses its decoded `id`, reporting invalid frontmatter before opening.
-2. Finds the nearest Stem project root by walking up to `.stem`.
-3. Loads project files through VS Code filesystem APIs, preferring open buffers, then analyzes and renders the selected view with bundled core.
-4. Serves the rendered Markdown body through a readonly `stem-preview:` virtual document.
+1. Selects the active source URI without requiring frontmatter metadata.
+2. Finds the nearest `.stem/config.json`.
+3. Captures unsaved source/configuration buffers, loads disk sources and analyzes them with bundled core.
+4. Serves exact composition content through a readonly `stem-preview:` document, with diagnostics in
+   the separate Stem Preview Diagnostics output channel.
 5. Opens that virtual document in VS Code's native Markdown preview.
 
-The extension does not duplicate Stem parser or renderer logic, and it does not use a custom webview.
-Core supplies parsing, validation, and rendering semantics. Preview is available only in trusted VS Code workspaces and does not spawn a CLI process.
-
-Open previews refresh automatically when project files or unsaved buffers change, including:
-
-- `views/**/*.md`
-- `blocks/**/*.md`
-- `.stem/config.json`
-
-Tag-schema YAML is no longer loaded; the general project watcher remains. Unknown keys in saved or unsaved configuration must
-report the same core validation error as CLI configuration validation; correcting an unsaved buffer
-allows preview to resume. Existing YAML files remain untouched, and Markdown in former schema directories
-follows ordinary source discovery.
-
-Preview requires no CLI installation or path configuration. For the separate AI server, see [MCP setup and CLI discovery](README.md#ai-context-server-mcp).
+Relevant disk/buffer/configuration changes invalidate content and diagnostics together, even with
+auto-refresh off. Later evaluation rejects obsolete results; it cannot return cached content as current.
+Preview performs no writes and never spawns CLI. Core supplies all parsing and composition semantics.
+See [architecture](https://github.com/stemdev-hub/cli/blob/main/docs/architecture.md#editor-adapter).
 
 ## Manual Test Checklist
 
-1. Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`.
-2. Edit a referenced block without saving; the preview should refresh. Save and confirm it still renders.
-3. Edit the source view without saving; the preview should reflect the active buffer.
-4. Introduce a broken block reference; the preview should show a Markdown-formatted Stem error.
-5. Open views with `"id": "my-view"`, a `---yaml` opener, and `id: "api\u002dview"`; confirm the intended view renders. Try malformed YAML after a valid `id`, a missing ID, and a numeric ID; expect a useful notification and no new preview.
-6. Disable `stem.preview.autoRefresh`, edit a referenced file, and confirm manual refresh still works.
-7. Re-enable `stem.preview.autoRefresh` without reloading VS Code and confirm changes refresh again.
-8. In a multi-root workspace, open previews from two Stem projects and confirm edits refresh only the matching project's previews.
-9. In an untrusted workspace, confirm preview is refused. Close or refresh a preview during loading and confirm cancellation does not display an obsolete error.
-10. In a disposable initialized project, remove or invalidate `projectId`, remove configuration, and add an unsupported `version` key in separate cases. Confirm CLI/editor configuration errors agree and no identity/configuration is written. Correct identity in an unsaved config buffer and confirm preview resumes without saving it; reopen the project and verify activation performs no identity repair. Restore the original config after testing.
+Record host name/version, trust state, fixture and results; automated tests do not establish host acceptance.
 
-Run the shared [code validation profile](../../CONTRIBUTING.md#verification), then `pnpm --filter vscode-stem exec vitest run tests/preview.test.ts tests/vscode-stem.test.ts`. Inspect a temporary VSIX for its bundled entry and exclusions. These automated checks use mocked VS Code APIs; record the exact editor version and results of this checklist separately for real-host acceptance.
+1. Open a source with surrounding text, nested Blocks and no frontmatter ID. Preview it.
+2. Edit a referenced Block and the active source without saving; verify exact current content.
+3. Edit configuration without saving, including `blocksDir`, invalid identity and an unknown key.
+   Confirm errors appear separately and disk files remain unchanged.
+4. Introduce a missing inclusion, a cycle and a low work/output limit. Verify partial content and scoped
+   diagnostics; fix the source and ensure stale content/diagnostics disappear together.
+5. Turn auto-refresh off, edit/delete a source and confirm the previous result is invalidated.
+   Manually refresh. Trigger overlapping slow evaluations and ensure the older result cannot replace it.
+6. Change files in two projects and confirm only the affected project is invalidated.
+7. Close the last preview and confirm watchers stop; try an untrusted workspace and confirm preview refuses.
+8. Verify original frontmatter, whitespace, BOM and final-newline behavior in the virtual document.
+   Native Markdown presentation may visually format these bytes.
+9. Verify source-boundary rejection for an outside file and a symlink escaping `blocksDir`.
+
+Preview requires no CLI installation. The separate server uses
+[MCP setup and CLI discovery](README.md#ai-context-server-mcp).
 
 ## MCP Validation
 

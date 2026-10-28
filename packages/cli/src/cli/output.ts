@@ -1,193 +1,109 @@
-import type { AddRefResult, CheckResult, CreateBlockResult, CreateGroupResult, CreateViewResult, DeleteResult, InitResult, ListBlocksResult, ListViewsResult, OperationError, OperationResult, RenderResult, RenameResult, SyncResult } from '../runtime/types/index.js';
-import type { ValidationIssue, ValidationResult } from '@stemdev/core';
-
-type OperationFailure = { success: false; error: OperationError };
-
-export function reportOperationError<T>(result: OperationResult<T>, json = false): result is OperationFailure {
-  if (result.success) {
-    return false;
-  }
-
-  if (json) {
-    const errorPayload = {
-      success: false,
-      error: result.error.message,
-      issues: isValidationResult(result.error.cause) ? result.error.cause.issues : undefined
-    };
-    console.error(JSON.stringify(errorPayload, null, 2));
+import type { Diagnostic } from '@stemdev/core';
+import type {
+  MutationResult,
+  OperationResult,
+  PreviewResult,
+  RenderResult
+} from '../runtime/types/index.js';
+import type { CleanupResult } from '../runtime/output/cleanup.js';
+export function reportDiagnostics(diagnostics: readonly Diagnostic[]): void {
+  for (const d of diagnostics)
+    process.stderr.write(
+      d.severity +
+        ' ' +
+        d.code +
+        ': ' +
+        d.message +
+        (d.location ? ' (' + d.location.sourceId + ':' + d.location.range.startOffset + ')' : '') +
+        '\n'
+    );
+}
+export function reportQuery<T>(result: OperationResult<T>, json = false): void {
+  if (json) process.stdout.write(JSON.stringify(result) + '\n');
+  if (!result.success) {
+    if (!json) process.stderr.write(result.error.code + ': ' + result.error.message + '\n');
     process.exitCode = 1;
-    return true;
+    return;
   }
-
-  console.error(result.error.message);
-  if (isValidationResult(result.error.cause)) {
-    for (const issue of result.error.cause.issues) {
-      if (issue.severity === 'error') {
-        console.error(formatValidationIssue(issue));
-      }
-    }
+  const data = result.data as {
+    diagnostics?: readonly Diagnostic[];
+    complete?: boolean;
+    classificationComplete?: boolean;
+  };
+  if (!json) {
+    process.stdout.write(JSON.stringify(result.data, null, 2) + '\n');
   }
-  process.exitCode = 1;
-  return true;
+  if (
+    data.diagnostics?.some((d) => d.severity === 'error') ||
+    data.complete === false ||
+    data.classificationComplete === false
+  )
+    process.exitCode = 1;
 }
-
-export function reportInit(result: OperationResult<InitResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(`Initialized Stem project at ${result.data.projectRoot}`);
-}
-
-export function reportCreateBlock(result: OperationResult<CreateBlockResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(`Created block ${result.data.id} at ${result.data.relativePath}`);
-}
-
-export function reportCreateView(result: OperationResult<CreateViewResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(`Created view ${result.data.id} at ${result.data.relativePath}`);
-}
-
-export function reportCreateGroup(result: OperationResult<CreateGroupResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(`Created group ${result.data.groupPath}`);
-}
-
-export function reportAdd(result: OperationResult<AddRefResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(`Added ${result.data.refString} to ${result.data.viewId}`);
-}
-
-export function reportDelete(result: OperationResult<DeleteResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(`Deleted ${result.data.id} from ${result.data.relativePath}`);
-}
-
-export function reportRename(result: OperationResult<RenameResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(`Renamed ${result.data.oldId} to ${result.data.newId}`);
-  console.log(`Updated ${result.data.updatedRefCount} reference${result.data.updatedRefCount === 1 ? '' : 's'}`);
-}
-
-export function reportSync(result: OperationResult<SyncResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  console.log(
-    `Synced ${result.data.scannedFiles} files (${result.data.parsedFiles} parsed, ${result.data.cachedFiles} cached)`
-  );
-  console.log(`Graph: ${result.data.graphNodes} nodes, ${result.data.graphEdges} edges`);
-}
-
-export function reportCheck(result: OperationResult<CheckResult>, json = false): void {
-  if (reportOperationError(result, json)) {
-    return;
-  }
-
-  const { validation } = result.data;
-  if (json) {
-    console.log(JSON.stringify(validation, null, 2));
-    if (validation.hasErrors) {
-      process.exitCode = 1;
-    }
-    return;
-  }
-
-  for (const issue of validation.issues) {
-    console.log(formatValidationIssue(issue));
-  }
-
-  console.log(`${validation.errorCount} error${validation.errorCount === 1 ? '' : 's'}, ${validation.warningCount} warning${validation.warningCount === 1 ? '' : 's'}`);
-  if (validation.hasErrors) {
+export const reportInit = reportQuery;
+export const reportCheck = reportQuery;
+export const reportSync = reportQuery;
+export function reportMutation(result: MutationResult): void {
+  for (const file of result.changedFiles) process.stdout.write('Changed ' + file + '\n');
+  reportDiagnostics(result.diagnostics);
+  if (!result.success) {
+    process.stderr.write(
+      (result.stage ?? 'preparation') + ': ' + (result.error?.message ?? 'Mutation failed.') + '\n'
+    );
     process.exitCode = 1;
   }
 }
-
-function formatValidationIssue(issue: ValidationIssue): string {
-  const location =
-    issue.position === undefined
-      ? issue.relativePath
-      : `${issue.relativePath}:${issue.position.start.line}:${issue.position.start.column}`;
-  return `${issue.severity.toUpperCase()} ${issue.code} ${location}: ${issue.message}`;
+export const reportRename = reportMutation;
+export function reportPreview(result: OperationResult<PreviewResult>, exportOnly = false): void {
+  if (!result.success) {
+    process.stderr.write(result.error.code + ': ' + result.error.message + '\n');
+    process.exitCode = 1;
+    return;
+  }
+  const eligible =
+    result.data.complete && !result.data.diagnostics.some((d) => d.severity === 'error');
+  if (!exportOnly || eligible) process.stdout.write(result.data.content);
+  reportDiagnostics(result.data.diagnostics);
+  if (!eligible) process.exitCode = 1;
 }
-
-function isValidationResult(value: unknown): value is ValidationResult {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    Array.isArray((value as Partial<ValidationResult>).issues)
-  );
+export function reportRender(result: RenderResult): void {
+  for (const target of result.targets) {
+    process.stdout.write(
+      target.status +
+        ' ' +
+        target.outputSet +
+        ':' +
+        target.path +
+        ' (tracking ' +
+        target.tracking +
+        ')' +
+        (target.reason ? ': ' + target.reason : '') +
+        '\n'
+    );
+    reportDiagnostics(target.diagnostics);
+  }
+  for (const action of result.cleanup)
+    process.stdout.write(
+      action.action +
+        ' ' +
+        (action.path ?? action.outputSet) +
+        (action.reason ? ': ' + action.reason : '') +
+        '\n'
+    );
+  for (const error of result.errors)
+    process.stderr.write(error.stage + ' ' + error.code + ': ' + error.message + '\n');
+  if (!result.success) process.exitCode = 1;
 }
-
-export function reportListBlocks(result: OperationResult<ListBlocksResult>, json = false): void {
-  if (reportOperationError(result, json)) {
-    return;
-  }
-
-  if (json) {
-    console.log(JSON.stringify(result.data.blocks, null, 2));
-    return;
-  }
-
-  for (const block of result.data.blocks) {
-    const tags = block.tags.length === 0 ? '-' : block.tags.join(',');
-    const usedIn = block.usedInViews.length === 0 ? '-' : block.usedInViews.join(',');
-    console.log(`${block.id}\t${block.relativePath}\ttags:${tags}\tviews:${usedIn}`);
-  }
-  console.log(`${result.data.total} block${result.data.total === 1 ? '' : 's'}`);
-}
-
-export function reportListViews(result: OperationResult<ListViewsResult>, json = false): void {
-  if (reportOperationError(result, json)) {
-    return;
-  }
-
-  if (json) {
-    console.log(JSON.stringify(result.data.views, null, 2));
-    return;
-  }
-
-  for (const view of result.data.views) {
-    const group = view.group ?? '-';
-    const blocks = view.blockIds.length === 0 ? '-' : view.blockIds.join(',');
-    console.log(`${view.id}\t${view.relativePath}\tgroup:${group}\tblocks:${blocks}`);
-  }
-  console.log(`${result.data.total} view${result.data.total === 1 ? '' : 's'}`);
-}
-
-export function reportRender(result: OperationResult<RenderResult>): void {
-  if (reportOperationError(result)) {
-    return;
-  }
-
-  const stdoutView = result.data.views.find((view) => view.markdown !== null);
-  if (stdoutView?.markdown !== undefined && stdoutView.markdown !== null) {
-    process.stdout.write(stdoutView.markdown);
-    return;
-  }
-
-  for (const view of result.data.views) {
-    console.log(`Rendered ${view.id} to ${view.outputRelativePath ?? '-'}`);
-  }
-  console.log(`${result.data.total} view${result.data.total === 1 ? '' : 's'} rendered`);
+export function reportCleanup(result: CleanupResult): void {
+  for (const action of result.outcomes)
+    process.stdout.write(
+      action.action +
+        ' ' +
+        (action.path ?? action.outputSet) +
+        (action.reason ? ': ' + action.reason : '') +
+        '\n'
+    );
+  for (const error of result.errors)
+    process.stderr.write(error.stage + ' ' + error.code + ': ' + error.message + '\n');
+  if (!result.success) process.exitCode = 1;
 }

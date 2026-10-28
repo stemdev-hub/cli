@@ -1,5 +1,13 @@
-import type { ValidationResult } from '@stemdev/core';
-
+import type {
+  CompositionLimits,
+  CompositionResult,
+  Diagnostic,
+  OutputSource,
+  OutputSets,
+  SourceRange
+} from '@stemdev/core';
+import type { PublicationTarget } from '../output/publication.js';
+import type { CleanupOutcome, OutputFailure } from '../output/cleanup.js';
 export type OperationErrorCode =
   | 'PROJECT_ROOT_NOT_FOUND'
   | 'CONFIG_ERROR'
@@ -9,177 +17,122 @@ export type OperationErrorCode =
   | 'CONFLICT'
   | 'NETWORK_ERROR'
   | 'AUTH_ERROR';
-
 export interface OperationError {
-  code: OperationErrorCode;
-  message: string;
-  path?: string;
-  cause?: unknown;
+  readonly code: OperationErrorCode;
+  readonly message: string;
+  readonly path?: string;
+  readonly cause?: unknown;
 }
-
 export type OperationResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: OperationError };
-
+  | { readonly success: true; readonly data: T }
+  | { readonly success: false; readonly error: OperationError };
 export interface ProjectOperationOptions {
-  startDir?: string;
-  strictExternal?: boolean;
-  useRemote?: boolean;
+  readonly startDir?: string;
+  readonly strictExternal?: boolean;
+  readonly useRemote?: boolean;
 }
-
 export interface InitProjectOptions extends ProjectOperationOptions {
-  force?: boolean;
+  readonly force?: boolean;
 }
-
-export interface CreateBlockOptions extends ProjectOperationOptions {
-  tag?: string;
-}
-
-export interface CreateViewOptions extends ProjectOperationOptions {
-  group?: string;
-}
-
-export interface AddRefOptions extends ProjectOperationOptions {
-  section?: string;
-  tag?: string;
-}
-
-export interface DeleteOptions extends ProjectOperationOptions {
-  force?: boolean;
-}
-
-export interface ListBlocksOptions extends ProjectOperationOptions {
-  tag?: string;
-}
-
-export interface ListViewsOptions extends ProjectOperationOptions {
-  blockId?: string;
-}
-
-export interface RenderOptions extends ProjectOperationOptions {
-  outDir?: string;
-}
-
-export interface RenderViewOptions extends RenderOptions {
-  stdout?: boolean;
-}
-
-export type RenderAllOptions = RenderOptions;
-
-export type PreviewViewOptions = ProjectOperationOptions;
-
 export interface InitResult {
-  projectRoot: string;
-  blocksDir: string;
-  viewsDir: string;
+  readonly projectRoot: string;
+  readonly blocksDir: string;
 }
-
-export interface CreateBlockResult {
-  id: string;
-  filePath: string;
-  relativePath: string;
-  scaffolded: boolean;
-  scaffoldedTag: string | null;
+export type AuthoringDestination =
+  | { readonly kind: 'file'; readonly path: string }
+  | { readonly kind: 'block'; readonly id: string };
+export interface CreateBlockOptions extends ProjectOperationOptions {
+  readonly destination: AuthoringDestination;
+  readonly tags?: readonly string[];
 }
-
-export interface CreateViewResult {
-  id: string;
-  filePath: string;
-  relativePath: string;
-  group: string | null;
+export interface AddInclusionOptions extends ProjectOperationOptions {
+  readonly destination: AuthoringDestination;
 }
-
-export interface CreateGroupResult {
-  groupPath: string;
-  absolutePath: string;
+export interface DeleteOptions extends ProjectOperationOptions {
+  readonly force?: boolean;
 }
-
-export interface DeleteResult {
-  id: string;
-  filePath: string;
-  relativePath: string;
-  referencingIds: string[];
-  forced: boolean;
+export interface MutationResult {
+  readonly success: boolean;
+  readonly changedFiles: readonly string[];
+  readonly affectedReferences: number;
+  readonly diagnostics: readonly Diagnostic[];
+  readonly error?: OperationError;
+  readonly stage?: 'preparation' | 'revalidation' | 'source' | 'configuration' | 'history';
 }
-
-export interface RenameResult {
-  oldId: string;
-  newId: string;
-  blockFilePath: string;
-  updatedFiles: string[];
-  updatedRefCount: number;
+export interface ListBlocksOptions extends ProjectOperationOptions {
+  readonly tag?: string;
 }
-
-export interface AddRefResult {
-  blockId: string;
-  viewId: string;
-  viewFilePath: string;
-  section: string | null;
-  tag: string | null;
-  refString: string;
+export interface BlockRow {
+  readonly sourceId: string;
+  readonly range: SourceRange;
+  readonly id?: string;
+  readonly tags: readonly string[];
 }
-
-export interface SyncResult {
-  scannedFiles: number;
-  parsedFiles: number;
-  cachedFiles: number;
-  graphNodes: number;
-  graphEdges: number;
-  durationMs: number;
-}
-
-export interface CheckResult {
-  validation: ValidationResult;
-  scannedFiles: number;
-  durationMs: number;
-}
-
 export interface ListBlocksResult {
-  blocks: Array<{
-    id: string;
-    tags: string[];
-    relativePath: string;
-    usedInViews: string[];
-    sectionCount: number;
-    standaloneTagCount: number;
-  }>;
-  total: number;
+  readonly blocks: readonly BlockRow[];
+  readonly total: number;
+  readonly classificationComplete: boolean;
+  readonly diagnostics: readonly Diagnostic[];
 }
-
-export interface ListViewsResult {
-  views: Array<{
-    id: string;
-    group: string | null;
-    relativePath: string;
-    blockCount: number;
-    blockIds: string[];
-  }>;
-  total: number;
+export interface ReferenceRow {
+  readonly sourceId: string;
+  readonly range: SourceRange;
+  readonly owner?: BlockRow;
 }
-
-export interface RenderedViewResult {
-  id: string;
-  relativePath: string;
-  outputPath: string | null;
-  outputRelativePath: string | null;
-  markdown: string | null;
+export interface ListReferencesResult {
+  readonly references: readonly ReferenceRow[];
+  readonly total: number;
+  readonly complete: boolean;
+  readonly diagnostics: readonly Diagnostic[];
 }
-
+export interface ListOutputsResult {
+  readonly outputSets: OutputSets;
+}
+export interface CheckResult {
+  readonly diagnostics: readonly Diagnostic[];
+  readonly errors: number;
+  readonly warnings: number;
+  readonly valid: boolean;
+  readonly scannedFiles: number;
+  readonly durationMs: number;
+}
+export interface SyncResult {
+  readonly scannedFiles: number;
+  readonly parsedFiles: number;
+  readonly graphNodes: number;
+  readonly graphEdges: number;
+  readonly durationMs: number;
+}
+export interface PreviewOptions extends ProjectOperationOptions {
+  readonly limits?: CompositionLimits;
+}
+export type PreviewResult = CompositionResult;
+export type SourceSelector = OutputSource;
+export type OutputSelection =
+  | { readonly kind: 'all' }
+  | {
+      readonly kind: 'sets';
+      readonly sets: readonly { readonly name: string; readonly targets?: readonly string[] }[];
+    };
 export interface RenderResult {
-  views: RenderedViewResult[];
-  total: number;
-  outDir: string | null;
+  readonly success: boolean;
+  readonly targets: readonly (PublicationTarget & {
+    readonly diagnostics: readonly Diagnostic[];
+  })[];
+  readonly cleanup: readonly CleanupOutcome[];
+  readonly errors: readonly OutputFailure[];
 }
-
-export type PreviewResult = RenderResult;
-
+export interface CleanupOptions extends ProjectOperationOptions {
+  readonly outputDir: string;
+  readonly set: string;
+  readonly apply?: boolean;
+}
 export interface FetchNamespacesResult {
-  successes: string[];
-  skipped: string[];
-  warnings: string[];
+  readonly successes: readonly string[];
+  readonly skipped: readonly string[];
+  readonly warnings: readonly string[];
 }
-
 export interface PublishGraphResult {
-  namespace: string;
-  uploadedTo: string;
+  readonly namespace: string;
+  readonly uploadedTo: string;
 }

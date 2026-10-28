@@ -1,188 +1,123 @@
 # Current Stem reference
 
-This describes implemented behavior in the checkout, updated on 25 October 2026 for durable project identity after `32fbf66`: core 0.1.0, CLI 0.3.1, extension 0.4.1. These are source package versions, not verification of registry or Marketplace delivery. Keep this applicability statement with behavior changes.
-
-The [Pure Block specifications](architecture.md#pure-block-design) are accepted, with implementation pending. Their `@stem:block(...)` / `@stem:include(...)` notation is not the format described here. Accepted design and implementation can differ; [roadmap](../roadmap.md#pure-block-migration) records remaining implementation work and open mechanics.
-
-Use the [CLI guide](../packages/cli/README.md) for installation, configuration and commands, the [editor guide](../packages/vscode-stem/README.md) for preview/MCP setup, and the [core guide](../packages/core/README.md) for integration.
+This describes the coordinated Pure Block implementation. [Specifications](architecture.md#pure-block-design)
+own detailed contracts; [roadmap](../roadmap.md) distinguishes implementation, host acceptance and release.
 
 ## Files and frontmatter
 
-A current block file is Markdown with YAML frontmatter containing a nonempty string `id`. A view has its own string `id` and a Markdown body containing references and local prose. Files are discovered under the configured block/view directories; a section in this legacy representation is not another domain primitive.
+`blocksDir` (default `blocks`) is the single project-relative Markdown source directory.
+Files may contain multiple nested Blocks and surrounding text, or no Blocks. Frontmatter is ordinary
+text and supplies no Stem identity. Existing authored View files are preserved; authors decide whether
+to include them in the source layout. `viewsDir` is an unknown configuration key.
 
-| Field        | Used by          | Current interpretation                                                                                                   |
-| ------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `id`         | Blocks and views | Required nonempty string; surrounding whitespace is trimmed. Keep Block/view IDs unique within the project.             |
-| `tags`       | Blocks           | Array of string classification labels; non-string entries are filtered out. This is separate from tagged body fragments. |
-| `depends-on` | Blocks           | Array of string references such as `other-block#details.note`; records dependencies rather than inserting prose.         |
-| `group`      | Views            | Optional nonempty string, trimmed; CLI grouping also organizes files.                                                    |
-
-Frontmatter uses YAML 1.2 core semantics with merge and timestamp tags. Timestamp values do not become string IDs. Empty/comment-only/null YAML becomes an empty object; missing IDs and malformed YAML produce diagnostics. `---yaml` and `---yml` are recognized; other frontmatter engines are rejected by the portable parser.
-
-[ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md) records this legacy portable frontmatter policy; ADR-0005 supersedes it for the replacement parser, which remains pending. Node-side rename/render helpers still use gray-matter; acceptance does not establish identical parsing in every operation.
+Discovery includes lowercase `.md` files recursively and excludes hidden files/directories,
+`node_modules` and `dist`. Physical source paths must remain within the source directory and project.
+A destination's output manifest does not establish a source project.
 
 ## Body markers and classification
 
-The current notation uses `@stem[...]` macros. Markdown code blocks, inline code and raw HTML nodes are outside the plugin's ordinary text traversal; this differs from the proposed uniform-recognition syntax. Keep active markers in ordinary Markdown text.
-
-| Notation                              | Purpose                                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `@stem[section:details]`              | Opens a named section.                                                                                        |
-| `@stem[tag:note]`                     | Opens a tagged content fragment in the current section, or a standalone fragment.                             |
-| `@stem[tag:note section=details]`     | Binds a fragment to the named section, even when authored elsewhere in the file.                              |
-| `@stem[end]`                          | Closes the current tag first; otherwise closes the current section.                                           |
-| `@stem[dep:other-block#details.note]` | Records a local dependency; it does not insert content and does not support external namespaces or arguments. |
-
-Use simple identifiers such as `auth-flow`, `details` and `note` in macros. Close fragments and sections explicitly. This format does not implement the proposed nested Block ownership model. Frontmatter classification labels, body fragment tags, and section tag collections are different legacy uses of the word “tag.”
-
-For example, a block can contain two fragments with the same tag:
-
-```markdown stem-check=tags-block
----
-id: source
-tags: [guide]
----
-
-Other prose.
-@stem[section:details]
-@stem[tag:note]
-First.
-@stem[end]
-@stem[tag:note]
-Second.
-@stem[end]
-@stem[end]
-```
+A definition uses `@stem:block(id:example tags:[guide, "API notes"])` and `@stem:end(id:example)`.
+Missing/invalid identity is diagnosed and cannot be selected by ID.
+An unlabelled `@stem:end()` closes the innermost Block. Nested Blocks own their own content and Tags.
+IDs use ASCII letters, digits, underscore and hyphen, preserving case. Duplicate IDs remain separate
+recovered definitions and make ID selection ambiguous. Tags classify whole Blocks, never fragments;
+matching uses NFC equality and never inherits Tags from a parent. See [syntax](specs/stem-syntax.md)
+for exact metadata grammar, escaping, standalone boundary handling and recovery.
 
 ## References and selection
 
-| Reference                                      | Current behavior                                                                                                 |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `@stem[block:source]`                          | Selects the block body.                                                                                          |
-| `@stem[block:source section=details]`          | Selects section content.                                                                                         |
-| `@stem[block:source section=details tag=note]` | Selects matching fragments in that section, in source order.                                                     |
-| `@stem[block:source tag=note]`                 | **Known limitation:** without a section, current rendering selects the whole block body, not only matching tags. |
-| `@stem[block:team:source]`                     | Carries an external namespace for validation; a metadata snapshot does not supply prose for rendering.           |
+`@stem:include(example)` expands the selected Block's body and descendants. Repeated inclusions
+remain repeated. Surrounding source text is preserved when composing a file. Block selection excludes
+its authored boundaries; file selection composes the entire source. Unrelated definition errors do
+not block an otherwise eligible selected result. A cycle stops the affected expansion and reports
+an error while preserving other available content.
 
-Duplicate matching fragments are joined with a newline by the legacy renderer. Duplicate-tag validation can still warn; the historical claim that the renderer returns an unjoined array is incorrect.
-
-This view selects the two fragments above:
-
-```markdown stem-check=tags-view
----
-id: fragment-view
----
-
-@stem[block:source section=details tag=note]
+```markdown stem-check=composition-source
+@stem:block(id:welcome tags:[guide])Welcome.@stem:end()
+@stem:block(id:page)@stem:include(welcome)@stem:end()
 ```
 
-Expected Markdown (with a final newline):
+Selecting Block `page` yields exactly:
 
-```text stem-check=tags-output
-First.
-Second.
+```text stem-check=composition-output
+Welcome.
 ```
 
-Legacy replacement strips recognized standalone control-marker lines and trims the selected content. It is not the proposed exact-whitespace composition contract. When called without project validation, core's legacy `renderViewMarkdown` path can leave a missing target as literal reference text and report success; core callers must [validate explicitly](#validation-and-diagnostics). CLI rendering, terminal preview, and editor preview validate first and reject missing local block references.
+Qualified references use `alias:id` within the defining instance's context. Core accepts caller-supplied
+source instances. CLI/editor connection resolution is deferred: configured namespace metadata cannot
+supply bodies, so a qualified inclusion without authored source remains unavailable.
 
 ## Parameters and placement
 
-Parameterized references already exist in the current implementation. Use comma-separated named string arguments, for example `@stem[block:database, db_name="PostgreSQL"]`. A selected fragment can contain `{{db_name}}`; substitution is single-pass. Missing variables and invalid arguments produce diagnostics. Quoted values are not output-language escaping.
-
-```markdown stem-check=parameters-block
----
-id: database
----
-
-Database: {{db_name}}
-```
-
-```markdown stem-check=parameters-view
----
-id: database-view
----
-
-@stem[block:database, db_name="PostgreSQL"]
-```
-
-Expected Markdown:
-
-```text stem-check=parameters-output
-Database: PostgreSQL
-```
-
-The extended/parameterized path uses Markdown AST composition: a reference must occupy its own paragraph in a supported flow container (including blockquotes and list items). Inline placement is rejected. It can normalize Markdown formatting and does not preserve a final newline in this example. When a view uses an extended reference, that composition path processes the view's references together. Do not assume the legacy replacement path has identical placement or formatting behavior.
+Legacy Section/Tag-fragment selectors, parameter substitution and View APIs are retired directly.
+Use nested Blocks for selectable content. Escaping and placement are specified in
+[Stem syntax](specs/stem-syntax.md); generated text is never rescanned for directives.
 
 ## Validation and diagnostics
 
-Run `stem check` before relying on rendered results. It reads project documents and reports parser/frontmatter issues, duplicate/missing targets, section/tag references, dependency/cycle issues and external-snapshot issues. `--json` preserves structured issue information; `--strict-external` promotes external warnings to errors; `--use-remote` bypasses local namespace paths during checking.
+Checking and listing use fresh sources and return usable recovered data alongside diagnostics.
+Block rows identify their source and original UTF-16 range; an unusable ID is absent. Reference lookup
+returns authored occurrences, including repeated and file-level inclusions, with explicit completeness.
+These ranges describe one evaluation and must not be persisted as identity.
 
-Core callers use `analyzeProject(snapshot, { nowMs })` for full supplied-project validation. Calling the renderer or building a graph alone does not replace that validation. Public issue types and result shapes are generated from [core exports](../packages/core/src/index.ts) and [CLI declarations](../packages/cli/docs/stem-api.d.ts).
+Output-use warnings concern local Blocks unreachable from all configured outputs through containment
+and inclusion. Library projects need no output roots. Incomplete reachability suppresses misleading
+unused-Block warnings. Checking exits nonzero for errors; listing also fails for incomplete results.
+Warnings alone do not fail a completed query. JSON retains the operation envelope and diagnostics.
 
-Current transclusion depth/cycle policy and external graph identity have unresolved design questions. No proposed recursive-composition, complete-result publication, or connection-lifecycle guarantee is implied here.
+Preview returns exact current content, including partial content, and reports diagnostics separately.
+Normal export requires a complete result without applicable errors. Neither preview nor stdout export
+adds a newline. Reads and previews write no sources, configuration, caches, manifests or locks.
+Composition limits and override semantics have one owner in [D24](specs/composition.md#d24-resource-budgets).
 
-<a id="current-tag-schemas"></a>
+## Output publication
+
+`outputSets` maps explicit Block/file selectors to destination paths and effective policies. It is
+optional; an empty library project is valid. File selectors are project-relative beneath `blocksDir`.
+Destination paths are relative to a set's output directory, which defaults to the project root.
+`ifExists` defaults to `replace`; `skip` preserves existing bytes and ownership; `error` refuses them.
+`cleanup` defaults to `keep`; `prune` requires a complete successful selection and safe ownership checks.
+
+Publication validates the whole selected destination plan before writes, protects sources and metadata,
+and coordinates local writers per physical output root. Each root's `.stem/outputs.json` records producer
+identity, set, path and exact-byte hash. A confirmed file publication remains published when later
+tracking fails; results retain partial successes and stage-specific errors. No batch transaction is claimed.
+
+Explicit cleanup assesses by default. Applying cleanup removes only unchanged obsolete files owned by
+the current project/set. Current targets in all sets remain protected, including during retired-set cleanup.
+Edited, unowned or unsafe files remain. See the [publication contract](specs/composition.md#d25-export-eligibility-and-publication).
 
 ## Tag-schema retirement
 
-Tag-schema validation has been removed under [ADR-0005](decisions/0005-pure-block-model.md).
-`schemasDir` is outside the supported configuration fields and receives the same
-[unknown-field error](#configuration-validation) as any other unknown key or typo.
-
-Existing schema YAML is preserved and no longer loaded or validated. `stem init` creates no schema
-templates, and `stem init --force` leaves existing schema files untouched. YAML files remain outside
-Markdown discovery; Markdown beneath former schema directories is discovered normally when inside
-the configured source directory. There is no remaining special schema-directory exclusion.
-
-Core no longer exports `decodeTagSchemaYaml()`, `validateSchemas()`, `TagSchema` or
-`TagSchemaDecodeResult`; analysis inputs no longer accept schema collections. No compatibility
-aliases are supplied. Grammar, identity, reference and graph checks continue. External-snapshot
-decoding remains supported under the unaffected portion of ADR-0004. The
-[D23 contract](specs/block-model.md#d23-schema-retirement-transition) owns the transition; replacement
-schema/template features remain deferred.
+Tag-schema YAML is not loaded or enforced. Existing YAML files are preserved. Markdown in former schema
+directories follows ordinary discovery. Replacement schemas/templates remain deferred.
 
 ## Configuration validation
 
-Configuration accepts only supported fields: `projectId`, `namespace`, `publishUrl`, `blocksDir`,
-`viewsDir`, `cacheDir` and `namespaces`. Namespace aliases are user-defined names subject to the
-namespace naming rules; each namespace entry accepts only `graphUrl` and `localPath`.
-
-Unknown keys, including typos, are rejected by core normalization with `CONFIG_INVALID_SCHEMA`
-and an error identifying the field, for example `Unknown Stem config field "blocksdir".` or
-`Unknown Stem config field "namespaces.shared.graphURL".` CLI operations wrap configuration failures
-as `CONFIG_ERROR`; editor preview uses the same core message, including for unsaved configuration.
-There is no retired-field lookup, automatic correction or migration-specific error path.
-Configuration has no `version` field; supplying it receives the same unknown-field error.
-Package release versions and cache/snapshot format versions are separate and unchanged.
-Supported optional fields retain their value and path validation and defaults.
+Configuration lives in `.stem/config.json` and rejects unknown keys at every supported level.
+Supported root keys are `projectId`, `blocksDir`, `cacheDir`, `outputSets`, `namespace`, `publishUrl`
+and `namespaces`. There is no version field. See the [CLI configuration example](../packages/cli/README.md#configuration).
 
 ### Project identity
 
-`projectId` is required: a 36-character lowercase hyphenated UUIDv4 with valid version and variant
-bits. It identifies the project independently of its location, namespace, aliases and Block IDs.
-Core validates supplied identity without generating it or normalizing its spelling. Missing or invalid
-identity produces `CONFIG_INVALID_SCHEMA`; an absent configuration file produces `CONFIG_NOT_FOUND`.
-Reads never persist defaults, repair configuration or save unsaved editor buffers.
-
-Initialization establishes identity once; moves and additional checkouts preserve the versioned
-value. Repeated initialization conflicts unless force is requested. Force preserves valid
-configuration bytes and completes missing scaffolding; invalid existing configuration fails before
-writes in either mode. Explicitly editing identity expresses author intent, without automatic Block
-rewrites or ownership transfer. See the [CLI procedure](../packages/cli/README.md#configuration) and
-the accepted [lifecycle specification](specs/project-connections.md#configuration-reads-and-initialization).
-Independent connections and producer-owned output publication remain pending; this identity
-prerequisite does not implement them.
+`projectId` is a required canonical lowercase UUIDv4. Reads never generate or repair it. New initialization
+creates identity; force initialization preserves valid existing configuration bytes and completes missing
+scaffolding. Invalid configuration fails before writes. Restore a lost configuration from version control
+when the original project identity must be retained.
 
 ## Namespace snapshots
 
-Current cross-project support exchanges structural metadata. The published graph contains namespace/version/timestamps, block IDs, classification labels, section/tag names and recent rename entries; it does **not** contain block prose or source paths.
+Metadata exchange remains separate from authored-source connections. `publish-graph` sends version `2`
+Block-only metadata with project identity, flat IDs/direct Tags and advisory rename history. Invalid
+classification/identity prevents projection. It includes no source bodies, sections, positions or handles.
 
-`contentSha` hashes the sorted block and rename metadata, not the complete local graph or Markdown content. The internal cache `graph.json`, external `stem-graph.json`, and fetched namespace envelope are different representations.
+`fetch-namespaces` retains explicit HTTP metadata retrieval. A namespace's `localPath` first tries
+`.stem/cache/stem-graph.json`; otherwise consumers use `.stem/cache/namespaces/<alias>.json` containing
+`{ fetchedAt, graph }`. Core owns pure envelope decoding and shape validation; adapters own I/O and
+fallback. Timestamp strings remain permissive. Remote snapshots older than seven days warn (errors
+under strict external checking); local fallback bypasses expiry. Rename history is advisory only.
 
-A configured `localPath` expects an external snapshot at `<localPath>/.stem/cache/stem-graph.json`. `stem sync` produces the internal graph instead, and `stem publish-graph` uploads the external graph without saving that local file. Thus a local-only connection currently lacks a built-in external-snapshot producer. Do not rename `graph.json` to work around this mismatch.
-
-Remote downloads are cached as `{ fetchedAt, graph }` under `.stem/cache/namespaces/<namespace>.json`; fetching can skip a remote URL when an available local snapshot takes precedence. The current envelope decoder requires a string `fetchedAt`, not a validated date. These paths/policies are not the proposed independent Git connection system.
-
-External snapshots support reference checking, not reliable external transclusion. Current rendering resolves supplied blocks by local ID without namespace-aware source resolution; a same-ID local block can be selected for a namespaced reference. Without supplied prose, a legacy external reference may remain unexpanded. Treat this as a known limitation, not a supported remote composition workflow.
-
-See the [CLI namespace procedure](../packages/cli/README.md#namespace-snapshots-and-publishing) and [remaining work](../roadmap.md#remaining-namespace-issues). The [legacy PRD](history/legacy-cli-prd.md) is historical evidence, not a competing current reference.
+The local external-snapshot producer is absent. Internal sync `graph.json` is a different, disposable
+position-free format. Sync parses every discovered source; it does not reconstruct legacy caches.
+Connection storage, Git transport and connection-resolution lifecycle remain deferred under
+[ADR-0007](decisions/0007-independent-project-connections.md).

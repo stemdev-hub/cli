@@ -2,7 +2,8 @@
 
 Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
 Identity lifecycle refinements were approved on 25 October 2026 under
-[ADR-0010](../decisions/0010-project-identity-configuration.md). Implementation remains pending.
+[ADR-0010](../decisions/0010-project-identity-configuration.md). Identity, supplied contexts and metadata
+are distinct from deferred connection-resolution mechanics; [roadmap](../../roadmap.md#pure-block-migration) owns implementation state.
 Governing connection decision: [ADR-0007](../decisions/0007-independent-project-connections.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.

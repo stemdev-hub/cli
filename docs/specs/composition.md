@@ -1,7 +1,7 @@
 # Composition and publication
 
 Status: accepted (23 October 2026), by explicit owner acceptance of revision `a56203e`.
-Implementation remains pending. Governing decision:
+Implementation state is tracked in the [roadmap](../../roadmap.md#pure-block-migration). Governing decision:
 [ADR-0005](../decisions/0005-pure-block-model.md). See
 [architecture](../architecture.md#proposed-pure-block-design) for document ownership and D-label
 navigation.
@@ -163,7 +163,7 @@ Warnings alone do not fail an otherwise complete result. Operation failures emit
 The source-render commands require `--stdout`; file destinations use configured output-set commands.
 Reuse source evaluation and D25 eligibility checks without another renderer or public export API.
 Neither stdout mode adds a heading, status summary or trailing newline to the composed content.
-These commands are replacement contracts awaiting implementation, not current usage instructions.
+The [CLI guide](../../packages/cli/README.md) owns command usage; the roadmap tracks verification.
 
 #### MCP preview
 
@@ -397,8 +397,7 @@ selection is available through the operation; the CLI needs no additional groupi
 
 These are file-publication commands. Explicit-source preview and eligible stdout composition remain
 separate, output-set-independent workflows under [preview/output separation](#preview-and-output-adapters).
-Preserve those workflows during coordinated replacement. These spellings describe the accepted
-replacement contract, not commands supported by the current implementation.
+Preserve those workflows during coordinated replacement. These spellings are the coordinated public command contract.
 
 ### Source boundary and View retirement
 
@@ -436,9 +435,19 @@ The `limits` input has `maxWork` and `maxOutputBytes`. Both are required nonnega
 zero is valid. Reject missing, negative, fractional, non-finite or unsafe values before traversal,
 returning empty `content`, `complete: false` and an error diagnostic rather than silently clamping,
 defaulting or starting unbounded evaluation. These are invocation checks, separate from exhaustion
-of a valid allowance. Initial core implementation and tests supply explicit limits. Shared defaults
-must be selected from measurements before user-facing callers are integrated; no numeric defaults
-are established by this contract checkpoint.
+of a valid allowance. Core and tests supply explicit limits. The owner approved shared adapter defaults under ADR-0011:
+`maxWork: 100_000` and `maxOutputBytes: 16_777_216` (16 MiB). Core exports
+`DEFAULT_COMPOSITION_LIMITS`, but `compose` still requires an explicit limits argument.
+Node callers may supply `options.limits`; CLI preview/render use `--max-work` and
+`--max-output-bytes`; MCP `preview_source` accepts optional `limits`; editor settings are
+`stem.preview.maxWork` and `stem.preview.maxOutputBytes`. Overrides use the same validation.
+
+These defaults allow substantial authored documents while bounding explosive repetition. Reproducible
+composition-only measurements are in `packages/core/tests/renderer/compose.test.ts`. Prior Windows/Node
+26 medians were about 6 ms for 12,000-deep containment, 20 ms for an inclusion cycle, 17 ms for
+100,000 empty-branching work units, 141 ms for 16 MiB repeated output and 10 ms for a 1 MiB output stop.
+They exclude parsing/loading and are not latency guarantees. Raise limits explicitly for intentional
+large outputs; do not infer an unbounded mode.
 
 Charge one work unit for each attempted Block entry and one for each inclusion attempt, including
 the selected root Block, contained Blocks, repeated occurrences, failed inclusions and cycle
@@ -469,9 +478,7 @@ Check allowances before expansion or oversized allocation and use stack-safe tra
 nesting cannot overflow the call stack before a work limit is reached. These two counters bound
 composition work and output, not total process memory or execution time. Parsing and source
 retrieval are separate concerns. Callers may raise limits for intentionally large outputs; optional
-preview folding or additional bounded evaluation belongs to presentation. Numeric defaults await
-measurement during composition implementation, as tracked in
-[open work](../../roadmap.md#pure-block-open-and-deferred-work).
+preview folding or additional bounded evaluation belongs to presentation. The shared caller defaults above do not change the requirement for explicit core limits.
 
 ## D25. Export eligibility and publication
 

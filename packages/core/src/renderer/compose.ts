@@ -15,6 +15,12 @@ export interface CompositionLimits {
   readonly maxOutputBytes: number;
 }
 
+/** Shared adapter defaults; compose still requires an explicit limits argument. */
+export const DEFAULT_COMPOSITION_LIMITS: CompositionLimits = Object.freeze({
+  maxWork: 100_000,
+  maxOutputBytes: 16 * 1024 * 1024
+});
+
 export interface CompositionResult {
   readonly content: string;
   /** All requested content was produced; definition errors may still prevent export. */
@@ -33,7 +39,7 @@ interface Frame {
 
 /**
  * Compose supplied current sources without I/O, rescanning, formatting or cached output.
- * Private until coordinated public integration. Each invocation owns its budgets and path.
+ * Each invocation owns its budgets and path.
  */
 export function compose(analysis: ProjectAnalysis, target: CompositionTarget,
   limits: CompositionLimits): CompositionResult {
