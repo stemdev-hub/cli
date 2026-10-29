@@ -230,6 +230,8 @@ describe('Stem MCP setup command', () => {
   let configuredCliPath: unknown;
   let bin: string;
   let pathCli: string;
+  const projectConfig = JSON.stringify({ projectId: '45d16256-1d6c-4ce7-9946-96297894c17d' });
+  const projectPath = () => path.join(root, '.stem/config.json');
   const configPath = (host: string) => path.join(root, host, 'mcp.json');
   const put = async (host: string, text: string) => {
     await mkdir(path.join(root, host), { recursive: true });
@@ -253,6 +255,8 @@ describe('Stem MCP setup command', () => {
 
   beforeEach(async () => {
     root = await mkdtemp(path.join(tmpdir(), 'stem-mcp-'));
+    await mkdir(path.join(root, '.stem'));
+    await writeFile(projectPath(), projectConfig);
     configuredCliPath = '';
     bin = path.join(root, 'CLI tools with spaces');
     await mkdir(bin);
@@ -296,6 +300,125 @@ describe('Stem MCP setup command', () => {
 
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
+  });
+
+  it.each([false, true])(
+    'rejects a missing project before probing (existing MCP files: %s)',
+    async (existing) => {
+      await rm(projectPath());
+      if (existing) {
+        await put('.cursor', '{}');
+        await put('.vscode', '{}');
+      }
+      await run();
+      expect(options.execFile).not.toHaveBeenCalled();
+      expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringContaining('Open your initialized Stem project as the first workspace folder')
+      );
+      for (const host of ['.cursor', '.vscode']) {
+        if (existing) expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+        else expect(fs.existsSync(path.join(root, host))).toBe(false);
+      }
+      expect(fs.existsSync(projectPath())).toBe(false);
+    }
+  );
+
+  it.each([
+    '{ broken',
+    '{}',
+    '{"projectId":"invalid"}',
+    projectConfig.replace('45d16256', '45D16256'),
+    projectConfig.replace('}', ',"viewsDir":"views"}'),
+    projectConfig.replace('}', ',"outputSets":[]}')
+  ])('preserves invalid project and MCP bytes before probing: %s', async (content) => {
+    await writeFile(projectPath(), content);
+    await put('.cursor', '{}');
+    await put('.vscode', '{}');
+    await run();
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('Correct and save the project configuration')
+    );
+    expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+    expect(await readFile(projectPath(), 'utf8')).toBe(content);
+    for (const host of ['.cursor', '.vscode'])
+      expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+    await assertNoStagedFiles();
+  });
+
+  it('rejects unreadable project configuration before probing or creating directories', async () => {
+    options.fs = {
+      ...fs,
+      readFileSync: () => {
+        throw Object.assign(new Error('fixture permission denied'), { code: 'EACCES' });
+      }
+    };
+    await run();
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('cannot read project configuration')
+    );
+    expect(await readFile(projectPath(), 'utf8')).toBe(projectConfig);
+    for (const host of ['.cursor', '.vscode'])
+      expect(fs.existsSync(path.join(root, host))).toBe(false);
+  });
+
+  it.each([false, true])(
+    'requires saved project configuration (file missing: %s)',
+    async (missing) => {
+      if (missing) await rm(projectPath());
+      api.workspace.textDocuments.push({ uri: { fsPath: projectPath() }, isDirty: true });
+      await run();
+      expect(options.execFile).not.toHaveBeenCalled();
+      expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringContaining('unsaved configuration')
+      );
+      for (const host of ['.cursor', '.vscode'])
+        expect(fs.existsSync(path.join(root, host))).toBe(false);
+    }
+  );
+
+  it.each(['changed', 'removed', 'dirty'] as const)(
+    'rejects project configuration %s during CLI discovery',
+    async (kind) => {
+      await put('.cursor', '{}');
+      await put('.vscode', '{}');
+      options.execFile = vi.fn<McpTestOptions['execFile']>(
+        (_command, _args, _options, callback) => {
+          if (kind === 'changed') fs.writeFileSync(projectPath(), projectConfig + '\n');
+          if (kind === 'removed') fs.unlinkSync(projectPath());
+          if (kind === 'dirty')
+            api.workspace.textDocuments.push({ uri: { fsPath: projectPath() }, isDirty: true });
+          callback(null);
+        }
+      );
+      await run();
+      expect(options.execFile).toHaveBeenCalled();
+      expect(api.window.showErrorMessage).toHaveBeenCalled();
+      expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+      for (const host of ['.cursor', '.vscode'])
+        expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+      await assertNoStagedFiles();
+    }
+  );
+
+  it('rechecks the project after staging and preserves both MCP files on change', async () => {
+    await put('.cursor', '{}');
+    await put('.vscode', '{}');
+    options.fs = {
+      ...fs,
+      fsyncSync: (fd) => {
+        fs.fsyncSync(fd);
+        fs.writeFileSync(projectPath(), projectConfig + '\n');
+      }
+    };
+    await run();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('project configuration changed during setup')
+    );
+    for (const host of ['.cursor', '.vscode'])
+      expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+    await assertNoStagedFiles();
   });
 
   it.each([false, true])(
@@ -748,7 +871,7 @@ describe('Stem MCP setup command', () => {
     await run();
     expect(api.window.showErrorMessage).toHaveBeenCalledWith('No workspace folder open.');
     expect(options.execFile).not.toHaveBeenCalled();
-    expect(await readdir(root)).toEqual([path.basename(bin)]);
+    expect((await readdir(root)).sort()).toEqual(['.stem', path.basename(bin)].sort());
   });
 
   it('targets only the first workspace folder', async () => {
@@ -758,6 +881,22 @@ describe('Stem MCP setup command', () => {
     await run();
     expect(await readdir(second)).toEqual([]);
     expect((await config('.vscode')).servers?.['stem']?.['cwd']).toBe(root);
+  });
+
+  it('does not select a later valid project when the first workspace folder is not initialized', async () => {
+    await rm(projectPath());
+    const second = path.join(root, 'second');
+    await mkdir(path.join(second, '.stem'), { recursive: true });
+    await writeFile(path.join(second, '.stem/config.json'), projectConfig);
+    api.workspace.workspaceFolders.push({ uri: { fsPath: second } });
+    await run();
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining(projectPath())
+    );
+    for (const folder of [root, second])
+      for (const host of ['.cursor', '.vscode'])
+        expect(fs.existsSync(path.join(folder, host))).toBe(false);
   });
 
   it('preserves both files when a configuration has unsaved editor changes', async () => {
@@ -863,7 +1002,6 @@ describe('Stem MCP setup command', () => {
   });
 
   it('does not migrate existing configuration during activation', async () => {
-    await mkdir(path.join(root, '.stem'));
     await writeFile(path.join(root, '.stem', 'config.json'), '{}');
     const text = JSON.stringify({ mcpServers: { stem: legacyEntry() } });
     await put('.vscode', text);

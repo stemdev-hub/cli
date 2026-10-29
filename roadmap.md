@@ -13,13 +13,13 @@ Current integration acceptance is tracked [below](#integration-acceptance); defe
 
 ### R01: Use core semantics when opening a view preview
 
-State: implementation complete; real-host acceptance pending. Distribution: tracked by R10.
+State: the owner reports manual preview tests passed with the corrected VSIX after the `tunnels` getter fix; exact host/version evidence remains unrecorded. Regression tests cover guarded API getters. Distribution: tracked by R10.
 
 Core-based preview identification and automated checks are recorded in [historical R01](docs/history/2026-10-repository-audit.md#r01-use-core-semantics-when-opening-a-view-preview). Preserve the recorded Cursor/API evidence and its limits. Run the [preview host checklist](packages/vscode-stem/CONTRIBUTING.md#manual-test-checklist) in the selected trusted editor host, recording version, fixture and result before declaring acceptance complete.
 
 ### R02: Serialize MCP configuration separately for VS Code and Cursor
 
-State: implementation complete; real-host recognition/startup acceptance pending. Distribution: tracked by R10.
+State: project-configuration preflight and stale-input rejection are implemented with regression coverage; see the [MCP setup guide](packages/vscode-stem/README.md#ai-context-server-mcp). Real-host recognition/startup acceptance remains pending. Distribution: tracked by R10.
 
 Separate serializers and automated coverage are recorded in [historical R02](docs/history/2026-10-repository-audit.md#r02-serialize-mcp-configuration-separately-for-vs-code-and-cursor). Complete the [MCP host checklist](packages/vscode-stem/CONTRIBUTING.md#mcp-validation), distinguishing configuration recognition from server startup. Do not repeat already-recorded automated evidence as a fresh host result.
 
@@ -57,7 +57,7 @@ The local external-snapshot producer is absent; internal `graph.json` and extern
 
 ## Pure Block migration
 
-State: coordinated public integration implemented and verified in the working tree; ready for owner-authorized commit.
+State: coordinated public integration committed at `48aa4b1`; editor preview acceptance follow-up is tracked under R01.
 [ADR-0011](docs/decisions/0011-public-pure-block-integration.md) records the approved public boundary.
 [Architecture](docs/architecture.md#pure-block-design) maps contracts and implementation.
 [Private checkpoint evidence](docs/history/2026-10-pure-block-checkpoints.md) remains historical.

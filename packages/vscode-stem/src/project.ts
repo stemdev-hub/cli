@@ -24,6 +24,15 @@ import type {
 
 export type ProjectApi = Pick<typeof vscode, 'Uri' | 'workspace'>;
 
+/** Only stable inputs used by snapshot reads; never enumerate host API objects. */
+type ReadApi = {
+  readonly Uri: ProjectApi['Uri'];
+  readonly workspace: {
+    readonly fs: ProjectApi['workspace']['fs'];
+    readonly textDocuments: readonly Pick<vscode.TextDocument, 'uri' | 'getText'>[];
+  };
+};
+
 export class PreviewFailure extends Error {
   readonly code = 1;
   readonly stderr: string;
@@ -105,7 +114,7 @@ export async function findProjectRootAsync(
   }
 }
 
-async function readText(api: ProjectApi, uri: vscode.Uri, signal?: AbortSignal): Promise<string> {
+async function readText(api: ReadApi, uri: vscode.Uri, signal?: AbortSignal): Promise<string> {
   signal?.throwIfAborted();
   requireFile(uri);
   const document = api.workspace.textDocuments.find(
@@ -119,7 +128,7 @@ async function readText(api: ProjectApi, uri: vscode.Uri, signal?: AbortSignal):
 }
 
 async function loadConfig(
-  api: ProjectApi,
+  api: ReadApi,
   root: vscode.Uri,
   signal?: AbortSignal
 ): Promise<PortableStemConfig> {
@@ -225,20 +234,18 @@ export async function loadProjectSnapshot(
   const originals = api.workspace.textDocuments
     .filter((document) => document.uri.scheme === 'file')
     .map((document) => ({ document, content: document.getText() }));
-  const liveApi = api;
-  // Capture all open source/configuration inputs once, before asynchronous I/O.
-  api = {
-    ...api,
+  // Capture open text before asynchronous I/O without reading unrelated API getters.
+  const captured: ReadApi = {
+    Uri: api.Uri,
     workspace: {
-      ...api.workspace,
+      fs: api.workspace.fs,
       textDocuments: originals.map(({ document, content }) => ({
-        ...document,
         uri: document.uri,
         getText: () => content
       }))
     }
   };
-  const config = await loadConfig(api, root, signal);
+  const config = await loadConfig(captured, root, signal);
   const blockFiles = await discover(api, root, config.blocksDir, signal);
   for (const { document } of originals) {
     const relative = relativePath(root.fsPath, document.uri.fsPath);
@@ -263,7 +270,7 @@ export async function loadProjectSnapshot(
     for (const uri of files) {
       try {
         result.push({
-          content: await readText(api, uri, signal),
+          content: await readText(captured, uri, signal),
           sourceId: relativePath(root.fsPath, uri.fsPath)
         });
       } catch (error) {
@@ -312,7 +319,7 @@ export async function loadProjectSnapshot(
       );
       let content: string | undefined;
       try {
-        content = await readText(api, local, signal);
+        content = await readText(captured, local, signal);
       } catch {
         signal?.throwIfAborted();
         warnings.push(
@@ -337,7 +344,7 @@ export async function loadProjectSnapshot(
     }
     try {
       const content = await readText(
-        api,
+        captured,
         api.Uri.joinPath(root, '.stem/cache/namespaces', `${namespace}.json`),
         signal
       );
@@ -352,9 +359,9 @@ export async function loadProjectSnapshot(
   if (
     originals.some(
       ({ document, content }) =>
-        !liveApi.workspace.textDocuments.includes(document) || document.getText() !== content
+        !api.workspace.textDocuments.includes(document) || document.getText() !== content
     ) ||
-    liveApi.workspace.textDocuments.some(
+    api.workspace.textDocuments.some(
       (document) =>
         document.uri.scheme === 'file' && !originals.some((item) => item.document === document)
     )

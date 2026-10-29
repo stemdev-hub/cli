@@ -49,16 +49,18 @@ You can also manually refresh all open previews by running **`Stem: Refresh Prev
 
 ## AI Context Server (MCP)
 
-In a trusted workspace, run **`Stem: Enable AI Context Server (MCP)`**. Setup configures both editors in the **first workspace folder**, including in a multi-root workspace:
+Open your initialized Stem project in a trusted workspace, then run **`Stem: Enable AI Context Server (MCP)`**. Setup configures both editors in the **first workspace folder**, including in a multi-root workspace:
 
 | Editor  | Workspace file     | Stem entry        |
 | ------- | ------------------ | ----------------- |
 | VS Code | `.vscode/mcp.json` | `servers.stem`    |
 | Cursor  | `.cursor/mcp.json` | `mcpServers.stem` |
 
+That folder must contain saved, valid `.stem/config.json`. Setup validates it through bundled core before CLI discovery or writes. Missing, unreadable or invalid configuration stops setup with guidance; unsaved configuration must be saved or closed first because the MCP process reads disk. Open the intended project as the first folder, or explicitly initialize it with `stem init` before retrying. Setup never initializes or repairs project identity, and never selects a different workspace folder automatically. Configuration is rechecked after CLI discovery and before publishing each MCP file; changed inputs require a retry.
+
 New entries use `type: "stdio"`. Setup preserves unrelated configuration and existing valid Stem customizations; it only adds a missing stdio type when appropriate. Repeated setup leaves an already configured file unchanged. User/profile/global configuration is not edited. Review the workspace files and use your editor's MCP controls to start the server; saving configuration does not prove successful startup.
 
-Automatic setup accepts ordinary JSON. Missing or empty files are initialized. Invalid JSON, wrong-shaped values, and JSONC with comments/trailing commas are left untouched, with an error naming the file. VS Code supports JSONC, but this setup command does not edit it. Save or close dirty configuration buffers before retrying. For manual setup, merge this entry under the editor-specific key above, preserving other entries:
+Automatic setup accepts ordinary JSON. Missing or empty MCP configuration files are initialized. Invalid JSON, wrong-shaped values, and JSONC with comments/trailing commas are left untouched, with an error naming the file. VS Code supports JSONC, but this setup command does not edit it. Save or close dirty configuration buffers before retrying. For manual setup, merge this entry under the editor-specific key above, preserving other entries:
 
 ```json
 "stem": {

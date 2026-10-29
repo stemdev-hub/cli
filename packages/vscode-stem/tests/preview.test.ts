@@ -177,3 +177,29 @@ it('includes new unsaved inputs under a configured hidden source root', async ()
     await stem.renderProjectPreview(api, fileUri(root), fileUri(path.join(root, '.sources/new.md')))
   ).toMatchObject({ content: 'new source', complete: true });
 });
+
+it.each(['api', 'workspace', 'document'] as const)(
+  'does not evaluate unrelated %s getters while capturing unsaved input',
+  async (surface) => {
+    const { api, documents } = mockApi();
+    const document = openDocument(
+      path.join(root, 'blocks/a.md'),
+      () => '@stem:block(id:a) unsaved @stem:end()'
+    );
+    documents.push(document);
+    const guarded = vi.fn(() => {
+      throw new Error("Extension 'stemdev.vscode-stem' CANNOT use API proposal: tunnels.");
+    });
+    const target = surface === 'api' ? api : surface === 'workspace' ? api.workspace : document;
+    Object.defineProperty(target, surface === 'workspace' ? 'tunnels' : 'unrelated', {
+      enumerable: true,
+      get: guarded
+    });
+    expect(await stem.renderPreview(previewUri(root), api)).toMatchObject({
+      content: 'before unsaved after',
+      complete: true
+    });
+    expect(guarded).not.toHaveBeenCalled();
+    expect(await fs.readFile(path.join(root, 'blocks/a.md'), 'utf8')).toContain(' disk ');
+  }
+);

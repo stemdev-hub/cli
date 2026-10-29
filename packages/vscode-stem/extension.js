@@ -117,13 +117,23 @@ async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) 
   const fs = options.fs ?? require('node:fs');
   const written = [];
   try {
+    const core = await import('@stemdev/core');
+    const projectPath = path.join(root, core.STEM_CONFIG_FILE);
+    const projectBytes = readMcpProjectConfig(projectPath, vscodeApi, fs, core);
+    const checkProject = () => {
+      if (!projectBytes.equals(readMcpProjectConfig(projectPath, vscodeApi, fs, core)))
+        throw new Error(
+          `${projectPath}: project configuration changed during setup; review it and retry.`
+        );
+    };
     const invocation = await discoverMcpCli(root, vscodeApi, { ...options, fs });
+    checkProject();
     const stemEntry = { type: 'stdio', ...invocation, cwd: root };
     const plans = [
       prepareMcpConfig(path.join(root, '.cursor', 'mcp.json'), 'mcpServers', stemEntry, fs),
       prepareMcpConfig(path.join(root, '.vscode', 'mcp.json'), 'servers', stemEntry, fs)
     ];
-    writeMcpConfigs(plans, vscodeApi, fs, written);
+    writeMcpConfigs(plans, vscodeApi, fs, written, checkProject);
     const legacy = plans.filter((plan) => plan.hasLegacyServers).map((plan) => plan.filePath);
     const result = written.length ? 'saved' : 'already configured';
     vscodeApi.window.showInformationMessage(
@@ -138,6 +148,29 @@ async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) 
       : ' No configuration files were changed.';
     vscodeApi.window.showErrorMessage(`Stem MCP setup failed: ${toErrorMessage(error)}${result}`);
   }
+}
+
+function readMcpProjectConfig(filePath, vscodeApi, fs, core) {
+  checkConfigSaved(filePath, vscodeApi);
+  let bytes;
+  try {
+    bytes = fs.readFileSync(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+      throw new Error(
+        `${filePath}: Stem project configuration is missing. Open your initialized Stem project as the first workspace folder, or run stem init in the intended project, then retry.`
+      );
+    throw new Error(
+      `${filePath}: cannot read project configuration (${toErrorMessage(error)}). Check file access and retry.`
+    );
+  }
+  const parsed = core.parseConfigJson(bytes.toString('utf8'), filePath);
+  const result = parsed.success ? core.normalizeStemConfig(parsed.data, filePath) : parsed;
+  if (!result.success)
+    throw new Error(
+      `${filePath}: ${result.error.message} Correct and save the project configuration, then retry.`
+    );
+  return bytes;
 }
 
 async function discoverMcpCli(root, vscodeApi, options) {
@@ -340,14 +373,18 @@ function prepareMcpConfig(filePath, serverKey, stemEntry, fs) {
   };
 }
 
-function checkMcpConfigUnchanged(plan, vscodeApi, fs) {
+function checkConfigSaved(filePath, vscodeApi) {
   if (
     vscodeApi.workspace.textDocuments?.some(
-      (doc) => doc.isDirty && path.resolve(doc.uri.fsPath) === path.resolve(plan.filePath)
+      (doc) => doc.isDirty && path.resolve(doc.uri.fsPath) === path.resolve(filePath)
     )
   ) {
-    throw new Error(`${plan.filePath}: save or close the unsaved configuration before retrying.`);
+    throw new Error(`${filePath}: save or close the unsaved configuration before retrying.`);
   }
+}
+
+function checkMcpConfigUnchanged(plan, vscodeApi, fs) {
+  checkConfigSaved(plan.filePath, vscodeApi);
   const current = readMcpConfig(plan.filePath, fs);
   if (
     plan.original === null
@@ -360,9 +397,10 @@ function checkMcpConfigUnchanged(plan, vscodeApi, fs) {
   }
 }
 
-function writeMcpConfigs(plans, vscodeApi, fs, written) {
+function writeMcpConfigs(plans, vscodeApi, fs, written, checkProject) {
   const staged = [];
   try {
+    checkProject();
     for (const plan of plans) checkMcpConfigUnchanged(plan, vscodeApi, fs);
     for (const plan of plans.filter((plan) => plan.output !== null)) {
       fs.mkdirSync(path.dirname(plan.filePath), { recursive: true });
@@ -378,6 +416,7 @@ function writeMcpConfigs(plans, vscodeApi, fs, written) {
     }
     for (const plan of plans) checkMcpConfigUnchanged(plan, vscodeApi, fs);
     for (const { plan, tempPath } of staged) {
+      checkProject();
       checkMcpConfigUnchanged(plan, vscodeApi, fs);
       if (plan.original === null) {
         // Publish missing files without clobbering a concurrent creator.
