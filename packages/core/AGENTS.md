@@ -7,8 +7,10 @@ Published to npm. Portable pure domain logic: Block/Tag model, graph, parser, va
 - build: `pnpm --filter @stemdev/core build`
 - test: `pnpm --filter @stemdev/core test`
 - typecheck: `pnpm --filter @stemdev/core typecheck`
-- packaging verification:
-  `pnpm --filter @stemdev/core pack --pack-destination <dir> && node scripts/check-packed-core.mjs <dir>/stemdev-core-*.tgz`
+- packaging verification (from repo root, after building; replace placeholders with real paths):
+  `pnpm --filter @stemdev/core pack --pack-destination "<absolute-temporary-directory>"`
+  Then use the exact tarball path printed by pack:
+  `node scripts/check-packed-core.mjs "<absolute-core-tarball-path>"`
 - lint: monorepo root `pnpm lint`
 
 ## Boundaries & Constraints

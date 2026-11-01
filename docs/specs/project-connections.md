@@ -62,9 +62,7 @@ clock reads or I/O. There is no default, dummy, path-derived or package-derived 
 Project configuration has no `version` field. Remove that field, its default and its special
 unsupported-version error directly; a supplied `version` receives the ordinary unknown-field
 configuration error. Package release versions and independently specified cache, snapshot and
-output-manifest format versions are separate and unaffected. Other currently supported settings
-retain their defaults; this identity checkpoint does not implement the later configuration changes
-for connections or output sets.
+output-manifest format versions are separate and unaffected. Other currently supported settings retain their defaults.
 
 `StemConfig` and `PortableStemConfig` require `projectId`; the adapter's `ResolvedStemConfig`
 inherits it. Raw JSON parsing and normalization may accept partial inputs to report missing fields.
@@ -110,10 +108,10 @@ or silently restore a previous value. To retain identity after losing configurat
 versioned file rather than asking initialization to infer the former ID.
 
 Changing project identity does not rewrite Block IDs, rebind consumer connections or transfer
-existing output ownership. Independent Block copies still follow D4b. Once implemented, connection
-rereads and output ownership follow their existing [lifecycle](#connection-lifecycle) and
-[manifest](composition.md#output-manifest) contracts; this checkpoint does not implement those
-operations or infer independence from path, name, checkout or content differences.
+existing output ownership. Independent Block copies still follow D4b. Output ownership follows the
+[manifest](composition.md#output-manifest) contract. Connection rereads remain governed by the deferred
+[lifecycle](#connection-lifecycle) contract. Do not infer independence from path, name, checkout or
+content differences.
 
 ### Independent source connections
 

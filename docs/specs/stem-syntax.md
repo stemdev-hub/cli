@@ -138,7 +138,7 @@ does not protect marker-shaped text from Stem grammar. Downstream tools may inte
 
 This replacement follows the retirement of
 [ADR-0002](../decisions/0002-frontmatter-yaml-core-schema.md)'s frontmatter policy under accepted
-[ADR-0005](../decisions/0005-pure-block-model.md); it does not describe current parsing behavior.
+[ADR-0005](../decisions/0005-pure-block-model.md).
 
 ### Definition boundaries
 
@@ -300,7 +300,7 @@ Single-Tag shorthand is tracked in the
 
 ## Worked examples of the accepted rules
 
-These illustrate existing rules above; they are not examples for the current parser. The table uses JSON string notation so line endings and spaces are visible.
+These illustrate existing rules above. The table uses JSON string notation so line endings and spaces are visible.
 
 | Original source                         | Block `a` content under boundary-whitespace rules |
 | --------------------------------------- | ------------------------------------------------- |

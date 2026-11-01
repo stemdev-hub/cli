@@ -1,6 +1,6 @@
 # Axioms
 
-Human-owned. Budget: 10 lines. Changing one requires a superseding ADR.
+Human-owned. Changing one requires a superseding ADR.
 
 1. The core model is two primitives: **Block** and **Tag**. Any new construct must do a job neither can.
 2. Everything is a block. Blocks nest recursively. Section is not a primitive.

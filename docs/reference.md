@@ -111,9 +111,9 @@ Metadata exchange remains separate from authored-source connections. `publish-gr
 Block-only metadata with project identity, flat IDs/direct Tags and advisory rename history. Invalid
 classification/identity prevents projection. It includes no source bodies, sections, positions or handles.
 
-`fetch-namespaces` retains explicit HTTP metadata retrieval. A namespace's `localPath` first tries
+`fetch-namespaces` retains explicit HTTP metadata retrieval. By default, a namespace's `localPath` first tries
 `.stem/cache/stem-graph.json`; otherwise consumers use `.stem/cache/namespaces/<alias>.json` containing
-`{ fetchedAt, graph }`. Core owns pure envelope decoding and shape validation; adapters own I/O and
+`{ fetchedAt, graph }`. `stem check --use-remote` bypasses local lookup and uses cached remote metadata; it does not download a fresh snapshot. Core owns pure envelope decoding and shape validation; adapters own I/O and
 fallback. Timestamp strings remain permissive. Remote snapshots older than seven days warn (errors
 under strict external checking); local fallback bypasses expiry. Rename history is advisory only.
 

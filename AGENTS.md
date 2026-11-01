@@ -11,7 +11,7 @@ Conflict between task and authority: stop and ask. Never resolve silently.
 
 ## Read Order
 
-1. `docs/axioms.md` — always. Invariants, ≤10 lines. Never contradict.
+1. `docs/axioms.md` — always. Product invariants. Never contradict.
 2. `docs/rules.md` — always. One testable line per rule, all binding.
 3. `roadmap.md` — for current work, active/deferred backlog, and known limits.
 4. `docs/architecture.md`, `docs/decisions/`, and relevant `docs/specs/` — when touching system design, behavior, or APIs.

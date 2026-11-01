@@ -94,31 +94,31 @@ Repository checks do not establish real-host acceptance or delivery of published
 Core accepts supplied finite source-instance graphs; adapters do not yet implement connection storage,
 Git transport or lifecycle resolution. Existing namespace metadata is not a substitute.
 
-| Specification | Canonical ownership |
-| --- | --- |
-| [Block model](specs/block-model.md) | Content, containment, identity, direct classification, selection, authoring/query contracts; D1–D4, D4a–D4c, D6–D10, D22–D23, D29 |
-| [Stem syntax](specs/stem-syntax.md) | Directives, metadata, escaping, boundaries and recovery; D11 syntax, D26–D28 |
-| [Composition](specs/composition.md) | Expansion, budgets, output mapping/publication/cleanup and sync; D11 behavior, D12–D14, D16–D21, D24–D25 |
-| [Project connections](specs/project-connections.md) | Identity, supplied contexts, external metadata and connection lifecycle; D5 |
-| [Roadmap](../roadmap.md#pure-block-migration) | Active/deferred work, including D15 and deferred D5/D23/D27 mechanics |
+| Specification                                       | Canonical ownership                                                                                                               |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [Block model](specs/block-model.md)                 | Content, containment, identity, direct classification, selection, authoring/query contracts; D1–D4, D4a–D4c, D6–D10, D22–D23, D29 |
+| [Stem syntax](specs/stem-syntax.md)                 | Directives, metadata, escaping, boundaries and recovery; D11 syntax, D26–D28                                                      |
+| [Composition](specs/composition.md)                 | Expansion, budgets, output mapping/publication/cleanup and sync; D11 behavior, D12–D14, D16–D21, D24–D25                          |
+| [Project connections](specs/project-connections.md) | Identity, supplied contexts, external metadata and connection lifecycle; D5                                                       |
+| [Roadmap](../roadmap.md#pure-block-migration)       | Active/deferred work, including D15 and deferred D5/D23/D27 mechanics                                                             |
 
 ## Current-decision applicability
 
 ADR status owns decision state; this map supplies navigation.
 
-| Topic | Governing record | Applicability |
-| --- | --- | --- |
-| Package boundaries, portability, public entry and release order | [ADR-0001](decisions/0001-extract-core-package.md) | Binding; public replacement covered by ADR-0011 |
-| Frontmatter schema | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md) | Superseded by ADR-0005 |
-| Model versus core package | [ADR-0003](decisions/0003-clarify-axiom-4.md) | Applicable clarification |
-| Pure decoders | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) | Tag-schema/legacy shape superseded by ADR-0005; pure decoder, envelope, permissive timestamps and adapter boundaries retained |
-| Pure Block model | [ADR-0005](decisions/0005-pure-block-model.md) | Governs replacement contracts |
-| Documentation structure | [ADR-0006](decisions/0006-documentation-ownership.md) | Blanket ADR triggers superseded by ADR-0008; remaining provisions apply |
-| Independent connections | [ADR-0007](decisions/0007-independent-project-connections.md) | Source-resolution mechanics deferred |
-| Documentation lifecycle | [ADR-0008](decisions/0008-documentation-lifecycle.md) | Operational policy in [governance](governance.md) |
-| Hard/soft-edge axiom retirement | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md) | Applicable |
-| Durable configuration identity | [ADR-0010](decisions/0010-project-identity-configuration.md) | Read/init lifecycle implemented; connection checks deferred |
-| Public Pure Block integration | [ADR-0011](decisions/0011-public-pure-block-integration.md) | Concrete engine and caller replacement |
+| Topic                                                           | Governing record                                                | Applicability                                                                                                                 |
+| --------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Package boundaries, portability, public entry and release order | [ADR-0001](decisions/0001-extract-core-package.md)              | Binding; public replacement covered by ADR-0011                                                                               |
+| Frontmatter schema                                              | [ADR-0002](decisions/0002-frontmatter-yaml-core-schema.md)      | Superseded by ADR-0005                                                                                                        |
+| Model versus core package                                       | [ADR-0003](decisions/0003-clarify-axiom-4.md)                   | Applicable clarification                                                                                                      |
+| Pure decoders                                                   | [ADR-0004](decisions/0004-core-schema-and-snapshot-decoders.md) | Tag-schema/legacy shape superseded by ADR-0005; pure decoder, envelope, permissive timestamps and adapter boundaries retained |
+| Pure Block model                                                | [ADR-0005](decisions/0005-pure-block-model.md)                  | Governs replacement contracts                                                                                                 |
+| Documentation structure                                         | [ADR-0006](decisions/0006-documentation-ownership.md)           | Blanket ADR triggers superseded by ADR-0008; remaining provisions apply                                                       |
+| Independent connections                                         | [ADR-0007](decisions/0007-independent-project-connections.md)   | Source-resolution mechanics deferred                                                                                          |
+| Documentation lifecycle                                         | [ADR-0008](decisions/0008-documentation-lifecycle.md)           | Operational policy in [governance](governance.md)                                                                             |
+| Hard/soft-edge axiom retirement                                 | [ADR-0009](decisions/0009-retire-hard-soft-edge-axiom.md)       | Retirement applies; the dependency-metadata discussion reflects pre-Pure-Block behavior.                                      |
+| Durable configuration identity                                  | [ADR-0010](decisions/0010-project-identity-configuration.md)    | Read/init lifecycle implemented; connection checks deferred                                                                   |
+| Public Pure Block integration                                   | [ADR-0011](decisions/0011-public-pure-block-integration.md)     | Concrete engine and caller replacement                                                                                        |
 
 ## Terms used in this guide
 

@@ -33,7 +33,6 @@ Remaining selection:
 
 - The identified schema-path glob is removed by [Tag-schema retirement](#d23-schemas-structural-validation-and-templates); that specific follow-up no longer applies. This is not a new dependency advisory audit.
 - Reassess production advisories in the exact selected packed consumer before a release.
-- Obsolete parser dependencies are removed by the approved public Pure Block integration; this is not a new advisory audit.
 
 Acceptance: record current reproduction, chosen smallest scope, targeted checks and consumer evidence. Reconsider when selecting dependency remediation or a release candidate.
 

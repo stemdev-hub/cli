@@ -154,10 +154,10 @@ snapshots. Resource allowances follow D24, including measurement before selectin
 
 #### Terminal preview and stdout export
 
-| Command | Content and status |
-| ------- | ------------------ |
-| `stem preview block <ref>` / `stem preview file <path>` | Emit exact current content to stdout, including partial content. Emit diagnostics separately to stderr; exit nonzero for incomplete results, blocking diagnostics or operation failures. |
-| `stem render block <ref> --stdout` / `stem render file <path> --stdout` | Prepare and check export eligibility before emitting any content. Ineligible results emit no Markdown; report diagnostics to stderr and exit nonzero. |
+| Command                                                                 | Content and status                                                                                                                                                                       |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stem preview block <ref>` / `stem preview file <path>`                 | Emit exact current content to stdout, including partial content. Emit diagnostics separately to stderr; exit nonzero for incomplete results, blocking diagnostics or operation failures. |
+| `stem render block <ref> --stdout` / `stem render file <path> --stdout` | Prepare and check export eligibility before emitting any content. Ineligible results emit no Markdown; report diagnostics to stderr and exit nonzero.                                    |
 
 Warnings alone do not fail an otherwise complete result. Operation failures emit no composed content.
 The source-render commands require `--stdout`; file destinations use configured output-set commands.
@@ -355,7 +355,7 @@ with no source/destination reads or publication side effects beyond configuratio
 ### Output configuration example
 
 This configuration fragment illustrates the accepted contract with both selector kinds and an external destination; it is
-not a complete project configuration or a claim of current CLI support:
+not a complete project configuration:
 
 ```json
 {
@@ -772,12 +772,12 @@ unless a row specifies otherwise.
 | `"Before @stem:include(missing) after"`, with no target `missing`                        | Partial output: `"Before  after"`, with a localized resolution error; normal export is blocked. An ambiguous target has the same omission behavior.                                                      |
 | `"Before @stem:include(bad id) after"`                                                   | Partial output retains the malformed expression literally, with a syntax error; normal export is blocked.                                                                                                |
 | Selected `a` has body `"L@stem:include(a)R"`                                             | Partial output: `"LR"`, with a cycle error for the re-entering occurrence.                                                                                                                               |
-| Text `"Hi 🌱!"`, with a five-byte output allowance                                       | Partial output: `"Hi "`, with an output-budget diagnostic. The four-byte emoji cannot fit in the remaining two bytes. With eight bytes and sufficient work allowance, the entire text fits and succeeds. |
+| Text `"Hi 🌱!"`, with a five-byte output allowance                                        | Partial output: `"Hi "`, with an output-budget diagnostic. The four-byte emoji cannot fit in the remaining two bytes. With eight bytes and sufficient work allowance, the entire text fits and succeeds. |
 | Selected `a` includes empty Block `b` twice                                              | Completion needs five work units: entry to `a`, then two inclusion attempts and two entries to `b`. A cache does not reduce this charge.                                                                 |
 
 A cycle through several Blocks or aliases follows the same active-instance rule. Repeated use on
 separate completed paths is valid and charged for each occurrence. These examples illustrate the
-accepted contracts; they do not claim current renderer behavior.
+accepted contracts.
 
 ### Output publication examples
 
@@ -785,8 +785,7 @@ For the configuration fragment above, assume a valid `project-readme` Block and 
 `blocks/start.md` containing `"Intro\n@stem:include(greeting)\n"`, where `greeting` resolves to a
 valid Block with body `"Hello"`. With sufficient budgets, the file target writes
 `"Intro\nHello\n"` to `docs/start.md`; that source file needs no Block of its own. The Block target
-uses only the selected subtree, independently of its containing source filename. These are accepted
-acceptance cases, not examples executable against today's CLI:
+uses only the selected subtree, independently of its containing source filename. The following scenarios illustrate the accepted publication rules:
 
 | Scenario                                                                      | Expected behavior                                                                                                                                           |
 | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -1,6 +1,6 @@
 # 0010. Project identity configuration
 
-Status: accepted (25 October 2026). The owner approved the identity lifecycle and four-file documentation checkpoint in chat, with the subsequent refinement removing configuration `version`. Runtime implementation remains pending.
+Status: accepted (25 October 2026). The owner approved the identity lifecycle and four-file documentation checkpoint in chat, with the subsequent refinement removing configuration `version`. Implementation and verification are tracked in the [roadmap](../../roadmap.md#pure-block-migration).
 
 ## Context
 

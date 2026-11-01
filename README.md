@@ -49,7 +49,7 @@ The [Pure Block design](docs/architecture.md#pure-block-design) governs the coor
 
 ## Contributing
 
-We welcome contributions! To build the project locally:
+To build locally, follow the [development prerequisites](CONTRIBUTING.md#development), then run from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile
