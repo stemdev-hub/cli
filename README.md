@@ -3,7 +3,9 @@
 [![CI Status](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Stem is a Git-native, file-based documentation system for software developers. It keeps reusable knowledge in Markdown blocks and lets teams compose those blocks into multiple view files without duplicating content.
+Stem is a Git-native, file-based documentation system for software developers. It keeps reusable knowledge in Markdown blocks and lets teams compose those blocks into multiple outputs without duplicating content.
+
+Reusability is Stem's primary purpose; identity, ownership, Tags, and diagnostics support reliable reuse and composition.
 
 Stem is designed for teams working with AI coding agents and LLM workflows: the block store and dynamic connection graph provide structured, queryable context while keeping every source file plain Markdown in Git.
 
@@ -15,13 +17,23 @@ Software documentation gets stale, duplicated, bloated, and locked into a single
 
 Stem is a pnpm monorepo with three packages:
 
-| Package | Purpose |
-| --- | --- |
-| [@stemdev/core](./packages/core/README.md) | Portable parsing, graph traversal, validation, and rendering for application and editor integrations. |
-| [@stemdev/cli](./packages/cli/README.md) | Node.js project operations, the `stem` executable, and the MCP context server. |
-| [vscode-stem](./packages/vscode-stem/README.md) | VS Code previews using bundled core, plus workspace MCP setup. |
+| Package                                         | Purpose                                                                                               |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [@stemdev/core](./packages/core/README.md)      | Portable parsing, graph traversal, validation, and rendering for application and editor integrations. |
+| [@stemdev/cli](./packages/cli/README.md)        | Node.js project operations, the `stem` executable, and the MCP context server.                        |
+| [vscode-stem](./packages/vscode-stem/README.md) | VS Code previews using bundled core, plus workspace MCP setup.                                        |
 
 Install the CLI to manage a project, the extension for editor previews, or core to build an integration. Package READMEs include installation and usage instructions.
+
+## Start here
+
+- Author and render Markdown: [CLI guide](packages/cli/README.md).
+- Preview in an editor or configure MCP: [extension guide](packages/vscode-stem/README.md).
+- Integrate the portable engine: [core guide](packages/core/README.md).
+- Look up current format semantics and limitations: [shared reference](docs/reference.md).
+- Contribute or release: [contribution guide](CONTRIBUTING.md). Find active/deferred work in [roadmap](roadmap.md).
+
+Stem is beta, maintained by its owner. Current usage and accepted design awaiting implementation have separate reading routes; source package versions do not by themselves establish distribution or host acceptance.
 
 ## Architecture
 
@@ -29,13 +41,15 @@ Install the CLI to manage a project, the extension for editor previews, or core 
 
 Core and CLI expose separate ESM public entries. Import portable domain functions and types from `@stemdev/core`; import Node.js project operations from `@stemdev/cli`. The CLI no longer re-exports the former domain/configuration type surface. See [ADR-0001](docs/decisions/0001-extract-core-package.md) for the extraction decision.
 
-Rendered Markdown is generated under `rendered/` by default and should not be committed unless a project intentionally publishes generated output.
+Configured output sets select Blocks or source files and map them to destination files. No output mapping is implicit; generated Markdown may be committed when a project intentionally publishes it.
 
 See [docs/architecture.md](./docs/architecture.md) for package boundaries and data flow.
 
+The [Pure Block design](docs/architecture.md#pure-block-design) governs the coordinated implementation. Connection storage and Git transport remain deferred. Repository implementation does not establish released behavior or real-host acceptance.
+
 ## Contributing
 
-We welcome contributions! To build the project locally:
+To build locally, follow the [development prerequisites](CONTRIBUTING.md#development), then run from the repository root:
 
 ```sh
 pnpm install --frozen-lockfile

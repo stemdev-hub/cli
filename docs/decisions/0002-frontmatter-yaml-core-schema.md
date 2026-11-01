@@ -1,6 +1,6 @@
 # 0002. Frontmatter YAML core schema
 
-Status: proposed
+Status: superseded by [ADR-0005](0005-pure-block-model.md) in full (23 October 2026): the frontmatter-parsing policy is retired for the replacement source parser. Originally accepted on 20 October 2026, with owner approval of the policy and scope clarification below in chat. The decision body remains historical; implementation state is tracked in [roadmap](../../roadmap.md#pure-block-migration).
 
 ## Context
 
@@ -31,4 +31,6 @@ JSON and JavaScript frontmatter engines are rejected; YAML merges remain support
 js-yaml's `context.parseError` text changes; other diagnostic fields stay stable.
 That detail appears in CLI JSON and MCP validation output, but not CLI text or cache.
 Rename and render operations retain gray-matter on the Node side for this step.
-No rules change until this proposed ADR is accepted.
+This decision governs portable frontmatter parsing. The Node-side helpers above
+remain an acknowledged limitation; acceptance does not establish identical parsing
+in every operation.

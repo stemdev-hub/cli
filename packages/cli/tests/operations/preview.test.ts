@@ -1,195 +1,57 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import * as fs from 'node:fs/promises';
 import path from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { previewView } from '../../src/runtime/operations/preview.js';
-
-let testRoot: string;
-
-describe('previewView', () => {
-  beforeEach(async () => {
-    testRoot = path.join(tmpdir(), `stem-preview-${randomUUID()}`);
-    await mkdir(testRoot, { recursive: true });
-    await createStemProject(testRoot);
-  });
-
-  afterEach(async () => {
-    await rm(testRoot, { recursive: true, force: true });
-  });
-
-  it('returns rendered Markdown without writing output files', async () => {
-    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth content.\n');
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth]\n');
-
-    const result = await previewView('api-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: {
-        outDir: null,
-        views: [{ id: 'api-view', outputPath: null, markdown: '---\nid: api-view\n---\nAuth content.\n' }]
-      }
-    });
-    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
-  });
-
-  it('uses render validation behavior', async () => {
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:missing]\n');
-
-    const result = await previewView('api-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'INVALID_OPERATION',
-        message: 'Cannot render project with 1 validation error. Run stem check for details.'
-      }
-    });
-  });
-
-  it('renders section and tag filters while preserving local Markdown and frontmatter', async () => {
-    await writeProjectFile(
-      'blocks/auth.md',
-      `---
-id: auth
----
-@stem[section:summary]
-@stem[tag:api]
-Endpoint summary.
-@stem[end]
-@stem[end]
-`
-    );
-    await writeProjectFile(
-      'views/api.md',
-      `---
-id: api-view
-group: backend
----
-# API
-
-Before.
-
-@stem[block:auth section=summary tag=api]
-
-After.
-`
-    );
-
-    const result = await previewView('api-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: {
-        views: [
-          {
-            markdown: `---
-id: api-view
-group: backend
----
-# API
-
-Before.
-
-Endpoint summary.
-
-After.
-`
-          }
-        ]
-      }
-    });
-  });
-
-  it('allows duplicate tag warnings and concatenates duplicate tag content', async () => {
-    await writeProjectFile(
-      'blocks/auth.md',
-      `---
-id: auth
----
-@stem[section:summary]
-@stem[tag:api]
-First summary.
-@stem[end]
-@stem[tag:api]
-Second summary.
-@stem[end]
-@stem[end]
-`
-    );
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth section=summary tag=api]\n');
-
-    const result = await previewView('api-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: true,
-      data: {
-        views: [{ markdown: '---\nid: api-view\n---\nFirst summary.\nSecond summary.\n' }]
-      }
-    });
-    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
-  });
-
-  it('rejects tag-only block filters instead of rendering the whole block', async () => {
-    await writeProjectFile('blocks/auth.md', '---\nid: auth\n---\nAuth content.\n');
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\n@stem[block:auth tag=api]\n');
-
-    const result = await previewView('api-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'INVALID_OPERATION',
-        cause: {
-          issues: [
-            {
-              code: 'INVALID_BLOCK_REF_FILTER',
-              relativePath: 'views/api.md',
-              message: 'Block reference "@stem[block:auth tag=api]" uses a tag filter without a section filter.'
-            }
-          ]
-        }
-      }
-    });
-    await expectPathMissing(path.join(testRoot, 'rendered/api.md'));
-  });
-
-  it('returns an operation error for a missing view id', async () => {
-    await writeProjectFile('views/api.md', '---\nid: api-view\n---\nLocal.\n');
-
-    const result = await previewView('missing-view', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'INVALID_OPERATION',
-        message: 'View "missing-view" was not found.'
-      }
-    });
-  });
-});
-
-async function createStemProject(projectRoot: string): Promise<void> {
-  await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'views'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'blocks/schemas'), { recursive: true });
-}
-
-async function writeProjectFile(relativePath: string, content: string): Promise<void> {
-  const filePath = path.join(testRoot, ...relativePath.split('/'));
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFile(filePath, content, 'utf8');
-}
-
-async function expectPathMissing(filePath: string): Promise<void> {
-  try {
-    await readFile(filePath, 'utf8');
-    throw new Error(`Expected path to be missing: ${filePath}`);
-  } catch (error) {
-    expect(error).toMatchObject({ code: 'ENOENT' });
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it } from 'vitest';
+import * as cli from '../../src/index.js';
+let root: string;
+const f = {
+  put: async (relative: string, text: string) => {
+    const file = path.join(root, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text);
+  },
+  read: (relative: string) => fs.readFile(path.join(root, relative), 'utf8'),
+  config: async (extra: object) => {
+    const original = JSON.parse(await f.read('.stem/config.json')) as object;
+    await f.put('.stem/config.json', JSON.stringify({ ...original, ...extra }));
   }
-}
+};
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-integration-'));
+  expect((await cli.initProject({ startDir: root })).success).toBe(true);
+});
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true });
+});
+it('returns exact scoped content despite unrelated project errors and never writes', async () => {
+  await f.put(
+    'blocks/a.md',
+    '@stem:block(id:a)  A\r\nB  @stem:end()@stem:block(id:bad)@stem:include(missing)@stem:end()'
+  );
+  const before = await fs.readdir(path.join(root, '.stem'));
+  const config = await f.read('.stem/config.json');
+  expect(await cli.previewSource({ kind: 'block', ref: 'a' }, { startDir: root })).toEqual({
+    success: true,
+    data: { content: '  A\r\nB  ', complete: true, diagnostics: [] }
+  });
+  expect(await fs.readdir(path.join(root, '.stem'))).toEqual(before);
+  expect(await f.read('.stem/config.json')).toBe(config);
+});
+it('retains partial preview and rejects external metadata as source', async () => {
+  await f.put('blocks/a.md', 'pre@stem:include(lib:x)post');
+  await f.config({ namespaces: { lib: { graphUrl: 'https://example.test/meta' } } });
+  const result = await cli.previewSource({ kind: 'file', path: 'blocks/a.md' }, { startDir: root });
+  expect(result).toMatchObject({ success: true, data: { content: 'prepost', complete: false } });
+});
+it('accepts zero budget and rejects paths outside source', async () => {
+  await f.put('blocks/a.md', 'hello');
+  expect(
+    await cli.previewSource(
+      { kind: 'file', path: 'blocks/a.md' },
+      { startDir: root, limits: { maxWork: 0, maxOutputBytes: 0 } }
+    )
+  ).toMatchObject({ success: true, data: { content: '', complete: false } });
+  expect(
+    await cli.previewSource({ kind: 'file', path: '../a.md' }, { startDir: root })
+  ).toMatchObject({ success: false });
+});

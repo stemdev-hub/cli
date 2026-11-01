@@ -1,168 +1,102 @@
-import { BlockParameter } from '@stemdev/core';
-import { BlockRefSyntax } from '@stemdev/core';
+import { CompositionLimits } from '@stemdev/core';
+import { CompositionResult } from '@stemdev/core';
 import { ConfigResult } from '@stemdev/core';
-import { DependencyRef } from '@stemdev/core';
-import { GraphEdge } from '@stemdev/core';
-import { GraphNode } from '@stemdev/core';
+import { Diagnostic } from '@stemdev/core';
+import { OutputSets } from '@stemdev/core';
+import { OutputSource } from '@stemdev/core';
 import { PortableStemConfig } from '@stemdev/core';
+import { SourceRange } from '@stemdev/core';
 import { StemConfig } from '@stemdev/core';
-import { ValidationResult } from '@stemdev/core';
 
-export declare function addBlockToView(blockId: string, viewId: string, options?: AddRefOptions): Promise<OperationResult<AddRefResult>>;
+export declare function addInclusion(reference: string, options: AddInclusionOptions): Promise<MutationResult>;
 
-export declare interface AddRefOptions extends ProjectOperationOptions {
-    section?: string;
-    tag?: string;
+export declare interface AddInclusionOptions extends ProjectOperationOptions {
+    readonly destination: AuthoringDestination;
 }
 
-export declare interface AddRefResult {
-    blockId: string;
-    viewId: string;
-    viewFilePath: string;
-    section: string | null;
-    tag: string | null;
-    refString: string;
-}
+export declare type AuthoringDestination = {
+    readonly kind: 'file';
+    readonly path: string;
+} | {
+    readonly kind: 'block';
+    readonly id: string;
+};
 
-export declare interface CachedBlock {
-    id: string;
-    tags: string[];
-    dependsOn: DependencyRef[];
-    sections: CachedSection[];
-    standaloneTags: CachedTag[];
-}
-
-export declare interface CachedBlockRef {
-    namespace: string | null;
-    blockId: string;
-    section: string | null;
-    tag: string | null;
-    parameters: readonly BlockParameter[];
-    syntax: BlockRefSyntax;
-    raw: string;
-}
-
-export declare interface CachedSection {
-    name: string;
-    tags: CachedTag[];
-    externalTags: CachedTag[];
-    prose: string;
-}
-
-export declare interface CachedTag {
-    name: string;
-    section: string | null;
-    content: string;
-}
-
-export declare interface CachedView {
-    id: string;
-    group: string | null;
-    blockRefs: CachedBlockRef[];
+export declare interface BlockRow {
+    readonly sourceId: string;
+    readonly range: SourceRange;
+    readonly id?: string;
+    readonly tags: readonly string[];
 }
 
 export declare interface CacheIndex {
-    version: string;
-    entries: Record<string, CacheIndexEntry>;
+    readonly version: string;
+    readonly entries: Readonly<Record<string, CacheIndexEntry>>;
 }
 
-export declare interface CacheIndexEntry {
-    filePath: string;
-    relativePath: string;
-    type: 'block' | 'view';
-    dev: string;
-    inode: string;
-    size: number;
-    mtimeMs: number;
-    sha256: string;
-    parsed: CachedBlock | CachedView;
-}
-
-export declare interface CacheInvalidationResult {
-    added: FileInvalidation[];
-    changed: FileInvalidation[];
-    unchanged: FileInvalidation[];
-    metadataChanged: FileInvalidation[];
-    deleted: CacheIndexEntry[];
+export declare interface CacheIndexEntry extends FileStats {
+    readonly relativePath: string;
+    readonly sha256: string;
 }
 
 export declare function checkProject(options?: ProjectOperationOptions): Promise<OperationResult<CheckResult>>;
 
 export declare interface CheckResult {
-    validation: ValidationResult;
-    scannedFiles: number;
-    durationMs: number;
+    readonly diagnostics: readonly Diagnostic[];
+    readonly errors: number;
+    readonly warnings: number;
+    readonly valid: boolean;
+    readonly scannedFiles: number;
+    readonly durationMs: number;
 }
 
-export declare function createBlock(name: string, options?: CreateBlockOptions): Promise<OperationResult<CreateBlockResult>>;
+export declare interface CleanupOptions extends ProjectOperationOptions {
+    readonly outputDir: string;
+    readonly set: string;
+    readonly apply?: boolean;
+}
+
+export declare interface CleanupOutcome {
+    readonly root: string;
+    readonly outputSet: string;
+    readonly path?: string;
+    readonly action: 'retained' | 'eligible' | 'absent' | 'deleted' | 'record-removed' | 'suppressed' | 'unavailable';
+    readonly reason?: string;
+    /** Only present for applied changes; false preserves evidence of failed persistence. */
+    readonly tracked?: boolean;
+}
+
+/** Assess by default; apply only explicitly, under the current producer's identity. */
+export declare function cleanupOutputs(options: CleanupOptions): Promise<CleanupResult>;
+
+export declare interface CleanupResult {
+    readonly success: boolean;
+    readonly outcomes: readonly CleanupOutcome[];
+    readonly errors: readonly OutputFailure[];
+}
+
+export declare function createBlock(id: string, options: CreateBlockOptions): Promise<MutationResult>;
 
 export declare interface CreateBlockOptions extends ProjectOperationOptions {
-    tag?: string;
+    readonly destination: AuthoringDestination;
+    readonly tags?: readonly string[];
 }
 
-export declare interface CreateBlockResult {
-    id: string;
-    filePath: string;
-    relativePath: string;
-    scaffolded: boolean;
-    scaffoldedTag: string | null;
-}
-
-export declare function createGroup(groupPath: string, options?: ProjectOperationOptions): Promise<OperationResult<CreateGroupResult>>;
-
-export declare interface CreateGroupResult {
-    groupPath: string;
-    absolutePath: string;
-}
-
-export declare function createView(name: string, options?: CreateViewOptions): Promise<OperationResult<CreateViewResult>>;
-
-export declare interface CreateViewOptions extends ProjectOperationOptions {
-    group?: string;
-}
-
-export declare interface CreateViewResult {
-    id: string;
-    filePath: string;
-    relativePath: string;
-    group: string | null;
-}
-
-export declare function deleteBlock(id: string, options?: DeleteOptions): Promise<OperationResult<DeleteResult>>;
+export declare function deleteBlock(id: string, options?: DeleteOptions): Promise<MutationResult>;
 
 export declare interface DeleteOptions extends ProjectOperationOptions {
-    force?: boolean;
+    readonly force?: boolean;
 }
-
-export declare interface DeleteResult {
-    id: string;
-    filePath: string;
-    relativePath: string;
-    referencingIds: string[];
-    forced: boolean;
-}
-
-export declare function deleteView(id: string, options?: DeleteOptions): Promise<OperationResult<DeleteResult>>;
 
 export declare interface DiscoveredFile {
-    filePath: string;
-    relativePath: string;
-    type: 'block' | 'view';
+    readonly filePath: string;
+    readonly relativePath: string;
 }
 
 export declare interface FetchNamespacesResult {
-    successes: string[];
-    skipped: string[];
-    warnings: string[];
-}
-
-export declare interface FileInvalidation {
-    filePath: string;
-    relativePath: string;
-    type: 'block' | 'view';
-    stats: FileStats;
-    sha256?: string;
-    cached?: CacheIndexEntry;
+    readonly successes: readonly string[];
+    readonly skipped: readonly string[];
+    readonly warnings: readonly string[];
 }
 
 export declare interface FileStats {
@@ -173,139 +107,158 @@ export declare interface FileStats {
     inode: string;
 }
 
-export declare function getDefaultStemConfig(projectRoot: string): ResolvedStemConfig;
-
+/** Ordinals identify records only within this persisted snapshot; they are not analysis handles. */
 export declare interface GraphSnapshot {
-    version: string;
-    generatedAt: string;
-    nodes: GraphNode[];
-    edges: GraphEdge[];
-    blockUsedInViews: Record<string, string[]>;
-    viewUsesBlocks: Record<string, string[]>;
-    blockDependsOn: Record<string, DependencyRef[]>;
-    blockDependents: Record<string, string[]>;
+    readonly version: string;
+    readonly generatedAt: string;
+    readonly nodes: readonly {
+        readonly source: string;
+        readonly id?: string;
+        readonly tags: readonly string[];
+    }[];
+    readonly edges: readonly {
+        readonly kind: 'containment' | 'inclusion';
+        readonly from?: number;
+        readonly to?: number;
+        readonly source?: string;
+        readonly reference?: string;
+        readonly status?: string;
+    }[];
 }
 
 export declare function initProject(options?: InitProjectOptions): Promise<OperationResult<InitResult>>;
 
 export declare interface InitProjectOptions extends ProjectOperationOptions {
-    force?: boolean;
+    readonly force?: boolean;
 }
 
 export declare interface InitResult {
-    projectRoot: string;
-    blocksDir: string;
-    viewsDir: string;
-    schemasDir: string;
+    readonly projectRoot: string;
+    readonly blocksDir: string;
 }
 
 export declare function listBlocks(options?: ListBlocksOptions): Promise<OperationResult<ListBlocksResult>>;
 
 export declare interface ListBlocksOptions extends ProjectOperationOptions {
-    tag?: string;
+    readonly tag?: string;
 }
 
 export declare interface ListBlocksResult {
-    blocks: Array<{
-        id: string;
-        tags: string[];
-        relativePath: string;
-        usedInViews: string[];
-        sectionCount: number;
-        standaloneTagCount: number;
-    }>;
-    total: number;
+    readonly blocks: readonly BlockRow[];
+    readonly total: number;
+    readonly classificationComplete: boolean;
+    readonly diagnostics: readonly Diagnostic[];
 }
 
-export declare function listViews(options?: ListViewsOptions): Promise<OperationResult<ListViewsResult>>;
+export declare function listOutputs(options?: ProjectOperationOptions): Promise<OperationResult<ListOutputsResult>>;
 
-export declare interface ListViewsOptions extends ProjectOperationOptions {
-    blockId?: string;
+export declare interface ListOutputsResult {
+    readonly outputSets: OutputSets;
 }
 
-export declare interface ListViewsResult {
-    views: Array<{
-        id: string;
-        group: string | null;
-        relativePath: string;
-        blockCount: number;
-        blockIds: string[];
-    }>;
-    total: number;
+export declare function listReferences(id: string, options?: ProjectOperationOptions): Promise<OperationResult<ListReferencesResult>>;
+
+export declare interface ListReferencesResult {
+    readonly references: readonly ReferenceRow[];
+    readonly total: number;
+    readonly complete: boolean;
+    readonly diagnostics: readonly Diagnostic[];
 }
 
 export declare function loadStemConfig(projectRoot: string): Promise<ConfigResult<ResolvedStemConfig>>;
 
-export declare interface OperationError {
-    code: OperationErrorCode;
-    message: string;
-    path?: string;
-    cause?: unknown;
+export declare interface MutationResult {
+    readonly success: boolean;
+    readonly changedFiles: readonly string[];
+    readonly affectedReferences: number;
+    readonly diagnostics: readonly Diagnostic[];
+    readonly error?: OperationError;
+    readonly stage?: 'preparation' | 'revalidation' | 'source' | 'configuration' | 'history';
 }
 
-export declare type OperationErrorCode = 'PROJECT_ROOT_NOT_FOUND' | 'CONFIG_ERROR' | 'FS_ERROR' | 'CACHE_ERROR' | 'SCHEMA_LOAD_ERROR' | 'INVALID_OPERATION' | 'CONFLICT' | 'NETWORK_ERROR' | 'AUTH_ERROR';
+export declare interface OperationError {
+    readonly code: OperationErrorCode;
+    readonly message: string;
+    readonly path?: string;
+    readonly cause?: unknown;
+}
+
+export declare type OperationErrorCode = 'PROJECT_ROOT_NOT_FOUND' | 'CONFIG_ERROR' | 'FS_ERROR' | 'CACHE_ERROR' | 'INVALID_OPERATION' | 'CONFLICT' | 'NETWORK_ERROR' | 'AUTH_ERROR';
 
 export declare type OperationResult<T> = {
-    success: true;
-    data: T;
+    readonly success: true;
+    readonly data: T;
 } | {
-    success: false;
-    error: OperationError;
+    readonly success: false;
+    readonly error: OperationError;
 };
 
-export declare type PreviewResult = RenderResult;
+export declare interface OutputFailure {
+    readonly code: string;
+    readonly message: string;
+    readonly stage: 'planning' | 'preparation' | 'coordination' | 'publication' | 'tracking' | 'cleanup' | 'release';
+    readonly root: string;
+    readonly outputSet?: string;
+    readonly path?: string;
+}
 
-export declare function previewView(viewId: string, options?: PreviewViewOptions): Promise<OperationResult<PreviewResult>>;
+export declare type OutputSelection = {
+    readonly kind: 'all';
+} | {
+    readonly kind: 'sets';
+    readonly sets: readonly {
+        readonly name: string;
+        readonly targets?: readonly string[];
+    }[];
+};
 
-export declare type PreviewViewOptions = ProjectOperationOptions;
+export declare interface PreviewOptions extends ProjectOperationOptions {
+    readonly limits?: CompositionLimits;
+}
+
+export declare type PreviewResult = CompositionResult;
+
+/** Read-only evaluation; partial content and scoped diagnostics are separate. */
+export declare function previewSource(selector: SourceSelector, options?: PreviewOptions): Promise<OperationResult<PreviewResult>>;
 
 export declare interface ProjectOperationOptions {
-    startDir?: string;
-    strictExternal?: boolean;
-    useRemote?: boolean;
+    readonly startDir?: string;
+    readonly strictExternal?: boolean;
+    readonly useRemote?: boolean;
+}
+
+export declare interface PublicationTarget {
+    readonly root: string;
+    readonly outputSet: string;
+    readonly path: string;
+    readonly status: 'published' | 'skipped' | 'not-published';
+    readonly tracking: 'unchanged' | 'persisted' | 'failed';
+    readonly reason?: string;
 }
 
 export declare interface PublishGraphResult {
-    namespace: string;
-    uploadedTo: string;
+    readonly namespace: string;
+    readonly uploadedTo: string;
 }
 
-export declare function renameBlock(oldId: string, newId: string, options?: ProjectOperationOptions): Promise<OperationResult<RenameResult>>;
-
-export declare interface RenameResult {
-    oldId: string;
-    newId: string;
-    blockFilePath: string;
-    updatedFiles: string[];
-    updatedRefCount: number;
+export declare interface ReferenceRow {
+    readonly sourceId: string;
+    readonly range: SourceRange;
+    readonly owner?: BlockRow;
 }
 
-export declare function renderAll(options?: RenderAllOptions): Promise<OperationResult<RenderResult>>;
+export declare function renameBlock(oldId: string, newId: string, options?: ProjectOperationOptions): Promise<MutationResult>;
 
-export declare type RenderAllOptions = RenderOptions;
-
-export declare interface RenderedViewResult {
-    id: string;
-    relativePath: string;
-    outputPath: string | null;
-    outputRelativePath: string | null;
-    markdown: string | null;
-}
-
-export declare interface RenderOptions extends ProjectOperationOptions {
-    outDir?: string;
-}
+/** Prepare all selected mappings, then publish through producer-owned root coordination. */
+export declare function renderOutputs(selection: OutputSelection, options?: PreviewOptions): Promise<RenderResult>;
 
 export declare interface RenderResult {
-    views: RenderedViewResult[];
-    total: number;
-    outDir: string | null;
-}
-
-export declare function renderView(viewId: string, options?: RenderViewOptions): Promise<OperationResult<RenderResult>>;
-
-export declare interface RenderViewOptions extends RenderOptions {
-    stdout?: boolean;
+    readonly success: boolean;
+    readonly targets: readonly (PublicationTarget & {
+        readonly diagnostics: readonly Diagnostic[];
+    })[];
+    readonly cleanup: readonly CleanupOutcome[];
+    readonly errors: readonly OutputFailure[];
 }
 
 export declare interface ResolvedStemConfig extends PortableStemConfig {
@@ -314,15 +267,16 @@ export declare interface ResolvedStemConfig extends PortableStemConfig {
 
 export declare function resolveStemConfig(raw: Partial<StemConfig>, projectRoot: string): ConfigResult<ResolvedStemConfig>;
 
+export declare type SourceSelector = OutputSource;
+
 export declare function syncProject(options?: ProjectOperationOptions): Promise<OperationResult<SyncResult>>;
 
 export declare interface SyncResult {
-    scannedFiles: number;
-    parsedFiles: number;
-    cachedFiles: number;
-    graphNodes: number;
-    graphEdges: number;
-    durationMs: number;
+    readonly scannedFiles: number;
+    readonly parsedFiles: number;
+    readonly graphNodes: number;
+    readonly graphEdges: number;
+    readonly durationMs: number;
 }
 
 export { }

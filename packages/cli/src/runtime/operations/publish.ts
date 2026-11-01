@@ -1,7 +1,13 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
-import type { OperationResult, ResolvedStemConfig, ProjectOperationOptions, PublishGraphResult } from '../types/index.js';
-import type { ExternalStemGraph, ExternalBlockEntry, ExternalRenameEntry } from '@stemdev/core';
+import type {
+  OperationResult,
+  ResolvedStemConfig,
+  ProjectOperationOptions,
+  PublishGraphResult
+} from '../types/index.js';
+import type { ExternalStemGraph, ExternalRenameEntry } from '@stemdev/core';
+import { projectExternalBlocks } from '@stemdev/core';
 import { loadProjectGraph } from './project.js';
 import { resolveAuthHeaders } from '../network/auth.js';
 import { networkFetch } from '../network/client.js';
@@ -15,14 +21,20 @@ export async function publishGraph(
   if (!config.namespace) {
     return {
       success: false,
-      error: operationError('INVALID_OPERATION', `Project identity is missing. Add a "namespace" field to the root of .stem/config.json.`)
+      error: operationError(
+        'INVALID_OPERATION',
+        `Publish namespace is missing. Add a "namespace" field to the root of .stem/config.json.`
+      )
     };
   }
 
   if (!config.publishUrl) {
     return {
       success: false,
-      error: operationError('INVALID_OPERATION', `Publish destination is missing. Add a "publishUrl" field to the root of .stem/config.json.`)
+      error: operationError(
+        'INVALID_OPERATION',
+        `Publish destination is missing. Add a "publishUrl" field to the root of .stem/config.json.`
+      )
     };
   }
 
@@ -31,18 +43,17 @@ export async function publishGraph(
     return projectResult;
   }
 
-  const blocks: ExternalBlockEntry[] = projectResult.data.blocks.map(block => {
-    // Map internal blocks to ExternalBlockEntry stripping prose and paths
+  const projection = projectExternalBlocks(projectResult.data.analysis);
+  if (!projection.complete)
     return {
-      id: block.id,
-      tags: block.tags,
-      sections: block.sections.map(section => ({
-        id: section.name,
-        tags: section.tags.map(t => t.name)
-      }))
+      success: false,
+      error: operationError(
+        'INVALID_OPERATION',
+        'Block metadata cannot be projected from invalid classification.',
+        { cause: projection.diagnostics }
+      )
     };
-  });
-
+  const blocks = projection.blocks;
   const renamesPath = path.join(config.projectRoot, '.stem', 'renames.json');
   let renames: ExternalRenameEntry[] = [];
   const renamesReadResult = await readFile(renamesPath);
@@ -62,12 +73,13 @@ export async function publishGraph(
           typeof (entry as { to?: unknown }).to === 'string' &&
           typeof (entry as { since?: unknown }).since === 'string'
         ) {
-          validRenames.push(entry as ExternalRenameEntry);
+          const rename = entry as ExternalRenameEntry;
+          validRenames.push({ from: rename.from, to: rename.to, since: rename.since });
         }
       }
 
       const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
-      renames = validRenames.filter(entry => {
+      renames = validRenames.filter((entry) => {
         const sinceTime = new Date(entry.since).getTime();
         return !isNaN(sinceTime) && sinceTime > ninetyDaysAgo;
       });
@@ -86,7 +98,8 @@ export async function publishGraph(
     .digest('hex')}`;
 
   const graphPayload: ExternalStemGraph = {
-    version: '1',
+    version: '2',
+    projectId: projectResult.data.config.projectId,
     namespace: config.namespace,
     publishedAt: new Date().toISOString(),
     contentSha,
@@ -114,7 +127,10 @@ export async function publishGraph(
   if (!fetchResult.success) {
     return {
       success: false,
-      error: operationError('NETWORK_ERROR', `Failed to upload graph to ${config.publishUrl}: ${fetchResult.status} ${fetchResult.error || ''}`)
+      error: operationError(
+        'NETWORK_ERROR',
+        `Failed to upload graph to ${config.publishUrl}: ${fetchResult.status} ${fetchResult.error || ''}`
+      )
     };
   }
 

@@ -13,7 +13,8 @@ describe('loadExternalGraphs', () => {
   let config: ResolvedStemConfig;
 
   const mockGraph: ExternalStemGraph = {
-    version: '1',
+    version: '2',
+    projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
     namespace: 'test-api',
     publishedAt: '2026-08-15T10:00:00Z',
     contentSha: 'sha',
@@ -26,12 +27,12 @@ describe('loadExternalGraphs', () => {
     await mkdir(path.join(testRoot, '.stem', 'cache', 'namespaces'), { recursive: true });
 
     config = {
-      version: '1',
+      projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
       projectRoot: testRoot,
       blocksDir: 'blocks',
-      viewsDir: 'views',
-      schemasDir: 'blocks/schemas',
+
       cacheDir: '.stem/cache',
+      outputSets: {},
       namespaces: {
         'test-api': {
           graphUrl: 'https://example.com/graph.json'
@@ -55,7 +56,7 @@ describe('loadExternalGraphs', () => {
     );
 
     const result = await loadExternalGraphs(config);
-    
+
     expect(result.size).toBe(1);
     const state = result.get('test-api');
     expect(state).toBeDefined();
@@ -72,7 +73,7 @@ describe('loadExternalGraphs', () => {
     );
 
     const result = await loadExternalGraphs(config);
-    
+
     // It should fail to parse the envelope and fall through to MISSING_SNAPSHOT (no entry in map)
     expect(result.has('test-api')).toBe(false);
   });
@@ -88,16 +89,19 @@ describe('loadExternalGraphs', () => {
   });
 
   it('loads from localPath as local fallback when configured', async () => {
-    config.namespaces['local-api'] = { localPath: '../local-api' };
-    
+    config = {
+      ...config,
+      namespaces: { ...config.namespaces, 'local-api': { localPath: '../local-api' } }
+    };
+
     const localGraphPath = path.join(testRoot, '../local-api', '.stem', 'cache', 'stem-graph.json');
     await mkdir(path.dirname(localGraphPath), { recursive: true });
-    
+
     // local fallback parses raw graph, NOT an envelope
     await writeFile(localGraphPath, JSON.stringify(mockGraph));
 
     const result = await loadExternalGraphs(config);
-    
+
     const state = result.get('local-api');
     expect(state).toBeDefined();
     expect(state?.isLocalFallback).toBe(true);
@@ -107,37 +111,80 @@ describe('loadExternalGraphs', () => {
     await rm(path.join(testRoot, '../local-api'), { recursive: true, force: true });
   });
 
-  it.each(['', '# comment', 'null', '42', '[]', '{}'])('ignores empty, invalid, or non-envelope JSON: %j', async (content) => {
-    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), content);
-    expect(await loadExternalGraphs(config)).toEqual(new Map());
-  });
+  it.each(['', '# comment', 'null', '42', '[]', '{}'])(
+    'ignores empty, invalid, or non-envelope JSON: %j',
+    async (content) => {
+      await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), content);
+      expect(await loadExternalGraphs(config)).toEqual(new Map());
+    }
+  );
 
-  it.each([undefined, null, 123, false, [], {}])('ignores absent or non-string fetchedAt: %j', async (fetchedAt) => {
-    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), JSON.stringify({ graph: mockGraph, fetchedAt }));
-    expect(await loadExternalGraphs(config)).toEqual(new Map());
-  });
+  it.each([undefined, null, 123, false, [], {}])(
+    'ignores absent or non-string fetchedAt: %j',
+    async (fetchedAt) => {
+      await writeFile(
+        path.join(testRoot, '.stem/cache/namespaces/test-api.json'),
+        JSON.stringify({ graph: mockGraph, fetchedAt })
+      );
+      expect(await loadExternalGraphs(config)).toEqual(new Map());
+    }
+  );
 
-  it.each(['2026-08-19T10:00:00.000Z', '', 'not a date'])('accepts any string fetchedAt: %j', async (fetchedAt) => {
-    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), JSON.stringify({
-      graph: mockGraph, fetchedAt, isLocalFallback: true, extra: 'ignored'
-    }));
-    expect(await loadExternalGraphs(config)).toEqual(new Map([['test-api', {
-      graph: mockGraph, fetchedAt, isLocalFallback: false
-    }]]));
-  });
+  it.each(['2026-08-19T10:00:00.000Z', '', 'not a date'])(
+    'accepts any string fetchedAt: %j',
+    async (fetchedAt) => {
+      await writeFile(
+        path.join(testRoot, '.stem/cache/namespaces/test-api.json'),
+        JSON.stringify({
+          graph: mockGraph,
+          fetchedAt,
+          isLocalFallback: true,
+          extra: 'ignored'
+        })
+      );
+      expect(await loadExternalGraphs(config)).toEqual(
+        new Map([
+          [
+            'test-api',
+            {
+              graph: mockGraph,
+              fetchedAt,
+              isLocalFallback: false
+            }
+          ]
+        ])
+      );
+    }
+  );
 
   it.each([
-    undefined, null, 1, [], {},
-    { version: 1 }, { namespace: null }, { publishedAt: false }, { contentSha: [] },
-    { blocks: null }, { renames: {} }, { blocks: [null] },
+    undefined,
+    null,
+    1,
+    [],
+    {},
+    { version: 1 },
+    { namespace: null },
+    { publishedAt: false },
+    { contentSha: [] },
+    { blocks: null },
+    { renames: {} },
+    { blocks: [null] },
     { blocks: [{ id: 1, tags: [], sections: [] }] },
     { blocks: [{ id: 'a', tags: [1], sections: [] }] },
     { blocks: [{ id: 'a', tags: [], sections: [null] }] },
     { renames: [{ from: 'a', to: 'b', since: 1 }] }
   ])('ignores a missing or malformed graph: %j', async (overrides) => {
-    const graph = overrides !== null && typeof overrides === 'object' && !Array.isArray(overrides)
-      ? (Object.keys(overrides).length === 0 ? {} : { ...mockGraph, ...overrides }) : overrides;
-    await writeFile(path.join(testRoot, '.stem/cache/namespaces/test-api.json'), JSON.stringify({ graph, fetchedAt: '' }));
+    const graph =
+      overrides !== null && typeof overrides === 'object' && !Array.isArray(overrides)
+        ? Object.keys(overrides).length === 0
+          ? {}
+          : { ...mockGraph, ...overrides }
+        : overrides;
+    await writeFile(
+      path.join(testRoot, '.stem/cache/namespaces/test-api.json'),
+      JSON.stringify({ graph, fetchedAt: '' })
+    );
     expect(await loadExternalGraphs(config)).toEqual(new Map());
   });
 });

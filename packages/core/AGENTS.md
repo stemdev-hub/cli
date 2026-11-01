@@ -7,8 +7,10 @@ Published to npm. Portable pure domain logic: Block/Tag model, graph, parser, va
 - build: `pnpm --filter @stemdev/core build`
 - test: `pnpm --filter @stemdev/core test`
 - typecheck: `pnpm --filter @stemdev/core typecheck`
-- packaging verification:
-  `pnpm --filter @stemdev/core pack --pack-destination <dir> && node scripts/check-packed-core.mjs <dir>/stemdev-core-*.tgz`
+- packaging verification (from repo root, after building; replace placeholders with real paths):
+  `pnpm --filter @stemdev/core pack --pack-destination "<absolute-temporary-directory>"`
+  Then use the exact tarball path printed by pack:
+  `node scripts/check-packed-core.mjs "<absolute-core-tarball-path>"`
 - lint: monorepo root `pnpm lint`
 
 ## Boundaries & Constraints
@@ -17,6 +19,6 @@ Published to npm. Portable pure domain logic: Block/Tag model, graph, parser, va
 - Zero clock reads: time is passed in as `nowMs`. Zero I/O, filesystem access, or dynamic imports.
 - Enforced mechanically by ESLint AST rules and dependency-cruiser.
 - Portable ESM: must run in Node, browser, Web Workers, and Edge runtimes.
-- Frontmatter policy: ADR-0002. Pure decoders: ADR-0004. No gray-matter.
+- Parsing/decoder policy: [decision applicability](../../docs/architecture.md#current-decision-applicability). No gray-matter.
 - Never import from `packages/cli` or `packages/vscode-stem`.
 - Everything exported from `src/index.ts` is public API. Additions are cheap; renames and removals require an ADR.

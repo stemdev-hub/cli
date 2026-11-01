@@ -1,147 +1,98 @@
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import * as fs from 'node:fs/promises';
 import path from 'node:path';
-
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { createBlock, createGroup, createView } from '../../src/runtime/operations/create.js';
-
-describe('create operations', () => {
-  let testRoot: string;
-
-  beforeEach(async () => {
-    testRoot = await mkdtemp(path.join(tmpdir(), 'stem-create-'));
-    await createStemProject(testRoot);
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it } from 'vitest';
+import * as cli from '../../src/index.js';
+let root: string;
+const f = {
+  put: async (relative: string, text: string) => {
+    const file = path.join(root, relative);
+    await fs.mkdir(path.dirname(file), { recursive: true });
+    await fs.writeFile(file, text);
+  },
+  read: (relative: string) => fs.readFile(path.join(root, relative), 'utf8'),
+  config: async (extra: object) => {
+    const original = JSON.parse(await f.read('.stem/config.json')) as object;
+    await f.put('.stem/config.json', JSON.stringify({ ...original, ...extra }));
+  }
+};
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-integration-'));
+  expect((await cli.initProject({ startDir: root })).success).toBe(true);
+});
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true });
+});
+it('creates explicit roots and children with direct Tags without output mappings', async () => {
+  expect(
+    await cli.createBlock('Parent', {
+      startDir: root,
+      destination: { kind: 'file', path: 'blocks/doc.md' },
+      tags: ['guide', 'quoted " tag']
+    })
+  ).toMatchObject({ success: true, changedFiles: ['blocks/doc.md'] });
+  const child = await cli.createBlock('Child', {
+    startDir: root,
+    destination: { kind: 'block', id: 'Parent' }
   });
-
-  afterEach(async () => {
-    await rm(testRoot, { recursive: true, force: true });
+  expect(child.success, JSON.stringify(child)).toBe(true);
+  const content = await f.read('blocks/doc.md');
+  expect(content).toContain('id:Parent');
+  expect(content.indexOf('id:Child')).toBeLessThan(content.indexOf('@stem:end(id:Parent)'));
+  expect(await cli.listBlocks({ startDir: root })).toMatchObject({
+    success: true,
+    data: { total: 2 }
   });
-
-  it('creates a block with a normalized block id and Markdown file', async () => {
-    const result = await createBlock('Auth Flow', { startDir: testRoot });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data).toEqual({
-        id: 'auth-flow-block',
-        filePath: path.join(testRoot, 'blocks/auth-flow-block.md'),
-        relativePath: 'blocks/auth-flow-block.md',
-        scaffolded: false,
-        scaffoldedTag: null
-      });
-    }
-    await expect(readFile(path.join(testRoot, 'blocks/auth-flow-block.md'), 'utf8')).resolves.toBe(
-      `---
-id: auth-flow-block
----
-`
-    );
-  });
-
-  it('does not duplicate an existing block suffix', async () => {
-    const result = await createBlock('auth-flow-block', { startDir: testRoot });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.id).toBe('auth-flow-block');
-    }
-  });
-
-  it('creates a block scaffolded with a tag', async () => {
-    const result = await createBlock('API Auth', { startDir: testRoot, tag: 'api' });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.scaffolded).toBe(true);
-      expect(result.data.scaffoldedTag).toBe('api');
-    }
-    await expect(readFile(path.join(testRoot, 'blocks/api-auth-block.md'), 'utf8')).resolves.toContain(
-      '@stem[tag:api]'
-    );
-  });
-
-  it('creates a view inside an optional group', async () => {
-    const result = await createView('Auth Service', {
-      startDir: testRoot,
-      group: 'by-audience/backend'
-    });
-
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data).toEqual({
-        id: 'auth-service-view',
-        filePath: path.join(testRoot, 'views/by-audience/backend/auth-service-view.md'),
-        relativePath: 'views/by-audience/backend/auth-service-view.md',
-        group: 'by-audience/backend'
-      });
-    }
-    await expect(
-      readFile(path.join(testRoot, 'views/by-audience/backend/auth-service-view.md'), 'utf8')
-    ).resolves.toBe(
-      `---
-id: auth-service-view
-group: by-audience/backend
----
-`
-    );
-  });
-
-  it('creates a view group directory', async () => {
-    const result = await createGroup('by-audience/backend', { startDir: testRoot });
-
-    expect(result).toEqual({
-      success: true,
-      data: {
-        groupPath: 'by-audience/backend',
-        absolutePath: path.join(testRoot, 'views/by-audience/backend')
-      }
-    });
-  });
-
-  it('returns a conflict when the target file already exists', async () => {
-    await createBlock('auth', { startDir: testRoot });
-
-    const result = await createBlock('auth', { startDir: testRoot });
-
-    expect(result).toMatchObject({
-      success: false,
-      error: {
-        code: 'CONFLICT',
-        path: path.join(testRoot, 'blocks/auth-block.md')
-      }
-    });
-  });
-
-  it('rejects invalid names and group paths', async () => {
-    await expect(createBlock('---', { startDir: testRoot })).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-    await expect(createView('auth', { startDir: testRoot, group: '../outside' })).resolves.toMatchObject({
-      success: false,
-      error: { code: 'INVALID_OPERATION' }
-    });
-  });
-
-  it('returns an operation error when no project root exists', async () => {
-    const outsideRoot = await mkdtemp(path.join(tmpdir(), 'stem-create-outside-'));
-
-    try {
-      const result = await createView('auth', { startDir: outsideRoot });
-
-      expect(result).toMatchObject({
-        success: false,
-        error: { code: 'PROJECT_ROOT_NOT_FOUND' }
-      });
-    } finally {
-      await rm(outsideRoot, { recursive: true, force: true });
-    }
+  expect(await cli.listOutputs({ startDir: root })).toMatchObject({
+    success: true,
+    data: { outputSets: {} }
   });
 });
+it.each([
+  '../escape.md',
+  'views/a.md',
+  'blocks/.hidden.md',
+  'blocks/a.txt',
+  'blocks/node_modules/a.md',
+  'blocks/dist/a.md'
+])('rejects unsafe/undiscoverable destinations %s', async (file) => {
+  expect(
+    (await cli.createBlock('a', { startDir: root, destination: { kind: 'file', path: file } }))
+      .success
+  ).toBe(false);
+});
+it('preserves original text and refuses collisions and recovered roots', async () => {
+  await f.put('blocks/a.md', 'before@stem:block(id:a)open');
+  const before = await f.read('blocks/a.md');
+  expect(
+    (
+      await cli.createBlock('b', {
+        startDir: root,
+        destination: { kind: 'file', path: 'blocks/a.md' }
+      })
+    ).success
+  ).toBe(false);
+  expect(
+    (
+      await cli.createBlock('a', {
+        startDir: root,
+        destination: { kind: 'file', path: 'blocks/b.md' }
+      })
+    ).success
+  ).toBe(false);
+  expect(await f.read('blocks/a.md')).toBe(before);
+});
 
-async function createStemProject(projectRoot: string): Promise<void> {
-  await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'blocks'), { recursive: true });
-  await mkdir(path.join(projectRoot, 'views'), { recursive: true });
-}
+it('allows a configured hidden source root while still rejecting hidden descendants', async () => {
+  await f.config({ blocksDir: '.sources' });
+  expect(
+    await cli.createBlock('a', {
+      startDir: root,
+      destination: { kind: 'file', path: '.sources/a.md' }
+    })
+  ).toMatchObject({ success: true });
+  expect(await cli.listBlocks({ startDir: root })).toMatchObject({
+    success: true,
+    data: { total: 1 }
+  });
+});

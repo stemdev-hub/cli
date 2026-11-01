@@ -1,162 +1,121 @@
 # @stemdev/cli
 
-[![NPM Version](https://img.shields.io/npm/v/@stemdev/cli)](https://www.npmjs.com/package/@stemdev/cli)
-[![Node version](https://img.shields.io/badge/node-%3E%3D22-brightgreen.svg)](https://nodejs.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-
-The official command-line interface for **Stem**, a Git-native, file-based documentation system for software developers. Includes Node.js project operations and a stdio MCP context server. The portable domain API lives in [@stemdev/core](https://github.com/stemdev-hub/cli/tree/main/packages/core).
-
-## Prerequisites
-
-- **Node.js**: `>=22`
+Node.js operations, terminal commands and a read-only MCP server for Stem Blocks and Tags.
+Use [the shared reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md) for semantics
+and [generated declarations](https://github.com/stemdev-hub/cli/blob/main/packages/cli/docs/stem-api.d.ts)
+for the Node API.
 
 ## Installation
 
-Install the Stem CLI globally via NPM:
+Requires Node.js 22 or later.
 
 ```sh
 npm install -g @stemdev/cli
+stem --help
 ```
 
-## Getting Started
+This guide describes the repository's Pure Block CLI commands. Published-package availability is tracked in [R10](https://github.com/stemdev-hub/cli/blob/main/roadmap.md#r10-verify-an-authorized-release-delivers-selected-fixes); for an unreleased candidate, use the [local tarball verification procedure](https://github.com/stemdev-hub/cli/blob/main/CONTRIBUTING.md#verification).
 
-Stem breaks down documentation into reusable **Blocks** and composed **Views**.
-
-### 1. Initialize a Project
-
-Run this in the root of your repository to scaffold the `.stem/` directory:
+## Author a project
 
 ```sh
 stem init
+stem create block welcome --file blocks/guide.md --tag guide
+stem create block detail --parent welcome
+stem add detail to file blocks/guide.md
+stem list blocks --json
+stem list references detail --json
+stem check --json
+stem preview block welcome
+stem preview file blocks/guide.md
+stem render block welcome --stdout
 ```
 
-### 2. Write Reusable Blocks
-
-Blocks are single-source-of-truth markdown files that contain frontmatter metadata.
-
-```sh
-stem create block auth-flow
-```
-
-This creates `blocks/auth-flow-block.md` with ID `auth-flow-block`. Replace its body and tags with your content, for example:
-
-```markdown
----
-id: auth-flow-block
-tags: [backend, security]
----
-
-# Authentication Flow
-
-We use JWT tokens for authentication. The token expires every 15 minutes and is refreshed automatically via the `/refresh` endpoint.
-```
-
-### 3. Compose Views
-
-Views are constructed by referencing your blocks. Create a view and inject your block into it:
-
-```sh
-stem create group by-audience/backend
-stem create view auth-service --group by-audience/backend
-stem add auth-flow-block to auth-service-view
-```
-
-The view command creates `views/by-audience/backend/auth-service-view.md` with ID `auth-service-view`. Use the generated IDs when adding references or rendering.
-
-### 4. Render & Preview
-
-Validate your references and render the final composed Markdown files:
-
-```sh
-stem check
-stem sync
-stem render view auth-service-view
-```
-
-To quickly view the result in your terminal without writing files to disk:
-
-```sh
-stem preview view auth-service-view
-```
-
-_(Note: For the best experience, use the [Stem VS Code Extension](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem) for live previews!)_
+Creation takes exactly one of `--file` and `--parent`; repeat `--tag` for direct Tags. IDs retain their
+spelling. Edit the generated Markdown to add content. `stem add <ref> to block <id>` inserts an inclusion
+before the parent's closer. `stem delete block <id> [--force]` removes only the definition/subtree,
+preserving the file. Force permits known dangling references but cannot bypass uncertain safety.
+`stem rename <old-id> <new-id>` edits recognized tokens and matching local output selectors, preserving
+filenames and unrelated text. Failures report confirmed changed files and the failing stage.
 
 ## Configuration
 
-Stem projects are rooted by a `.stem/` directory. Project settings live in `.stem/config.json`; if that file is missing, Stem uses defaults.
+`stem init` creates the source directory, identity/configuration and a computation-cache ignore entry.
+`stem init --force` preserves valid configuration and identity. To retain existing identity after losing
+configuration, restore it from version control. There is no automatic View-file conversion.
 
 ```json
 {
-  "version": "1",
+  "projectId": "0f671f2d-657d-4f3c-9a7d-d22f769c083a",
   "blocksDir": "blocks",
-  "viewsDir": "views",
-  "schemasDir": "blocks/schemas",
-  "cacheDir": ".stem/cache"
+  "cacheDir": ".stem/cache",
+  "outputSets": {
+    "docs": {
+      "outputDir": "published",
+      "ifExists": "replace",
+      "cleanup": "keep",
+      "targets": [
+        { "source": { "kind": "block", "ref": "welcome" }, "path": "README.md" },
+        { "source": { "kind": "file", "path": "blocks/guide.md" }, "path": "guide.md" }
+      ]
+    }
+  }
 }
 ```
 
-All directory fields are project-relative and optional. Paths are normalized to POSIX `/` separators so cache keys stay stable across operating systems.
+This UUID is illustrative; initialize each independent project to create its own identity.
+See [configuration semantics](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#configuration-validation)
+for supported fields, strict validation and identity lifecycle.
 
-## Commands Reference
+## Export and cleanup
 
-| Command                                                        | Purpose                                                                           |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `stem init [--force]`                                          | Create the project scaffold, built-in schemas, and `.stem/cache/` gitignore entry |
-| `stem create block <name> [--tag <tag>]`                       | Create a Markdown block, optionally scaffolded with a tag                         |
-| `stem create view <name> [--group <path>]`                     | Create a view file, optionally inside a view group                                |
-| `stem create group <path>`                                     | Create a view group directory                                                     |
-| `stem add <block-id> to <view-id> [--section <s>] [--tag <t>]` | Append a block reference to a view                                                |
-| `stem delete block <id> [--force]`                             | Delete a block after reference checks                                             |
-| `stem delete view <id>`                                        | Delete a view                                                                     |
-| `stem rename <old-id> <new-id>`                                | Rename a block ID and update references                                           |
-| `stem render view <view-id> [--out <dir>] [--stdout]`          | Render one view to Markdown                                                       |
-| `stem render all [--out <dir>]`                                | Render all views to Markdown                                                      |
-| `stem preview view <view-id>`                                  | Print a rendered view to the terminal without writing files                       |
-| `stem list blocks [--tag <tag>] [--json]`                      | List blocks and usage metadata                                                    |
-| `stem list views [--block <block-id>] [--json]`                | List views and referenced blocks                                                  |
-| `stem check [--json]`                                          | Validate without writing files                                                    |
-| `stem sync`                                                    | Rebuild `.stem/cache/index.json` and `.stem/cache/graph.json`                     |
-| `stem publish-graph` | Upload a structural snapshot using the configured namespace and publish target |
-| `stem fetch-namespaces` | Download configured remote namespace snapshots; local-path entries are skipped |
-| `stem mcp` | Start the stdio MCP context server in the current Stem project |
-| `stem mcp setup [-y, --yes]` | Configure supported AI assistants; interactive scope selection or noninteractive defaults |
+```sh
+stem list outputs --json
+stem render set docs
+stem render set docs --target README.md
+stem render all
+stem cleanup --output-dir published --set docs
+stem cleanup --output-dir published --set docs --apply
+```
 
-Run `stem --help` or `stem <command> --help` for supported options. Namespace commands require the corresponding project configuration; they do not create a hosted service. `--json` is available on `check` and `list`.
+Repeat `--target` for several configured destinations. Explicit target selection is always a partial-set
+run and cannot authorize automatic pruning. No destination override is accepted. Preview can emit partial
+content; `render block/file --stdout` emits nothing unless eligible. Both keep stdout bytes exact and send
+diagnostics to stderr. They exit nonzero for incomplete content or errors.
+
+Preview/render accept `--max-work <integer>` and `--max-output-bytes <integer>`. Node operations accept
+`options.limits`. See [shared limits](https://github.com/stemdev-hub/cli/blob/main/docs/specs/composition.md#d24-resource-budgets)
+for defaults and measurement limits. Zero is valid; values are never silently clamped.
+
+Publication reports published/skipped/not-published targets and tracking outcomes, plus cleanup and
+stage-specific errors. Read the [ownership semantics](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md#output-publication)
+before enabling pruning. A failed run can still have confirmed published files.
+
+## Checking and sync
+
+`stem check [--json] [--strict-external] [--use-remote]` evaluates fresh sources and external metadata.
+`stem sync` reparses all discovered sources and writes disposable file metadata and a position-free graph.
+No read/preview operation needs sync first. Metadata-only `fetch-namespaces` and `publish-graph` retain
+explicit HTTP workflows; they do not fetch authored connection sources.
 
 ## MCP server
 
-Run `stem mcp` with the client's working directory set to the Stem project. Configure the client to launch that command over stdio; this is not an HTTP server.
+Run `stem mcp` for stdio transport. Tools: `list_blocks`, `list_references`, `list_outputs`,
+`check_references`, `preview_source`. All advertise read-only behavior and return matching JSON text and
+structured operation envelopes. Partial preview is an evaluated success with `complete: false`;
+operation failures set `isError`. `preview_source` accepts an explicit `source` selector and optional
+`limits`. `stem://blocks/{id}` returns exactly one uniquely selected authored range.
 
-`stem mcp setup` offers Antigravity and Claude setup. It can write configuration or invoke the installed Claude CLI; review its prompts and scope choices. `--yes` skips prompts and may configure detected Claude Desktop globally. VS Code/Cursor setup is provided by the extension command linked below.
+For assistant configuration use `stem mcp setup`, or the editor's
+[MCP setup command](https://github.com/stemdev-hub/cli/blob/main/packages/vscode-stem/README.md#ai-context-server-mcp).
 
-| Capability | Name | Result |
-| --- | --- | --- |
-| Tool | `list_blocks` | Block metadata, optionally filtered by `tag` |
-| Tool | `list_views` | View metadata, optionally filtered by `blockId` |
-| Tool | `check_references` | Validation issues, including broken references and cycles |
-| Resource template | `stem://blocks/{id}` | Raw block Markdown |
-| Resource template | `stem://views/{id}` | Composed view Markdown |
+## Node API
 
-The tools expose structured results and text fallbacks. These capabilities read project context; they do not expose authoring commands as MCP tools. See the [extension's MCP setup guide](https://github.com/stemdev-hub/cli/blob/main/packages/vscode-stem/README.md#ai-context-server-mcp) for VS Code and Cursor configuration.
+Import operations from `@stemdev/cli` and portable types from `@stemdev/core`. Reads return
+`OperationResult<T>`; mutations and output publication retain confirmed outcomes on failure.
+No legacy View APIs or compatibility aliases remain. Generated declarations own signatures.
 
-## Programmatic API
+## Contributing and license
 
-The package provides ESM project operations and their Node.js adapter types through `@stemdev/cli`:
-
-```typescript
-import { checkProject } from '@stemdev/cli';
-
-const result = await checkProject({ startDir: process.cwd() });
-if (!result.success) throw new Error(result.error.message);
-console.log(result.data.validation);
-```
-
-Import portable parsing, graph, rendering, and domain/configuration types from `@stemdev/core`. The former CLI domain/configuration type exports are not compatibility re-exports. Use the public package entries; do not import internal source paths.
-
-## Contributing
-
-See the [repository contribution guide](https://github.com/stemdev-hub/cli/blob/main/CONTRIBUTING.md) for workspace setup, validation, and release procedures.
-
-## License
-
+[Contribution guide](https://github.com/stemdev-hub/cli/blob/main/CONTRIBUTING.md) ·
 [MIT](https://github.com/stemdev-hub/cli/blob/main/LICENSE)

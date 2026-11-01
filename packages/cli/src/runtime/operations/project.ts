@@ -1,130 +1,196 @@
 import path from 'node:path';
-
-import { analyzeProject } from '@stemdev/core';
-import type { AnalysisOptions, ParsedBlock, ParsedView, ProjectSnapshot, SourceDocument, StemGraph, ValidationResult } from '@stemdev/core';
-import type { DiscoveredFile, OperationResult, ProjectOperationOptions, ResolvedStemConfig } from '../types/index.js';
+import { realpath, readFile as readText, stat } from 'node:fs/promises';
+import {
+  analyzeProject,
+  parseBlockReference,
+  validateExternalReferences,
+  parseConfigJson,
+  normalizeStemConfig
+} from '@stemdev/core';
+import type {
+  Diagnostic,
+  ProjectAnalysis,
+  SourceDocument,
+  OutputSource,
+  CompositionTarget,
+  SourceLocation
+} from '@stemdev/core';
+import type {
+  OperationResult,
+  ProjectOperationOptions,
+  ResolvedStemConfig,
+  DiscoveredFile
+} from '../types/index.js';
 import { loadStemConfig } from '../config/index.js';
-import { findBlockFiles, findProjectRoot, findViewFiles } from '../fs/finder.js';
-import { readFile, toRelativePath } from '../fs/reader.js';
-import { fromConfigError, fromFsError } from './errors.js';
-import { loadSchemas } from './schemas.js';
+import { findBlockFiles, findProjectRoot, within } from '../fs/finder.js';
+import { fromConfigError, fromFsError, operationError } from './errors.js';
 import { loadExternalGraphs } from './external.js';
-
 export interface LoadedProject {
-  projectRoot: string;
-  config: ResolvedStemConfig;
-  blockFiles: DiscoveredFile[];
-  viewFiles: DiscoveredFile[];
-  snapshot: ProjectSnapshot;
-  blocks: ParsedBlock[];
-  views: ParsedView[];
-  graph: StemGraph;
+  readonly projectRoot: string;
+  readonly config: ResolvedStemConfig;
+  readonly configText: string;
+  readonly files: readonly DiscoveredFile[];
+  readonly sources: readonly SourceDocument[];
+  readonly analysis: ProjectAnalysis;
 }
-
-export async function loadProjectForCheck(
-  options: ProjectOperationOptions = {}
-): Promise<OperationResult<LoadedProject>> {
-  const graphResult = await loadProjectGraph(options);
-  if (!graphResult.success) {
-    return graphResult;
-  }
-
-  const project = graphResult.data;
-  const schemasResult = await loadSchemas(project.projectRoot, project.config);
-  if (!schemasResult.success) {
-    return schemasResult;
-  }
-
-  const externalGraphs = await loadExternalGraphs(project.config, options);
-
-  return {
-    success: true,
-    data: {
-      ...project,
-      snapshot: { ...project.snapshot, schemas: schemasResult.data, externalGraphs }
-    }
-  };
-}
-
+/** Fresh source analysis; no persisted graph or metadata is used as authored source. */
 export async function loadProjectGraph(
   options: ProjectOperationOptions = {}
 ): Promise<OperationResult<LoadedProject>> {
-  const startDir = options.startDir ?? process.cwd();
-  const projectRootResult = await findProjectRoot(startDir);
-  if (!projectRootResult.success) {
-    return { success: false, error: fromFsError(projectRootResult.error) };
+  const root = await findProjectRoot(options.startDir ?? process.cwd());
+  if (!root.success) return { success: false, error: fromFsError(root.error) };
+  const loaded = await loadStemConfig(root.data);
+  if (!loaded.success) return { success: false, error: fromConfigError(loaded.error) };
+  const config = loaded.data;
+  const found = await findBlockFiles(root.data, config);
+  if (!found.success) return { success: false, error: fromFsError(found.error) };
+  try {
+    const configText = await readText(path.join(root.data, '.stem/config.json'), 'utf8');
+    // Validate the exact configuration bytes retained for subsequent mutation checks.
+    const parsed = parseConfigJson(configText, path.join(root.data, '.stem/config.json'));
+    const current = parsed.success
+      ? normalizeStemConfig(parsed.data, path.join(root.data, '.stem/config.json'))
+      : parsed;
+    if (
+      !current.success ||
+      JSON.stringify(current.data) !==
+        JSON.stringify(
+          Object.fromEntries(Object.entries(config).filter(([key]) => key !== 'projectRoot'))
+        )
+    )
+      return {
+        success: false,
+        error: operationError('CONFLICT', 'Configuration changed during loading.')
+      };
+    const files = found.data.map((filePath) => ({
+      filePath,
+      relativePath: path.relative(root.data, filePath).split(path.sep).join('/')
+    }));
+    const sources: SourceDocument[] = [];
+    for (const file of files)
+      sources.push({ sourceId: file.relativePath, content: await readText(file.filePath, 'utf8') });
+    const localInstance = {};
+    const targets = Object.values(config.outputSets).flatMap((set) =>
+      set.targets.map((target) =>
+        target.source.kind === 'block'
+          ? { kind: 'block' as const, reference: parseBlockReference(target.source.ref)! }
+          : { kind: 'file' as const, sourceId: target.source.path }
+      )
+    );
+    const analysis = analyzeProject({
+      localInstance,
+      instances: [
+        {
+          handle: localInstance,
+          sources,
+          bindings: Object.keys(config.namespaces).map((alias) => ({
+            alias,
+            unavailable: 'unavailable-source' as const
+          }))
+        }
+      ],
+      outputs: { targets, complete: true }
+    });
+    return {
+      success: true,
+      data: { projectRoot: root.data, config, configText, files, sources, analysis }
+    };
+  } catch (cause) {
+    return {
+      success: false,
+      error: operationError('FS_ERROR', 'Cannot load current project sources.', { cause })
+    };
   }
-
-  const projectRoot = projectRootResult.data;
-  const configResult = await loadStemConfig(projectRoot);
-  if (!configResult.success) {
-    return { success: false, error: fromConfigError(configResult.error) };
-  }
-
-  const config = configResult.data;
-  const blockFilesResult = await findBlockFiles(projectRoot, config);
-  if (!blockFilesResult.success) {
-    return { success: false, error: fromFsError(blockFilesResult.error) };
-  }
-
-  const viewFilesResult = await findViewFiles(projectRoot, config);
-  if (!viewFilesResult.success) {
-    return { success: false, error: fromFsError(viewFilesResult.error) };
-  }
-
-  const blockFiles = toDiscoveredFiles(blockFilesResult.data, projectRoot, 'block');
-  const viewFiles = toDiscoveredFiles(viewFilesResult.data, projectRoot, 'view');
-  const blocksResult = await readDiscoveredFiles(blockFiles);
-  if (!blocksResult.success) {
-    return blocksResult;
-  }
-  const viewsResult = await readDiscoveredFiles(viewFiles);
-  if (!viewsResult.success) {
-    return viewsResult;
-  }
-
-  const snapshot: ProjectSnapshot = {
-    blocks: blocksResult.data,
-    views: viewsResult.data,
-    schemas: new Map(),
-    configuredNamespaces: config.namespaces,
-    externalGraphs: new Map()
-  };
-  const { blocks, views, graph } = analyzeProject(snapshot, { nowMs: Date.now() });
-
-  return {
-    success: true,
-    data: { projectRoot, config, blockFiles, viewFiles, snapshot, blocks, views, graph }
-  };
 }
-
-export function validateLoadedProject(
+export async function projectDiagnostics(
   project: LoadedProject,
-  options: AnalysisOptions
-): ValidationResult {
-  return analyzeProject(project.snapshot, options).validation;
+  options: ProjectOperationOptions
+): Promise<readonly Diagnostic[]> {
+  const snapshots = await loadExternalGraphs(project.config, options);
+  return publicDiagnostics([
+    ...project.analysis.diagnostics,
+    ...validateExternalReferences(project.analysis, project.config.namespaces, snapshots, {
+      nowMs: Date.now(),
+      strictExternal: options.strictExternal ?? false
+    })
+  ]);
 }
-
-function toDiscoveredFiles(
-  filePaths: string[],
-  projectRoot: string,
-  type: DiscoveredFile['type']
-): DiscoveredFile[] {
-  return filePaths.map((filePath) => ({
-    filePath: path.resolve(filePath),
-    relativePath: toRelativePath(filePath, projectRoot),
-    type
-  }));
+/** Remove evaluation-local identity from adapter results. Source locations remain transient. */
+export function publicDiagnostics(diagnostics: readonly Diagnostic[]): readonly Diagnostic[] {
+  const locate = (location: SourceLocation): SourceLocation =>
+    Object.freeze({ sourceId: location.sourceId, range: Object.freeze({ ...location.range }) });
+  return Object.freeze(
+    diagnostics.map((d) =>
+      Object.freeze({
+        code: d.code,
+        severity: d.severity,
+        message: d.message,
+        ...(d.location ? { location: locate(d.location) } : {}),
+        ...(d.related ? { related: Object.freeze(d.related.map(locate)) } : {})
+      })
+    )
+  );
 }
-
-async function readDiscoveredFiles(files: DiscoveredFile[]): Promise<OperationResult<SourceDocument[]>> {
-  const documents: SourceDocument[] = [];
-  for (const file of files) {
-    const readResult = await readFile(file.filePath);
-    if (!readResult.success) {
-      return { success: false, error: fromFsError(readResult.error) };
-    }
-    documents.push({ content: readResult.data, filePath: file.filePath, relativePath: file.relativePath });
+export function compositionTarget(
+  project: LoadedProject,
+  selector: OutputSource
+): OperationResult<CompositionTarget> {
+  const instance = project.analysis.localInstance!;
+  if (selector.kind === 'block') {
+    const reference = parseBlockReference(selector.ref);
+    return reference
+      ? { success: true, data: { kind: 'block', instance, reference } }
+      : { success: false, error: operationError('INVALID_OPERATION', 'Invalid Block reference.') };
   }
-  return { success: true, data: documents };
+  const sourceId = selector.path.replaceAll('\\', '/');
+  if (
+    sourceId !== path.posix.normalize(sourceId) ||
+    !sourceId.startsWith(project.config.blocksDir + '/') ||
+    path.isAbsolute(sourceId) ||
+    sourceId.split('/').includes('..')
+  )
+    return {
+      success: false,
+      error: operationError(
+        'INVALID_OPERATION',
+        'File selector must name a project-relative source beneath blocksDir.'
+      )
+    };
+  return { success: true, data: { kind: 'file', instance, sourceId } };
+}
+/** Resolve existing ancestors too, so missing authoring destinations cannot escape via symlinks. */
+export async function sourceDestination(project: LoadedProject, relative: string): Promise<string> {
+  if (
+    !relative.endsWith('.md') ||
+    relative.includes('\\') ||
+    relative !== path.posix.normalize(relative) ||
+    relative
+      .slice(project.config.blocksDir.length + 1)
+      .split('/')
+      .some((p) => p === '..' || p.startsWith('.') || p === 'node_modules' || p === 'dist') ||
+    !relative.startsWith(project.config.blocksDir + '/')
+  )
+    throw new Error('Destination must be a discoverable project-relative Markdown source.');
+  const destination = path.resolve(project.projectRoot, relative);
+  const sourceRoot = path.resolve(project.projectRoot, project.config.blocksDir);
+  let existing = destination;
+  for (;;) {
+    try {
+      await stat(existing);
+      break;
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+      const parent = path.dirname(existing);
+      if (parent === existing) throw error;
+      existing = parent;
+    }
+  }
+  const physicalRoot = await realpath(project.projectRoot);
+  const physical = await realpath(existing);
+  if (!within(physicalRoot, physical)) throw new Error('Destination escapes the project.');
+  const physicalSource = await realpath(sourceRoot).catch(() => sourceRoot);
+  if (within(sourceRoot, existing) && !within(physicalSource, physical))
+    throw new Error('Destination escapes blocksDir.');
+  if (!within(physicalRoot, physicalSource)) throw new Error('blocksDir escapes the project.');
+  return destination;
 }

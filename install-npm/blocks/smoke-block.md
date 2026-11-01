@@ -1,5 +1,0 @@
----
-id: smoke-block
----
-
-

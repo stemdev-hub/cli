@@ -1,7 +1,14 @@
 const { execFile } = require('node:child_process');
 const { existsSync } = require('node:fs');
 const path = require('node:path');
-const { findProjectRootAsync, isInProject, loadProjectSnapshot, renderProjectPreview, relativePath } = require('./src/project.ts');
+const {
+  findProjectRootAsync,
+  isInProject,
+  loadProjectSnapshot,
+  renderProjectPreview,
+  relativePath,
+  formatDiagnostic
+} = require('./src/project.ts');
 
 let vscode = null;
 try {
@@ -14,12 +21,7 @@ try {
 const PREVIEW_SCHEME = 'stem-preview';
 const DEFAULT_REFRESH_DEBOUNCE_MS = 250;
 const PREVIEW_EXEC_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
-const WATCH_PATTERNS = [
-  'views/**/*.md',
-  'blocks/**/*.md',
-  'blocks/schemas/**/*.{yaml,yml}',
-  '.stem/config.json'
-];
+const WATCH_PATTERNS = ['**/*'];
 
 function activate(context) {
   assertVscode();
@@ -50,7 +52,9 @@ function activate(context) {
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
         event.affectsConfiguration('stem.preview.autoRefresh') ||
-        event.affectsConfiguration('stem.preview.refreshDebounceMs')
+        event.affectsConfiguration('stem.preview.refreshDebounceMs') ||
+        event.affectsConfiguration('stem.preview.maxWork') ||
+        event.affectsConfiguration('stem.preview.maxOutputBytes')
       ) {
         watchers.applyConfiguration();
       }
@@ -63,16 +67,20 @@ function activate(context) {
   (async () => {
     if (!vscode.workspace.workspaceFolders) return;
     const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    
+
     if (existsSync(path.join(root, '.stem', 'config.json'))) {
       const dismissed = context.globalState.get('stem.mcp.dismissed');
       const notNow = context.workspaceState.get('stem.mcp.notNow');
-      const hasMcp = existsSync(path.join(root, '.cursor', 'mcp.json')) || existsSync(path.join(root, '.vscode', 'mcp.json'));
-      
+      const hasMcp =
+        existsSync(path.join(root, '.cursor', 'mcp.json')) ||
+        existsSync(path.join(root, '.vscode', 'mcp.json'));
+
       if (!dismissed && !notNow && !hasMcp) {
         const result = await vscode.window.showInformationMessage(
           'Stem project detected. Would you like to enable the Stem MCP server for AI assistants in this workspace?',
-          'Enable', 'Not Now', 'Don\'t Ask Again'
+          'Enable',
+          'Not Now',
+          "Don't Ask Again"
         );
         if (result === 'Enable') {
           try {
@@ -82,16 +90,18 @@ function activate(context) {
           }
         } else if (result === 'Not Now') {
           context.workspaceState.update('stem.mcp.notNow', true);
-        } else if (result === 'Don\'t Ask Again') {
+        } else if (result === "Don't Ask Again") {
           context.globalState.update('stem.mcp.dismissed', true);
         }
       }
     }
-  })().catch(e => console.error('Stem: MCP notification error', e));
+  })().catch((e) => console.error('Stem: MCP notification error', e));
 }
 
 function registerMcpCommand(context, vscodeApi = vscode, options = {}) {
-  return vscodeApi.commands.registerCommand('stem.enableMcp', () => enableMcpForWorkspace(context, vscodeApi, options));
+  return vscodeApi.commands.registerCommand('stem.enableMcp', () =>
+    enableMcpForWorkspace(context, vscodeApi, options)
+  );
 }
 
 async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) {
@@ -107,18 +117,30 @@ async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) 
   const fs = options.fs ?? require('node:fs');
   const written = [];
   try {
+    const core = await import('@stemdev/core');
+    const projectPath = path.join(root, core.STEM_CONFIG_FILE);
+    const projectBytes = readMcpProjectConfig(projectPath, vscodeApi, fs, core);
+    const checkProject = () => {
+      if (!projectBytes.equals(readMcpProjectConfig(projectPath, vscodeApi, fs, core)))
+        throw new Error(
+          `${projectPath}: project configuration changed during setup; review it and retry.`
+        );
+    };
     const invocation = await discoverMcpCli(root, vscodeApi, { ...options, fs });
+    checkProject();
     const stemEntry = { type: 'stdio', ...invocation, cwd: root };
     const plans = [
       prepareMcpConfig(path.join(root, '.cursor', 'mcp.json'), 'mcpServers', stemEntry, fs),
       prepareMcpConfig(path.join(root, '.vscode', 'mcp.json'), 'servers', stemEntry, fs)
     ];
-    writeMcpConfigs(plans, vscodeApi, fs, written);
-    const legacy = plans.filter(plan => plan.hasLegacyServers).map(plan => plan.filePath);
+    writeMcpConfigs(plans, vscodeApi, fs, written, checkProject);
+    const legacy = plans.filter((plan) => plan.hasLegacyServers).map((plan) => plan.filePath);
     const result = written.length ? 'saved' : 'already configured';
     vscodeApi.window.showInformationMessage(
       `Stem MCP configuration ${result} for the first workspace folder: ${root}. Review it in your editor before starting the server.` +
-      (legacy.length ? ` Unrelated mcpServers entries remain in ${legacy.join(', ')}; merge those manually.` : '')
+        (legacy.length
+          ? ` Unrelated mcpServers entries remain in ${legacy.join(', ')}; merge those manually.`
+          : '')
     );
   } catch (error) {
     const result = written.length
@@ -128,19 +150,54 @@ async function enableMcpForWorkspace(context, vscodeApi = vscode, options = {}) 
   }
 }
 
+function readMcpProjectConfig(filePath, vscodeApi, fs, core) {
+  checkConfigSaved(filePath, vscodeApi);
+  let bytes;
+  try {
+    bytes = fs.readFileSync(filePath);
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+      throw new Error(
+        `${filePath}: Stem project configuration is missing. Open your initialized Stem project as the first workspace folder, or run stem init in the intended project, then retry.`
+      );
+    throw new Error(
+      `${filePath}: cannot read project configuration (${toErrorMessage(error)}). Check file access and retry.`
+    );
+  }
+  const parsed = core.parseConfigJson(bytes.toString('utf8'), filePath);
+  const result = parsed.success ? core.normalizeStemConfig(parsed.data, filePath) : parsed;
+  if (!result.success)
+    throw new Error(
+      `${filePath}: ${result.error.message} Correct and save the project configuration, then retry.`
+    );
+  return bytes;
+}
+
 async function discoverMcpCli(root, vscodeApi, options) {
   const { fs, platform = process.platform, env = process.env } = options;
   const paths = platform === 'win32' ? path.win32 : path.posix;
-  const configured = vscodeApi.workspace.getConfiguration('stem', vscodeApi.workspace.workspaceFolders[0].uri).get('cliPath', '');
-  if (typeof configured !== 'string') throw new Error('stem.cliPath must be a path string. Correct or clear the setting and rerun MCP setup.');
+  const configured = vscodeApi.workspace
+    .getConfiguration('stem', vscodeApi.workspace.workspaceFolders[0].uri)
+    .get('cliPath', '');
+  if (typeof configured !== 'string')
+    throw new Error(
+      'stem.cliPath must be a path string. Correct or clear the setting and rerun MCP setup.'
+    );
   const cliPath = configured.trim();
   const candidates = [];
   if (cliPath) candidates.push(paths.resolve(root, cliPath));
   const name = cliPath || 'stem';
   if (!paths.isAbsolute(name) && !/[\\/]/u.test(name)) {
-    const pathKey = Object.keys(env).find(key => platform === 'win32' ? key.toLowerCase() === 'path' : key === 'PATH');
-    const extensions = platform === 'win32' && !paths.extname(name)
-      ? (env.PATHEXT ?? env.PathExt ?? '.COM;.EXE;.BAT;.CMD').split(';').filter(ext => /^\.(com|exe|bat|cmd)$/iu.test(ext)).map(ext => ext.toLowerCase()) : [''];
+    const pathKey = Object.keys(env).find((key) =>
+      platform === 'win32' ? key.toLowerCase() === 'path' : key === 'PATH'
+    );
+    const extensions =
+      platform === 'win32' && !paths.extname(name)
+        ? (env.PATHEXT ?? env.PathExt ?? '.COM;.EXE;.BAT;.CMD')
+            .split(';')
+            .filter((ext) => /^\.(com|exe|bat|cmd)$/iu.test(ext))
+            .map((ext) => ext.toLowerCase())
+        : [''];
     for (const entry of (env[pathKey] ?? '').split(platform === 'win32' ? ';' : ':')) {
       const directory = entry.replace(/^"(.*)"$/u, '$1');
       if (!directory) continue;
@@ -152,29 +209,55 @@ async function discoverMcpCli(root, vscodeApi, options) {
     try {
       if (!fs.statSync(candidate).isFile()) throw new Error('expected a file, not a directory');
       const invocation = mcpCliInvocation(candidate, { ...options, platform, env });
-      await new Promise((resolve, reject) => (options.execFile ?? execFile)(invocation.command,
-        [...invocation.args, '--help'], { cwd: root, timeout: 3000, windowsHide: true, env: { ...env, ...invocation.env } },
-        error => error ? reject(error) : resolve()));
+      await new Promise((resolve, reject) =>
+        (options.execFile ?? execFile)(
+          invocation.command,
+          [...invocation.args, '--help'],
+          { cwd: root, timeout: 3000, windowsHide: true, env: { ...env, ...invocation.env } },
+          (error) => (error ? reject(error) : resolve())
+        )
+      );
       return { ...invocation, args: [...invocation.args, 'mcp'] };
     } catch (error) {
       failure = toErrorMessage(error);
     }
   }
-  if (cliPath) throw new Error(`stem.cliPath ${JSON.stringify(cliPath)} could not run --help: ${failure}. Set it to an existing Stem executable or JavaScript entrypoint (without arguments or surrounding quotes), or clear it to use PATH/npx, then rerun MCP setup.`);
+  if (cliPath)
+    throw new Error(
+      `stem.cliPath ${JSON.stringify(cliPath)} could not run --help: ${failure}. Set it to an existing Stem executable or JavaScript entrypoint (without arguments or surrounding quotes), or clear it to use PATH/npx, then rerun MCP setup.`
+    );
   return { command: 'npx', args: ['-y', '@stemdev/cli@latest', 'mcp'] };
 }
 
-function mcpCliInvocation(cliPath, { fs, platform, env, nodePath = process.execPath, runtimeVersions = process.versions }) {
+function mcpCliInvocation(
+  cliPath,
+  { fs, platform, env, nodePath = process.execPath, runtimeVersions = process.versions }
+) {
   if (isJavaScriptEntrypoint(cliPath)) {
-    const command = resolveNodeRuntime({ nodePath, env, pathExists: file => fs.existsSync(file), runtimeVersions });
-    return { command, args: [cliPath], ...(isElectronBackedNodePath(command, runtimeVersions) ? { env: { ELECTRON_RUN_AS_NODE: '1' } } : {}) };
+    const command = resolveNodeRuntime({
+      nodePath,
+      env,
+      pathExists: (file) => fs.existsSync(file),
+      runtimeVersions
+    });
+    return {
+      command,
+      args: [cliPath],
+      ...(isElectronBackedNodePath(command, runtimeVersions)
+        ? { env: { ELECTRON_RUN_AS_NODE: '1' } }
+        : {})
+    };
   }
   if (platform === 'win32' && /\.(cmd|bat)$/iu.test(cliPath)) {
     if (/["\r\n\0]/u.test(cliPath)) throw new Error('unsupported character in Windows shim path');
     // Expand once inside cmd, after argument serialization. This preserves spaces,
     // metacharacters and literal %/! in paths without shell:true or CALL expansion.
     return {
-      command: path.win32.join(env.SystemRoot ?? env.SYSTEMROOT ?? 'C:\\Windows', 'System32', 'cmd.exe'),
+      command: path.win32.join(
+        env.SystemRoot ?? env.SYSTEMROOT ?? 'C:\\Windows',
+        'System32',
+        'cmd.exe'
+      ),
       args: ['/d', '/v:off', '/c', '%STEM_MCP_CLI%'],
       env: { STEM_MCP_CLI: `"${cliPath}"` }
     };
@@ -185,7 +268,8 @@ function mcpCliInvocation(cliPath, { fs, platform, env, nodePath = process.execP
 function readMcpConfig(filePath, fs) {
   try {
     const stat = fs.lstatSync(filePath);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${filePath}: expected a regular configuration file; edit it manually.`);
+    if (!stat.isFile() || stat.isSymbolicLink())
+      throw new Error(`${filePath}: expected a regular configuration file; edit it manually.`);
     return { bytes: fs.readFileSync(filePath), mode: stat.mode & 0o777 };
   } catch (error) {
     if (error.code === 'ENOENT') return null;
@@ -200,11 +284,20 @@ function isMcpObject(value) {
 function isGeneratedMcpEntry(entry, root, typed = false) {
   if (!isMcpObject(entry) || entry.cwd !== root) return false;
   const keys = typed ? ['args', 'command', 'cwd', 'type'] : ['args', 'command', 'cwd'];
-  if (Object.keys(entry).sort().join(',') !== keys.join(',') || (typed && entry.type !== 'stdio')) return false;
-  const expected = entry.command === 'stem' ? ['mcp']
-    : entry.command === 'npx' ? ['-y', '@stemdev/cli@latest', 'mcp'] : null;
-  return expected !== null && Array.isArray(entry.args) &&
-    entry.args.length === expected.length && entry.args.every((arg, index) => arg === expected[index]);
+  if (Object.keys(entry).sort().join(',') !== keys.join(',') || (typed && entry.type !== 'stdio'))
+    return false;
+  const expected =
+    entry.command === 'stem'
+      ? ['mcp']
+      : entry.command === 'npx'
+        ? ['-y', '@stemdev/cli@latest', 'mcp']
+        : null;
+  return (
+    expected !== null &&
+    Array.isArray(entry.args) &&
+    entry.args.length === expected.length &&
+    entry.args.every((arg, index) => arg === expected[index])
+  );
 }
 
 function prepareMcpConfig(filePath, serverKey, stemEntry, fs) {
@@ -212,35 +305,59 @@ function prepareMcpConfig(filePath, serverKey, stemEntry, fs) {
   const text = original?.bytes.toString('utf8') ?? '';
   let config = {};
   if (text.trim()) {
-    try { config = JSON.parse(text); } catch {
-      throw new Error(`${filePath}: automatic setup accepts ordinary JSON only. Invalid JSON and JSONC (comments/trailing commas) are left untouched. Edit ${serverKey}.stem manually; see the extension's MCP setup guide.`);
+    try {
+      config = JSON.parse(text);
+    } catch {
+      throw new Error(
+        `${filePath}: automatic setup accepts ordinary JSON only. Invalid JSON and JSONC (comments/trailing commas) are left untouched. Edit ${serverKey}.stem manually; see the extension's MCP setup guide.`
+      );
     }
   }
   if (!isMcpObject(config)) throw new Error(`${filePath}: the configuration must be an object.`);
   for (const key of serverKey === 'servers' ? ['servers', 'mcpServers'] : ['mcpServers']) {
-    if (Object.hasOwn(config, key) && !isMcpObject(config[key])) throw new Error(`${filePath}: ${key} must be an object.`);
+    if (Object.hasOwn(config, key) && !isMcpObject(config[key]))
+      throw new Error(`${filePath}: ${key} must be an object.`);
   }
   const before = JSON.stringify(config);
   let entry = config[serverKey]?.stem;
   if (serverKey === 'servers' && Object.hasOwn(config.mcpServers ?? {}, 'stem')) {
     const legacy = config.mcpServers.stem;
-    const same = candidate => (isGeneratedMcpEntry(candidate, stemEntry.cwd) || isGeneratedMcpEntry(candidate, stemEntry.cwd, true)) &&
-      candidate.command === legacy.command && JSON.stringify(candidate.args) === JSON.stringify(legacy.args);
-    if (!isGeneratedMcpEntry(legacy, stemEntry.cwd) || (Object.hasOwn(config.servers ?? {}, 'stem') && !same(entry))) {
-      throw new Error(`${filePath}: customized or conflicting mcpServers.stem; merge it into servers.stem manually. No legacy entry was removed.`);
+    const same = (candidate) =>
+      (isGeneratedMcpEntry(candidate, stemEntry.cwd) ||
+        isGeneratedMcpEntry(candidate, stemEntry.cwd, true)) &&
+      candidate.command === legacy.command &&
+      JSON.stringify(candidate.args) === JSON.stringify(legacy.args);
+    if (
+      !isGeneratedMcpEntry(legacy, stemEntry.cwd) ||
+      (Object.hasOwn(config.servers ?? {}, 'stem') && !same(entry))
+    ) {
+      throw new Error(
+        `${filePath}: customized or conflicting mcpServers.stem; merge it into servers.stem manually. No legacy entry was removed.`
+      );
     }
     entry = { ...legacy, type: 'stdio' };
     delete config.mcpServers.stem;
     if (!Object.keys(config.mcpServers).length) delete config.mcpServers;
   } else if (Object.hasOwn(config[serverKey] ?? {}, 'stem')) {
     const remote = isMcpObject(entry) && typeof entry.url === 'string' && entry.url.trim();
-    const validTransport = remote ? entry.type === undefined || ['http', 'sse'].includes(entry.type)
+    const validTransport = remote
+      ? entry.type === undefined || ['http', 'sse'].includes(entry.type)
       : entry?.type === undefined || entry.type === 'stdio';
-    if (!isMcpObject(entry) || !validTransport || (Object.hasOwn(entry, 'url') && !remote) ||
+    if (
+      !isMcpObject(entry) ||
+      !validTransport ||
+      (Object.hasOwn(entry, 'url') && !remote) ||
       (!remote && (typeof entry.command !== 'string' || !entry.command.trim())) ||
-      (entry.args !== undefined && (!Array.isArray(entry.args) || entry.args.some(arg => typeof arg !== 'string'))) ||
-      (entry.cwd !== undefined && typeof entry.cwd !== 'string') || (entry.envFile !== undefined && typeof entry.envFile !== 'string') ||
-      (entry.env !== undefined && (!isMcpObject(entry.env) || Object.values(entry.env).some(value => value !== null && !['string', 'number'].includes(typeof value))))) {
+      (entry.args !== undefined &&
+        (!Array.isArray(entry.args) || entry.args.some((arg) => typeof arg !== 'string'))) ||
+      (entry.cwd !== undefined && typeof entry.cwd !== 'string') ||
+      (entry.envFile !== undefined && typeof entry.envFile !== 'string') ||
+      (entry.env !== undefined &&
+        (!isMcpObject(entry.env) ||
+          Object.values(entry.env).some(
+            (value) => value !== null && !['string', 'number'].includes(typeof value)
+          )))
+    ) {
       throw new Error(`${filePath}: ${serverKey}.stem has an invalid shape; review it manually.`);
     }
     if (!remote && entry.type === undefined) entry = { ...entry, type: 'stdio' };
@@ -249,27 +366,43 @@ function prepareMcpConfig(filePath, serverKey, stemEntry, fs) {
   }
   config[serverKey] = { ...config[serverKey], stem: entry };
   return {
-    filePath, original,
+    filePath,
+    original,
     output: before === JSON.stringify(config) ? null : JSON.stringify(config, null, 2) + '\n',
     hasLegacyServers: serverKey === 'servers' && Object.hasOwn(config, 'mcpServers')
   };
 }
 
-function checkMcpConfigUnchanged(plan, vscodeApi, fs) {
-  if (vscodeApi.workspace.textDocuments?.some(doc => doc.isDirty && path.resolve(doc.uri.fsPath) === path.resolve(plan.filePath))) {
-    throw new Error(`${plan.filePath}: save or close the unsaved configuration before retrying.`);
-  }
-  const current = readMcpConfig(plan.filePath, fs);
-  if (plan.original === null ? current !== null : current === null || !plan.original.bytes.equals(current.bytes)) {
-    throw new Error(`${plan.filePath}: configuration changed during setup; retry after reviewing it.`);
+function checkConfigSaved(filePath, vscodeApi) {
+  if (
+    vscodeApi.workspace.textDocuments?.some(
+      (doc) => doc.isDirty && path.resolve(doc.uri.fsPath) === path.resolve(filePath)
+    )
+  ) {
+    throw new Error(`${filePath}: save or close the unsaved configuration before retrying.`);
   }
 }
 
-function writeMcpConfigs(plans, vscodeApi, fs, written) {
+function checkMcpConfigUnchanged(plan, vscodeApi, fs) {
+  checkConfigSaved(plan.filePath, vscodeApi);
+  const current = readMcpConfig(plan.filePath, fs);
+  if (
+    plan.original === null
+      ? current !== null
+      : current === null || !plan.original.bytes.equals(current.bytes)
+  ) {
+    throw new Error(
+      `${plan.filePath}: configuration changed during setup; retry after reviewing it.`
+    );
+  }
+}
+
+function writeMcpConfigs(plans, vscodeApi, fs, written, checkProject) {
   const staged = [];
   try {
+    checkProject();
     for (const plan of plans) checkMcpConfigUnchanged(plan, vscodeApi, fs);
-    for (const plan of plans.filter(plan => plan.output !== null)) {
+    for (const plan of plans.filter((plan) => plan.output !== null)) {
       fs.mkdirSync(path.dirname(plan.filePath), { recursive: true });
       const tempPath = `${plan.filePath}.${require('node:crypto').randomUUID()}.tmp`;
       const fd = fs.openSync(tempPath, 'wx', plan.original?.mode ?? 0o600);
@@ -283,6 +416,7 @@ function writeMcpConfigs(plans, vscodeApi, fs, written) {
     }
     for (const plan of plans) checkMcpConfigUnchanged(plan, vscodeApi, fs);
     for (const { plan, tempPath } of staged) {
+      checkProject();
       checkMcpConfigUnchanged(plan, vscodeApi, fs);
       if (plan.original === null) {
         // Publish missing files without clobbering a concurrent creator.
@@ -294,8 +428,11 @@ function writeMcpConfigs(plans, vscodeApi, fs, written) {
     }
   } finally {
     for (const { tempPath } of staged) {
-      try { fs.unlinkSync(tempPath); } catch (error) {
-        if (error.code !== 'ENOENT') console.error(`Stem: could not remove staged configuration ${tempPath}`, error);
+      try {
+        fs.unlinkSync(tempPath);
+      } catch (error) {
+        if (error.code !== 'ENOENT')
+          console.error(`Stem: could not remove staged configuration ${tempPath}`, error);
       }
     }
   }
@@ -311,37 +448,55 @@ class StemPreviewProvider {
     this.onDidChange = this.emitter.event;
     this.openPreviewUrisByProject = new Map();
     this.jobs = new Map();
-    this.lastContent = new Map();
+    this.invalidated = new Set();
+    this.diagnostics = this.vscode.window.createOutputChannel?.('Stem Preview Diagnostics');
   }
 
   async provideTextDocumentContent(uri, token) {
     const key = uri.toString();
+    if (this.invalidated.has(key)) return '';
     this.jobs.get(key)?.controller.abort();
     const controller = new AbortController();
     const cancellation = token?.onCancellationRequested(() => controller.abort());
     if (token?.isCancellationRequested) controller.abort();
     const job = { controller, promise: null };
     this.jobs.set(key, job);
-    job.promise = renderPreview(uri, this.vscode, controller.signal).then((content) => {
-      controller.signal.throwIfAborted();
-      if (!controller.signal.aborted && this.jobs.get(key) === job) this.lastContent.set(key, content);
-      return content;
-    }).catch((error) => {
-      if (!controller.signal.aborted) throw error;
-      const latest = this.jobs.get(key);
-      return latest && latest !== job ? latest.promise : this.lastContent.get(key) ?? '';
-    }).finally(() => cancellation?.dispose());
+    job.promise = renderPreview(uri, this.vscode, controller.signal)
+      .then((result) => {
+        controller.signal.throwIfAborted();
+        if (this.jobs.get(key) !== job) throw new Error('Stale preview result.');
+        this.diagnostics?.clear();
+        for (const diagnostic of result.diagnostics)
+          this.diagnostics?.appendLine(formatDiagnostic(diagnostic));
+        if (result.diagnostics.length) this.diagnostics?.show(true);
+        return result.content;
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || this.jobs.get(key) !== job) throw error;
+        this.diagnostics?.clear();
+        this.diagnostics?.appendLine(toErrorMessage(error));
+        this.diagnostics?.show(true);
+        return '';
+      })
+      .finally(() => cancellation?.dispose());
     return job.promise;
   }
 
   cancelProject(projectRoot) {
-    for (const key of this.openPreviewUrisByProject.get(projectRoot) ?? []) this.jobs.get(key)?.controller.abort();
+    for (const key of this.openPreviewUrisByProject.get(projectRoot) ?? []) {
+      this.jobs.get(key)?.controller.abort();
+      this.jobs.delete(key);
+      this.invalidated.add(key);
+      this.emitter.fire(this.vscode.Uri.parse(key));
+    }
+    this.diagnostics?.clear();
   }
 
   dispose() {
     for (const job of this.jobs.values()) job.controller.abort();
     this.jobs.clear();
-    this.lastContent.clear();
+    this.invalidated.clear();
+    this.diagnostics?.dispose();
     this.openPreviewUrisByProject.clear();
     this.emitter.dispose();
   }
@@ -361,7 +516,8 @@ class StemPreviewProvider {
     const key = uri.toString();
     this.jobs.get(key)?.controller.abort();
     this.jobs.delete(key);
-    this.lastContent.delete(key);
+    this.invalidated.delete(key);
+    this.diagnostics?.clear();
     const params = parsePreviewUri(uri);
     if (params === null) {
       return null;
@@ -403,6 +559,7 @@ class StemPreviewProvider {
 
   fireUris(uriTexts) {
     for (const uriText of uriTexts) {
+      this.invalidated.delete(uriText);
       this.emitter.fire(this.vscode.Uri.parse(uriText));
     }
   }
@@ -422,7 +579,7 @@ class StemPreviewWatcherManager {
   }
 
   watchProject(projectRoot) {
-    if (!this.isAutoRefreshEnabled() || this.watchersByProject.has(projectRoot)) {
+    if (this.watchersByProject.has(projectRoot)) {
       return;
     }
 
@@ -458,18 +615,14 @@ class StemPreviewWatcherManager {
   }
 
   applyConfiguration() {
-    if (!this.isAutoRefreshEnabled()) {
-      this.disposeWatchers();
-      return;
-    }
-
     for (const projectRoot of this.provider.getTrackedProjects()) {
       this.watchProject(projectRoot);
+      this.scheduleRefresh(projectRoot);
     }
   }
 
   scheduleRefresh(projectRoot) {
-    if (!this.isAutoRefreshEnabled() || (this.provider.hasProject && !this.provider.hasProject(projectRoot))) {
+    if (this.provider.hasProject && !this.provider.hasProject(projectRoot)) {
       return;
     }
     this.provider.cancelProject?.(projectRoot);
@@ -479,9 +632,14 @@ class StemPreviewWatcherManager {
       this.clearTimer(existingTimer);
     }
 
+    if (!this.isAutoRefreshEnabled()) {
+      this.refreshTimers.delete(projectRoot);
+      return;
+    }
     const timer = this.setTimer(() => {
       this.refreshTimers.delete(projectRoot);
-      if (!this.provider.hasProject || this.provider.hasProject(projectRoot)) this.provider.refreshProject(projectRoot);
+      if (!this.provider.hasProject || this.provider.hasProject(projectRoot))
+        this.provider.refreshProject(projectRoot);
     }, this.getRefreshDebounceMs());
     this.refreshTimers.set(projectRoot, timer);
   }
@@ -519,36 +677,28 @@ async function openPreviewToSide(provider, watchers, vscodeApi = vscode) {
 
   const editor = vscodeApi.window.activeTextEditor;
   if (editor === undefined) {
-    vscodeApi.window.showInformationMessage('Open a Stem view Markdown file before previewing.');
+    vscodeApi.window.showInformationMessage('Open a source Markdown file before previewing.');
     return;
   }
 
   const document = editor.document;
   if (document.uri.scheme !== 'file' || document.languageId !== 'markdown') {
-    vscodeApi.window.showInformationMessage('Stem preview is available for Markdown files on disk.');
+    vscodeApi.window.showInformationMessage(
+      'Stem preview is available for Markdown files on disk.'
+    );
     return;
   }
 
-  const { parseViewFile } = await import('@stemdev/core');
-  const view = parseViewFile({
-    content: document.getText(),
-    filePath: document.uri.fsPath,
-    relativePath: path.basename(document.uri.fsPath)
-  });
-  const frontmatterError = view.errors.find((issue) => issue.code === 'INVALID_FRONTMATTER');
-  if (frontmatterError !== undefined) {
-    vscodeApi.window.showInformationMessage(`Stem preview could not open this view: ${frontmatterError.message} Check the YAML frontmatter and its top-level id.`);
-    return;
-  }
-  const viewId = view.id;
-
-  const projectRoot = await findProjectRootAsync(vscodeApi.workspace.fs ? vscodeApi : vscode, document.uri);
+  const projectRoot = await findProjectRootAsync(
+    vscodeApi.workspace.fs ? vscodeApi : vscode,
+    document.uri
+  );
   if (projectRoot === null) {
     vscodeApi.window.showInformationMessage('No Stem project root found for the active file.');
     return;
   }
 
-  const previewUri = createPreviewUri(projectRoot, viewId, document.uri, vscodeApi);
+  const previewUri = createPreviewUri(projectRoot, document.uri, vscodeApi);
   provider.track(previewUri);
   watchers.watchProject(projectRoot);
   try {
@@ -564,26 +714,26 @@ async function openPreviewToSide(provider, watchers, vscodeApi = vscode) {
 
 async function renderPreview(uri, vscodeApi = vscode, signal) {
   const params = parsePreviewUri(uri);
-  if (params === null) {
-    return formatPreviewError(new Error('Stem preview could not resolve the requested view.'), {
-      nextAction: 'Close this preview and open it again from a Stem view Markdown file.'
-    });
-  }
-
-  try {
-    if (params.source !== null && vscodeApi.Uri.parse(params.source).scheme !== 'file') {
-      throw new Error('Stem preview is available for Markdown files on disk.');
-    }
-    return await renderProjectPreview(vscodeApi, vscodeApi.Uri.file(params.projectRoot), params.viewId, signal);
-  } catch (error) {
-    if (signal?.aborted) throw error;
-    const details = toPreviewErrorDetails(error);
-    return formatPreviewError(error, {
-      viewId: params.viewId,
-      projectRoot: params.projectRoot,
-      nextAction: getPreviewFailureNextAction(details)
-    });
-  }
+  if (params === null) throw new Error('Invalid preview source URI.');
+  const configuration = vscodeApi.workspace.getConfiguration(
+    'stem',
+    vscodeApi.Uri.file(params.projectRoot)
+  );
+  const { DEFAULT_COMPOSITION_LIMITS } = await import('@stemdev/core');
+  const limits = {
+    maxWork: configuration.get('preview.maxWork', DEFAULT_COMPOSITION_LIMITS.maxWork),
+    maxOutputBytes: configuration.get(
+      'preview.maxOutputBytes',
+      DEFAULT_COMPOSITION_LIMITS.maxOutputBytes
+    )
+  };
+  return renderProjectPreview(
+    vscodeApi,
+    vscodeApi.Uri.file(params.projectRoot),
+    vscodeApi.Uri.parse(params.source),
+    signal,
+    limits
+  );
 }
 
 function resolveStemCommand({
@@ -598,19 +748,28 @@ function resolveStemCommand({
   const trimmedCliPath = configuredCliPath.trim();
   if (trimmedCliPath.length > 0) {
     if (isJavaScriptEntrypoint(trimmedCliPath)) {
-      return { command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }), args: [trimmedCliPath] };
+      return {
+        command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }),
+        args: [trimmedCliPath]
+      };
     }
     return { command: trimmedCliPath, args: [] };
   }
 
   const workspaceCli = path.join(projectRoot, 'dist', 'cli', 'index.js');
   if (pathExists(workspaceCli)) {
-    return { command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }), args: [workspaceCli] };
+    return {
+      command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }),
+      args: [workspaceCli]
+    };
   }
 
   const bundledCli = path.resolve(extensionRoot, '..', '..', 'dist', 'cli', 'index.js');
   if (pathExists(bundledCli)) {
-    return { command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }), args: [bundledCli] };
+    return {
+      command: resolveNodeRuntime({ nodePath, env, pathExists, runtimeVersions }),
+      args: [bundledCli]
+    };
   }
 
   return { command: 'stem', args: [] };
@@ -658,7 +817,12 @@ function getPreviewExecOptions({ command, args, cwd, nodePath, env, runtimeVersi
   }
 
   // Windows npm global installs create `.cmd` wrappers which require a shell.
-  if (process.platform === 'win32' && (command === 'stem' || command.toLowerCase().endsWith('.cmd') || command.toLowerCase().endsWith('.bat'))) {
+  if (
+    process.platform === 'win32' &&
+    (command === 'stem' ||
+      command.toLowerCase().endsWith('.cmd') ||
+      command.toLowerCase().endsWith('.bat'))
+  ) {
     options.shell = true;
   }
 
@@ -692,35 +856,24 @@ function isElectronBackedNodePath(nodePath, runtimeVersions) {
   ].includes(executableName);
 }
 
-function createPreviewUri(projectRoot, viewId, sourceUri, vscodeApi = vscode) {
-  return vscodeApi.Uri.parse(createPreviewUriText(projectRoot, viewId, sourceUri.toString(true)));
+function createPreviewUri(projectRoot, sourceUri, vscodeApi = vscode) {
+  return vscodeApi.Uri.parse(createPreviewUriText(projectRoot, sourceUri.toString(true)));
 }
-
-function createPreviewUriText(projectRoot, viewId, sourceUriText) {
-  const query = new URLSearchParams({
-    root: projectRoot,
-    view: viewId,
-    source: sourceUriText
-  });
-  return `${PREVIEW_SCHEME}:/view/${encodeURIComponent(viewId)}.md?${query.toString()}`;
+function createPreviewUriText(projectRoot, sourceUriText) {
+  const query = new URLSearchParams({ root: projectRoot, source: sourceUriText });
+  return PREVIEW_SCHEME + ':/source.md?' + query.toString();
 }
-
 function parsePreviewUri(uri) {
   const params = new URLSearchParams(uri.query);
   const projectRoot = params.get('root');
-  const viewId = params.get('view');
   const source = params.get('source');
-  if (projectRoot === null || projectRoot.length === 0 || viewId === null || viewId.length === 0) {
-    return null;
-  }
-
-  return { projectRoot, viewId, source };
+  return projectRoot && source ? { projectRoot, source } : null;
 }
 
 function findProjectRoot(startDir) {
   let current = path.resolve(startDir);
   while (true) {
-    if (existsSync(path.join(current, '.stem'))) {
+    if (existsSync(path.join(current, '.stem/config.json'))) {
       return current;
     }
 
@@ -793,7 +946,8 @@ function toPreviewErrorDetails(error) {
       stderr: getStringProperty(error, 'stderr'),
       stdout: getStringProperty(error, 'stdout'),
       exitCode: getExitCode(error),
-      commandText: getStringProperty(error, 'stemCommandText') || getStringProperty(error, 'cmd') || null,
+      commandText:
+        getStringProperty(error, 'stemCommandText') || getStringProperty(error, 'cmd') || null,
       cwd: getStringProperty(error, 'stemCwd') || null
     };
   }
@@ -867,13 +1021,17 @@ function isAutoRefreshEnabled() {
 }
 
 function getRefreshDebounceMs(vscodeApi = vscode) {
-  const configured = vscodeApi.workspace.getConfiguration('stem').get('preview.refreshDebounceMs', DEFAULT_REFRESH_DEBOUNCE_MS);
+  const configured = vscodeApi.workspace
+    .getConfiguration('stem')
+    .get('preview.refreshDebounceMs', DEFAULT_REFRESH_DEBOUNCE_MS);
   return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_REFRESH_DEBOUNCE_MS;
 }
 
 function assertVscode(vscodeApi = vscode) {
   if (vscodeApi === null) {
-    throw new Error('The Stem VS Code extension must be activated inside the VS Code extension host.');
+    throw new Error(
+      'The Stem VS Code extension must be activated inside the VS Code extension host.'
+    );
   }
 }
 

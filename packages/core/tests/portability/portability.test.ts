@@ -4,11 +4,19 @@ import { createContext, runInContext } from 'node:vm';
 import { build } from 'esbuild';
 import { expect, it } from 'vitest';
 
-it('runs project analysis through the public entry without Node globals or clock reads', async () => {
+it('runs public and replacement modules without Node globals or clock reads', async () => {
   const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
   const bundle = await build({
     stdin: {
-      contents: "export { analyzeProject, decodeTagSchemaYaml, decodeExternalSnapshotEnvelope } from './index.ts';",
+      contents: `
+        export { analyzeProject, decodeExternalSnapshotEnvelope, validateExternalReferences } from './index.ts';
+        export { parse } from './parser/scanner.ts';
+        export * as blockAnalysis from './project/analysis.ts';
+        export * as blockSelection from './project/selection.ts';
+        export * as blockGraph from './graph/analysis.ts';
+        export { compose } from './renderer/compose.ts';
+        export { normalizeOutputSets } from './config/outputs.ts';
+      `,
       resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
       loader: 'ts'
     },
@@ -18,20 +26,23 @@ it('runs project analysis through the public entry without Node globals or clock
     format: 'iife',
     globalName: 'portable',
     write: false,
-    plugins: [{
-      name: 'reject-project-node-dependencies',
-      setup(builder) {
-        builder.onResolve({ filter: /.*/ }, ({ path }) => {
-          if (path.startsWith('node:') || builtins.has(path) || path === 'gray-matter') {
-            return { errors: [{ text: `Non-portable dependency: ${path}` }] };
-          }
-          return undefined;
-        });
+    plugins: [
+      {
+        name: 'reject-project-node-dependencies',
+        setup(builder) {
+          builder.onResolve({ filter: /.*/ }, ({ path }) => {
+            if (path.startsWith('node:') || builtins.has(path) || path === 'gray-matter') {
+              return { errors: [{ text: `Non-portable dependency: ${path}` }] };
+            }
+            return undefined;
+          });
+        }
       }
-    }]
+    ]
   });
   const context = createContext(Object.create(null) as Record<string, unknown>);
-  runInContext(`
+  runInContext(
+    `
     for (const name of ['Buffer', 'process', 'require', 'fetch', 'console', 'performance']) {
       Object.defineProperty(globalThis, name, { get() { throw new Error('Forbidden global: ' + name); } });
     }
@@ -47,116 +58,153 @@ it('runs project analysis through the public entry without Node globals or clock
         return Reflect.get(target, key);
       }
     });
-  `, context);
+  `,
+    context
+  );
   runInContext(bundle.outputFiles[0]!.text, context, { timeout: 5000 });
-  const decoded = runInContext(`JSON.stringify({
-    schema: portable.decodeTagSchemaYaml('name: api\\nrequired: [endpoint]'),
-    empty: portable.decodeTagSchemaYaml('').error.kind,
-    shape: portable.decodeTagSchemaYaml('null'),
+  const decoded = runInContext(
+    `JSON.stringify({
     snapshot: portable.decodeExternalSnapshotEnvelope({ fetchedAt: 'not a date',
-      graph: { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] } }),
+      graph: { version: '2', projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] } }),
     missing: portable.decodeExternalSnapshotEnvelope(null) === undefined
-  })`, context, { timeout: 5000 }) as string;
+  })`,
+    context,
+    { timeout: 5000 }
+  ) as string;
   expect(JSON.parse(decoded)).toEqual({
-    schema: { success: true, data: { name: 'api', required: ['endpoint'] } },
-    empty: 'yaml', shape: { success: false, error: { kind: 'shape' } },
-    snapshot: { fetchedAt: 'not a date', isLocalFallback: false,
-      graph: { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] } },
+    snapshot: {
+      fetchedAt: 'not a date',
+      isLocalFallback: false,
+      graph: {
+        version: '2',
+        projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a',
+        namespace: 'other',
+        publishedAt: '',
+        contentSha: '',
+        blocks: [],
+        renames: []
+      }
+    },
     missing: true
   });
-  const result = runInContext(`JSON.stringify(portable.analyzeProject({
-    blocks: [],
-    views: [{ content: '---\\nid: api\\n---\\n@stem[block:other:auth]', filePath: 'api.md', relativePath: 'api.md' }],
-    schemas: new Map(), configuredNamespaces: { other: { graphUrl: 'unused' } },
-    externalGraphs: new Map([['other', {
-      fetchedAt: '1970-01-01T00:00:00.000Z', isLocalFallback: false,
-      graph: { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] }
-    }]])
-  }, { nowMs: 7 * 86400000 + 1, strictExternal: true }).validation)`, context, { timeout: 5000 }) as string;
-  expect(JSON.parse(result)).toMatchObject({
-    issues: [{ code: 'EXPIRED_SNAPSHOT', severity: 'error' }],
-    errorCount: 1, warningCount: 0, hasErrors: true, hasWarnings: false
+  const result = runInContext(
+    `(() => { const local = {}; const analysis = portable.analyzeProject({ localInstance: local, instances: [{ handle: local, sources: [{ sourceId: 'doc', content: '@stem:include(other:auth)' }] }] }); return JSON.stringify(portable.validateExternalReferences(analysis, { other: { graphUrl: 'unused' } }, new Map([['other', { fetchedAt: '1970-01-01', isLocalFallback: false, graph: { version: '2', projectId: '0f671f2d-657d-4f3c-9a7d-d22f769c083a', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] } }]]), { nowMs: 8 * 86400000, strictExternal: true })); })()`,
+    context
+  ) as string;
+  expect(JSON.parse(result)).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ code: 'EXPIRED_SNAPSHOT', severity: 'error' })
+    ])
+  );
+  const scanned = runInContext(
+    `(() => {
+    const result = portable.parse({ sourceId: 'unsaved:portable', content:
+      '@stem:block(id:a tags:["é","e\\\\u0301"])@stem:include(lib:b)@stem:block(id:c)C@stem:end(id:a)' });
+    const parent = result.tree.children[0];
+    return JSON.stringify({ sourceId: result.tree.source.sourceId,
+      codes: result.diagnostics.map(diagnostic => diagnostic.code),
+      target: parent.children[0].target, ending: parent.children[1].ending.kind,
+      frozen: Object.isFrozen(parent.children) });
+  })()`,
+    context,
+    { timeout: 5000 }
+  ) as string;
+  expect(JSON.parse(scanned)).toMatchObject({
+    sourceId: 'unsaved:portable',
+    codes: ['DUPLICATE_TAG', 'MISSING_BLOCK_END'],
+    target: { qualifier: 'lib', id: 'b' },
+    ending: 'ancestor',
+    frozen: true
   });
-}, 30_000);
-
-it('bundles and executes the portable modules without Node dependencies or globals', async () => {
-  const builtins = new Set(builtinModules.map((name) => name.replace(/^node:/, '')));
-  const bundle = await build({
-    stdin: {
-      contents: `
-        export { parseBlockFile, parseViewFile } from './parser/index.ts';
-        export { parseFrontmatter } from './parser/frontmatter.ts';
-        export { buildGraph } from './graph/builder.ts';
-        export * from './graph/traverser.ts';
-        export { validateGraph } from './validator/rules.ts';
-        export { validateSchemas } from './validator/schema.ts';
-        export { renderViewMarkdown } from './renderer/index.ts';
-        export { normalizeStemConfig, parseConfigJson } from './config/portable.ts';
-      `,
-      resolveDir: fileURLToPath(new URL('../../src/', import.meta.url)),
-      loader: 'ts'
-    },
-    bundle: true,
-    platform: 'browser',
-    // Select dependencies' native worker exports for a browser environment without a DOM.
-    conditions: ['worker'],
-    format: 'iife',
-    globalName: 'portable',
-    write: false,
-    metafile: true,
-    plugins: [{
-      name: 'reject-node-dependencies',
-      setup(builder) {
-        builder.onResolve({ filter: /.*/ }, ({ path }) => {
-          if (path.startsWith('node:') || builtins.has(path) || path === 'gray-matter') {
-            return { errors: [{ text: `Non-portable dependency: ${path}` }] };
-          }
-          return undefined;
-        });
+  const analyzed = runInContext(
+    `(() => {
+    const local = {}, remote = {};
+    const result = portable.blockAnalysis.analyzeProject({ localInstance: local, instances: [
+      { handle: local, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:root)@stem:block(id:child tags:[guide])@stem:include(lib:item)@stem:end()@stem:end()@stem:block(id:unused)@stem:end()' }],
+        bindings: [{ alias: 'lib', target: remote }] },
+      { handle: remote, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:item)@stem:include(back:child)@stem:end()' }], bindings: [{ alias: 'back', target: local }] }
+    ], outputs: { complete: true, targets: [{ kind: 'block', reference: { id: 'root' } }] } });
+    const tagged = portable.blockSelection.findBlocksByTag(result, result.localInstance, 'guide');
+    const selected = portable.blockSelection.resolveBlockReference(result, result.localInstance, { qualifier: 'lib', id: 'item' });
+    return JSON.stringify({ nodes: result.graph.nodes.length, tags: tagged.blocks.map(node => node.id),
+      classificationComplete: tagged.classificationComplete, selected: selected.status,
+      cycles: portable.blockGraph.detectCycles(result.graph).length,
+      unused: result.outputUsage.blocks.map(node => node.id), complete: result.outputUsage.complete,
+      codes: result.diagnostics.map(diagnostic => diagnostic.code), frozen: Object.isFrozen(result.graph.nodes[0]) });
+  })()`,
+    context,
+    { timeout: 5000 }
+  ) as string;
+  expect(JSON.parse(analyzed)).toEqual({
+    nodes: 4,
+    tags: ['child'],
+    classificationComplete: true,
+    selected: 'resolved',
+    cycles: 1,
+    unused: ['unused'],
+    complete: true,
+    codes: ['BLOCK_CYCLE', 'ORPHANED_BLOCK'],
+    frozen: true
+  });
+  const composed = runInContext(
+    `(() => {
+    const local = {}, remote = {};
+    const analysis = portable.blockAnalysis.analyzeProject({ localInstance: local, instances: [
+      { handle: local, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:root)Hi @stem:include(lib:item)!@stem:end()' }], bindings: [{ alias: 'lib', target: remote }] },
+      { handle: remote, sources: [{ sourceId: 'doc', content:
+        '@stem:block(id:item)🌱@stem:include(back:root)@stem:end()' }], bindings: [{ alias: 'back', target: local }] }
+    ] });
+    const target = { kind: 'block', instance: analysis.localInstance, reference: { id: 'root' } };
+    const full = portable.compose(analysis, target, { maxWork: 10, maxOutputBytes: 100 });
+    const bounded = portable.compose(analysis, target, { maxWork: 10, maxOutputBytes: 5 });
+    return JSON.stringify({ full: full.content, fullComplete: full.complete,
+      fullCodes: full.diagnostics.map(d => d.code), prefix: bounded.content,
+      prefixCodes: bounded.diagnostics.map(d => d.code), frozen: Object.isFrozen(full.diagnostics) });
+  })()`,
+    context,
+    { timeout: 5000 }
+  ) as string;
+  expect(JSON.parse(composed)).toEqual({
+    full: 'Hi 🌱!',
+    fullComplete: false,
+    fullCodes: ['BLOCK_CYCLE'],
+    prefix: 'Hi ',
+    prefixCodes: ['COMPOSITION_OUTPUT_LIMIT'],
+    frozen: true
+  });
+  const outputs = runInContext(
+    `(() => {
+    const result = portable.normalizeOutputSets({ docs: { outputDir: '../published', targets: [
+      { source: { kind: 'block', ref: 'lib:Guide' }, path: './README.md' },
+      { source: { kind: 'file', path: './blocks/guide.md' }, path: 'docs//guide.md' }
+    ] } }, 'blocks', 'config.json');
+    const invalid = portable.normalizeOutputSets({ docs: { targets: [], cleanpu: 'prune' } }, 'blocks', 'config.json');
+    return JSON.stringify({ result, code: invalid.error.code,
+      frozen: Object.isFrozen(result.data.docs.targets[0].source), prototype: Object.getPrototypeOf(result.data) });
+  })()`,
+    context,
+    { timeout: 5000 }
+  ) as string;
+  expect(JSON.parse(outputs)).toEqual({
+    result: {
+      success: true,
+      data: {
+        docs: {
+          outputDir: '../published',
+          ifExists: 'replace',
+          cleanup: 'keep',
+          targets: [
+            { source: { kind: 'block', ref: 'lib:Guide' }, path: 'README.md' },
+            { source: { kind: 'file', path: 'blocks/guide.md' }, path: 'docs/guide.md' }
+          ]
+        }
       }
-    }]
-  });
-  expect(Object.keys(bundle.metafile.inputs).some((name) => name.includes('gray-matter'))).toBe(false);
-  const context = createContext(Object.create(null) as Record<string, unknown>);
-  runInContext(`
-    for (const name of ['Buffer', 'process', 'require', 'fetch', 'console']) {
-      Object.defineProperty(globalThis, name, { get() { throw new Error('Forbidden global: ' + name); } });
-    }
-    Date.now = () => { throw new Error('Clock reads are forbidden'); };
-  `, context);
-  runInContext(bundle.outputFiles[0]!.text, context, { timeout: 5000 });
-  const result = runInContext(`(() => {
-    const input = (content, filePath) => ({ content, filePath, relativePath: filePath });
-    const block = portable.parseBlockFile(input('---\\nid: auth\\n---\\nHello world.', 'block.md'));
-    const view = portable.parseViewFile(input('---\\nid: view\\n---\\n@stem[block:auth]', 'view.md'));
-    const extended = portable.parseViewFile(input('---\\nid: extended\\n---\\n@stem[block:auth, unused="value"]', 'extended.md'));
-    const { graph, issues: buildIssues } = portable.buildGraph([block], [view]);
-    const validation = portable.validateGraph({ nowMs: 0, graph, blocks: [block], views: [view], buildIssues,
-      schemas: new Map(), cycles: portable.detectCycles(graph), orphanedBlocks: portable.getOrphanedBlocks(graph),
-      configuredNamespaces: {}, externalGraphs: new Map() });
-    const external = portable.parseViewFile(input('---\\nid: external\\n---\\n@stem[block:other:auth]', 'external.md'));
-    const expired = portable.validateGraph({ nowMs: 8 * 86400000, graph, blocks: [block], views: [external], buildIssues: [],
-      schemas: new Map(), cycles: [], orphanedBlocks: [], configuredNamespaces: { other: { graphUrl: 'unused' } },
-      externalGraphs: new Map([['other', { fetchedAt: '1970-01-01T00:00:00.000Z', isLocalFallback: false,
-        graph: { version: '1', namespace: 'other', publishedAt: '', contentSha: '', blocks: [], renames: [] } }]]) });
-    const malformed = portable.parseFrontmatter('---\\nid: [broken\\n---\\nBody');
-    const unsupported = portable.parseFrontmatter('---\\nvalue: !!binary SGVsbG8=\\n---\\nBody');
-    const yaml = portable.parseFrontmatter('---\\nbase: &base {id: merged}\\n<<: *base\\ndate: 2024-01-02\\n---\\nBody');
-    const decoded = portable.parseConfigJson('{"blocksDir":"./docs/"}', 'config.json');
-    return JSON.stringify({ parserErrors: [...block.errors, ...view.errors, ...extended.errors],
-      validation, schemaIssues: portable.validateSchemas([block], new Map()),
-      nodes: graph.nodes.size, users: portable.getViewsUsingBlock(graph, 'auth'),
-      dependencies: portable.getBlockDependencies(graph, 'auth'), dependents: portable.getBlockDependents(graph, 'auth'),
-      legacy: portable.renderViewMarkdown(view, [block]), extended: portable.renderViewMarkdown(extended, [block]),
-      expired: expired.map(issue => issue.code), malformed: malformed.errors.map(issue => issue.code),
-      unsupported: unsupported.errors.map(issue => issue.code), mergedId: yaml.data.id,
-      date: yaml.data.date instanceof Date,
-      config: portable.normalizeStemConfig(decoded.data, 'config.json') });
-  })()`, context, { timeout: 5000 }) as string;
-  expect(JSON.parse(result)).toMatchObject({
-    parserErrors: [], validation: [], schemaIssues: [], nodes: 2, users: ['view'], dependencies: [], dependents: [],
-    legacy: { success: true, markdown: 'Hello world.' }, extended: { success: true, markdown: 'Hello world.' },
-    expired: ['EXPIRED_SNAPSHOT'], malformed: ['INVALID_FRONTMATTER'], unsupported: ['INVALID_FRONTMATTER'],
-    mergedId: 'merged', date: true, config: { success: true, data: { blocksDir: 'docs' } }
+    },
+    code: 'CONFIG_INVALID_SCHEMA',
+    frozen: true,
+    prototype: null
   });
 }, 30_000);

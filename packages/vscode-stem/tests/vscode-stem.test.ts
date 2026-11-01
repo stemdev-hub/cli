@@ -14,7 +14,11 @@ const stem = extensionModule._private;
 interface StemExtensionModule {
   activate(context: unknown): void;
   _private: {
-    registerMcpCommand(context: unknown, vscodeApi: McpTestApi, options: McpTestOptions): { dispose(): void };
+    registerMcpCommand(
+      context: unknown,
+      vscodeApi: McpTestApi,
+      options: McpTestOptions
+    ): { dispose(): void };
     DEFAULT_REFRESH_DEBOUNCE_MS: number;
     PREVIEW_SCHEME: string;
     PREVIEW_EXEC_MAX_BUFFER_BYTES: number;
@@ -40,17 +44,22 @@ interface StemExtensionModule {
     WATCH_PATTERNS: string[];
     createPreviewUri(
       projectRoot: string,
-      viewId: string,
       sourceUri: { toString(skipEncoding?: boolean): string },
       vscodeApi: { Uri: { parse(uriText: string): { query: string; toString(): string } } }
     ): { query: string; toString(): string };
-    createPreviewUriText(projectRoot: string, viewId: string, sourceUriText: string): string;
+    createPreviewUriText(projectRoot: string, sourceUriText: string): string;
     findProjectRoot(startDir: string): string | null;
-    findNodeOnPath(env: Record<string, string | undefined>, pathExists: (filePath: string) => boolean): string | null;
+    findNodeOnPath(
+      env: Record<string, string | undefined>,
+      pathExists: (filePath: string) => boolean
+    ): string | null;
     formatCommandText(command: string, args: string[]): string;
     getConfiguredCliPath(vscodeApi: unknown): string;
     getRefreshDebounceMs(vscodeApi: unknown): number;
-    formatPreviewError(error: unknown, options?: { viewId?: string; projectRoot?: string; nextAction?: string }): string;
+    formatPreviewError(
+      error: unknown,
+      options?: { viewId?: string; projectRoot?: string; nextAction?: string }
+    ): string;
     getPreviewExecOptions(options: {
       command: string;
       args: string[];
@@ -80,7 +89,7 @@ interface StemExtensionModule {
       },
       vscodeApi: OpenPreviewFakeVscodeApi
     ): Promise<void>;
-    parsePreviewUri(uri: { query: string }): { projectRoot: string; viewId: string; source: string | null } | null;
+    parsePreviewUri(uri: { query: string }): { projectRoot: string; source: string } | null;
     quoteCommandPart(part: string): string;
     resolveStemCommand(options: {
       configuredCliPath: string;
@@ -122,14 +131,19 @@ interface McpTestApi {
     isTrusted: boolean;
     workspaceFolders: Array<{ uri: { fsPath: string } }>;
     textDocuments: Array<{ uri: { fsPath: string }; isDirty: boolean }>;
-    getConfiguration(section: string, resource: { fsPath: string }): { get(key: string, fallback: string): unknown };
+    getConfiguration(
+      section: string,
+      resource: { fsPath: string }
+    ): { get(key: string, fallback: string): unknown };
   };
   window: {
     showInformationMessage(this: void, message: string): void;
     showWarningMessage(this: void, message: string): void;
     showErrorMessage(this: void, message: string): void;
   };
-  commands: { registerCommand(this: void, id: string, callback: () => Promise<void>): { dispose(): void } };
+  commands: {
+    registerCommand(this: void, id: string, callback: () => Promise<void>): { dispose(): void };
+  };
 }
 
 interface McpTestOptions {
@@ -138,7 +152,13 @@ interface McpTestOptions {
   env?: NodeJS.ProcessEnv;
   nodePath?: string;
   runtimeVersions?: { electron?: string };
-  execFile(this: void, command: string, args: string[], options: { timeout: number; cwd: string; windowsHide: boolean; env: NodeJS.ProcessEnv }, callback: (error: Error | null) => void): void;
+  execFile(
+    this: void,
+    command: string,
+    args: string[],
+    options: { timeout: number; cwd: string; windowsHide: boolean; env: NodeJS.ProcessEnv },
+    callback: (error: Error | null) => void
+  ): void;
 }
 
 interface McpTestConfig {
@@ -170,7 +190,10 @@ interface FakeVscodeApi {
   Uri: {
     file(filePath: string): { fsPath: string };
   };
-  RelativePattern: new (base: { fsPath: string }, pattern: string) => { base: { fsPath: string }; pattern: string };
+  RelativePattern: new (
+    base: { fsPath: string },
+    pattern: string
+  ) => { base: { fsPath: string }; pattern: string };
   workspace: {
     createFileSystemWatcher(pattern: { base: { fsPath: string }; pattern: string }): FakeWatcher;
   };
@@ -207,43 +230,71 @@ describe('Stem MCP setup command', () => {
   let configuredCliPath: unknown;
   let bin: string;
   let pathCli: string;
+  const projectConfig = JSON.stringify({ projectId: '45d16256-1d6c-4ce7-9946-96297894c17d' });
+  const projectPath = () => path.join(root, '.stem/config.json');
   const configPath = (host: string) => path.join(root, host, 'mcp.json');
   const put = async (host: string, text: string) => {
     await mkdir(path.join(root, host), { recursive: true });
     await writeFile(configPath(host), text);
   };
-  const config = async (host: string) => JSON.parse(await readFile(configPath(host), 'utf8')) as McpTestConfig;
-  const legacyEntry = (command = 'npx') => ({ command, args: command === 'stem' ? ['mcp'] : ['-y', '@stemdev/cli@latest', 'mcp'], cwd: root });
+  const config = async (host: string) =>
+    JSON.parse(await readFile(configPath(host), 'utf8')) as McpTestConfig;
+  const legacyEntry = (command = 'npx') => ({
+    command,
+    args: command === 'stem' ? ['mcp'] : ['-y', '@stemdev/cli@latest', 'mcp'],
+    cwd: root
+  });
   const assertNoStagedFiles = async () => {
     for (const host of ['.cursor', '.vscode']) {
-      if (fs.existsSync(path.join(root, host))) expect((await readdir(path.join(root, host))).filter(name => name.endsWith('.tmp'))).toEqual([]);
+      if (fs.existsSync(path.join(root, host)))
+        expect(
+          (await readdir(path.join(root, host))).filter((name) => name.endsWith('.tmp'))
+        ).toEqual([]);
     }
   };
 
   beforeEach(async () => {
     root = await mkdtemp(path.join(tmpdir(), 'stem-mcp-'));
+    await mkdir(path.join(root, '.stem'));
+    await writeFile(projectPath(), projectConfig);
     configuredCliPath = '';
     bin = path.join(root, 'CLI tools with spaces');
     await mkdir(bin);
     pathCli = path.join(bin, process.platform === 'win32' ? 'stem.exe' : 'stem');
     await writeFile(pathCli, 'mock executable');
     api = {
-      workspace: { isTrusted: true, workspaceFolders: [{ uri: { fsPath: root } }], textDocuments: [],
+      workspace: {
+        isTrusted: true,
+        workspaceFolders: [{ uri: { fsPath: root } }],
+        textDocuments: [],
         getConfiguration: (section, resource) => {
           expect(section).toBe('stem');
           expect(resource).toBe(api.workspace.workspaceFolders[0]?.uri);
-          return { get: (key, fallback) => key === 'cliPath' ? configuredCliPath : fallback };
+          return { get: (key, fallback) => (key === 'cliPath' ? configuredCliPath : fallback) };
         }
       },
-      window: { showInformationMessage: vi.fn(), showWarningMessage: vi.fn(), showErrorMessage: vi.fn() },
-      commands: { registerCommand: vi.fn<McpTestApi['commands']['registerCommand']>((id, callback) => {
-        expect(id).toBe('stem.enableMcp');
-        run = callback;
-        return { dispose() {} };
-      }) }
+      window: {
+        showInformationMessage: vi.fn(),
+        showWarningMessage: vi.fn(),
+        showErrorMessage: vi.fn()
+      },
+      commands: {
+        registerCommand: vi.fn<McpTestApi['commands']['registerCommand']>((id, callback) => {
+          expect(id).toBe('stem.enableMcp');
+          run = callback;
+          return { dispose() {} };
+        })
+      }
     };
-    options = { fs, env: { PATH: bin }, nodePath: process.execPath, runtimeVersions: {},
-      execFile: vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(new Error('not installed'))) };
+    options = {
+      fs,
+      env: { PATH: bin },
+      nodePath: process.execPath,
+      runtimeVersions: {},
+      execFile: vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) =>
+        callback(new Error('not installed'))
+      )
+    };
     stem.registerMcpCommand({}, api, options);
   });
 
@@ -251,51 +302,244 @@ describe('Stem MCP setup command', () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it.each([false, true])('uses a supported PATH probe and falls back only on failure (probe succeeds: %s)', async success => {
-    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(success ? null : new Error('not installed')));
+  it.each([false, true])(
+    'rejects a missing project before probing (existing MCP files: %s)',
+    async (existing) => {
+      await rm(projectPath());
+      if (existing) {
+        await put('.cursor', '{}');
+        await put('.vscode', '{}');
+      }
+      await run();
+      expect(options.execFile).not.toHaveBeenCalled();
+      expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringContaining('Open your initialized Stem project as the first workspace folder')
+      );
+      for (const host of ['.cursor', '.vscode']) {
+        if (existing) expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+        else expect(fs.existsSync(path.join(root, host))).toBe(false);
+      }
+      expect(fs.existsSync(projectPath())).toBe(false);
+    }
+  );
+
+  it.each([
+    '{ broken',
+    '{}',
+    '{"projectId":"invalid"}',
+    projectConfig.replace('45d16256', '45D16256'),
+    projectConfig.replace('}', ',"viewsDir":"views"}'),
+    projectConfig.replace('}', ',"outputSets":[]}')
+  ])('preserves invalid project and MCP bytes before probing: %s', async (content) => {
+    await writeFile(projectPath(), content);
+    await put('.cursor', '{}');
+    await put('.vscode', '{}');
     await run();
-    expect(options.execFile).toHaveBeenCalledWith(pathCli, ['--help'], { cwd: root, timeout: 3000, windowsHide: true, env: options.env }, expect.any(Function));
-    const entry = success ? { command: pathCli, args: ['mcp'], cwd: root, type: 'stdio' } : { ...legacyEntry(), type: 'stdio' };
-    expect(await config('.cursor')).toEqual({ mcpServers: { stem: entry } });
-    expect(await config('.vscode')).toEqual({ servers: { stem: entry } });
-    expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining(root));
-    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('Correct and save the project configuration')
+    );
+    expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+    expect(await readFile(projectPath(), 'utf8')).toBe(content);
+    for (const host of ['.cursor', '.vscode'])
+      expect(await readFile(configPath(host), 'utf8')).toBe('{}');
     await assertNoStagedFiles();
   });
 
-  it.each(['absolute', 'relative', 'PATH name'])('honors an explicit %s executable before other PATH candidates', async kind => {
-    const explicitCli = path.join(bin, process.platform === 'win32' ? 'configured-stem.exe' : 'configured-stem');
-    await writeFile(explicitCli, 'mock configured executable');
-    configuredCliPath = kind === 'absolute' ? `  ${explicitCli}  ` : kind === 'relative' ? path.relative(root, explicitCli) : path.basename(explicitCli);
-    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(null));
+  it('rejects unreadable project configuration before probing or creating directories', async () => {
+    options.fs = {
+      ...fs,
+      readFileSync: () => {
+        throw Object.assign(new Error('fixture permission denied'), { code: 'EACCES' });
+      }
+    };
     await run();
-    expect(options.execFile).toHaveBeenCalledExactlyOnceWith(explicitCli, ['--help'], expect.any(Object), expect.any(Function));
-    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: explicitCli, args: ['mcp'], cwd: root });
-    expect((await config('.cursor')).mcpServers?.['stem']?.['command']).toBe(explicitCli);
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('cannot read project configuration')
+    );
+    expect(await readFile(projectPath(), 'utf8')).toBe(projectConfig);
+    for (const host of ['.cursor', '.vscode'])
+      expect(fs.existsSync(path.join(root, host))).toBe(false);
   });
 
-  it.each(['missing', 'directory', 'probe failure', 'timeout', 'quoted', 'arguments', 'non-string'])('reports invalid explicit CLI settings without fallback or writes: %s', async kind => {
-    configuredCliPath = kind === 'missing' ? path.join(bin, 'missing.exe') : kind === 'directory' ? bin
-      : kind === 'quoted' ? `"${pathCli}"` : kind === 'arguments' ? `${pathCli} --help` : kind === 'non-string' ? null : pathCli;
-    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(new Error(kind === 'timeout' ? 'ETIMEDOUT' : 'EACCES')));
+  it.each([false, true])(
+    'requires saved project configuration (file missing: %s)',
+    async (missing) => {
+      if (missing) await rm(projectPath());
+      api.workspace.textDocuments.push({ uri: { fsPath: projectPath() }, isDirty: true });
+      await run();
+      expect(options.execFile).not.toHaveBeenCalled();
+      expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringContaining('unsaved configuration')
+      );
+      for (const host of ['.cursor', '.vscode'])
+        expect(fs.existsSync(path.join(root, host))).toBe(false);
+    }
+  );
+
+  it.each(['changed', 'removed', 'dirty'] as const)(
+    'rejects project configuration %s during CLI discovery',
+    async (kind) => {
+      await put('.cursor', '{}');
+      await put('.vscode', '{}');
+      options.execFile = vi.fn<McpTestOptions['execFile']>(
+        (_command, _args, _options, callback) => {
+          if (kind === 'changed') fs.writeFileSync(projectPath(), projectConfig + '\n');
+          if (kind === 'removed') fs.unlinkSync(projectPath());
+          if (kind === 'dirty')
+            api.workspace.textDocuments.push({ uri: { fsPath: projectPath() }, isDirty: true });
+          callback(null);
+        }
+      );
+      await run();
+      expect(options.execFile).toHaveBeenCalled();
+      expect(api.window.showErrorMessage).toHaveBeenCalled();
+      expect(api.window.showInformationMessage).not.toHaveBeenCalled();
+      for (const host of ['.cursor', '.vscode'])
+        expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+      await assertNoStagedFiles();
+    }
+  );
+
+  it('rechecks the project after staging and preserves both MCP files on change', async () => {
+    await put('.cursor', '{}');
+    await put('.vscode', '{}');
+    options.fs = {
+      ...fs,
+      fsyncSync: (fd) => {
+        fs.fsyncSync(fd);
+        fs.writeFileSync(projectPath(), projectConfig + '\n');
+      }
+    };
+    await run();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('project configuration changed during setup')
+    );
+    for (const host of ['.cursor', '.vscode'])
+      expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+    await assertNoStagedFiles();
+  });
+
+  it.each([false, true])(
+    'uses a supported PATH probe and falls back only on failure (probe succeeds: %s)',
+    async (success) => {
+      options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) =>
+        callback(success ? null : new Error('not installed'))
+      );
+      await run();
+      expect(options.execFile).toHaveBeenCalledWith(
+        pathCli,
+        ['--help'],
+        { cwd: root, timeout: 3000, windowsHide: true, env: options.env },
+        expect.any(Function)
+      );
+      const entry = success
+        ? { command: pathCli, args: ['mcp'], cwd: root, type: 'stdio' }
+        : { ...legacyEntry(), type: 'stdio' };
+      expect(await config('.cursor')).toEqual({ mcpServers: { stem: entry } });
+      expect(await config('.vscode')).toEqual({ servers: { stem: entry } });
+      expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining(root));
+      expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+      await assertNoStagedFiles();
+    }
+  );
+
+  it.each(['absolute', 'relative', 'PATH name'])(
+    'honors an explicit %s executable before other PATH candidates',
+    async (kind) => {
+      const explicitCli = path.join(
+        bin,
+        process.platform === 'win32' ? 'configured-stem.exe' : 'configured-stem'
+      );
+      await writeFile(explicitCli, 'mock configured executable');
+      configuredCliPath =
+        kind === 'absolute'
+          ? `  ${explicitCli}  `
+          : kind === 'relative'
+            ? path.relative(root, explicitCli)
+            : path.basename(explicitCli);
+      options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) =>
+        callback(null)
+      );
+      await run();
+      expect(options.execFile).toHaveBeenCalledExactlyOnceWith(
+        explicitCli,
+        ['--help'],
+        expect.any(Object),
+        expect.any(Function)
+      );
+      expect((await config('.vscode')).servers?.['stem']).toEqual({
+        type: 'stdio',
+        command: explicitCli,
+        args: ['mcp'],
+        cwd: root
+      });
+      expect((await config('.cursor')).mcpServers?.['stem']?.['command']).toBe(explicitCli);
+    }
+  );
+
+  it.each([
+    'missing',
+    'directory',
+    'probe failure',
+    'timeout',
+    'quoted',
+    'arguments',
+    'non-string'
+  ])('reports invalid explicit CLI settings without fallback or writes: %s', async (kind) => {
+    configuredCliPath =
+      kind === 'missing'
+        ? path.join(bin, 'missing.exe')
+        : kind === 'directory'
+          ? bin
+          : kind === 'quoted'
+            ? `"${pathCli}"`
+            : kind === 'arguments'
+              ? `${pathCli} --help`
+              : kind === 'non-string'
+                ? null
+                : pathCli;
+    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) =>
+      callback(new Error(kind === 'timeout' ? 'ETIMEDOUT' : 'EACCES'))
+    );
     await put('.vscode', '{}');
     await run();
     expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
     expect(fs.existsSync(configPath('.cursor'))).toBe(false);
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringMatching(/stem\.cliPath.*(clear|Correct)/u));
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringMatching(/stem\.cliPath.*(clear|Correct)/u)
+    );
     expect(api.window.showInformationMessage).not.toHaveBeenCalled();
-    expect(vi.mocked(options.execFile).mock.calls.every(([command]) => command === pathCli)).toBe(true);
+    expect(vi.mocked(options.execFile).mock.calls.every(([command]) => command === pathCli)).toBe(
+      true
+    );
   });
 
-  it.each(['.js', '.mjs', '.cjs'])('runs configured %s entrypoints with Node, preserving spaces', async ext => {
-    const entry = path.join(bin, `stem entry${ext}`);
-    await writeFile(entry, '// fixture');
-    configuredCliPath = entry;
-    options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) => callback(null));
-    await run();
-    expect(options.execFile).toHaveBeenCalledWith(process.execPath, [entry, '--help'], expect.any(Object), expect.any(Function));
-    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: process.execPath, args: [entry, 'mcp'], cwd: root });
-  });
+  it.each(['.js', '.mjs', '.cjs'])(
+    'runs configured %s entrypoints with Node, preserving spaces',
+    async (ext) => {
+      const entry = path.join(bin, `stem entry${ext}`);
+      await writeFile(entry, '// fixture');
+      configuredCliPath = entry;
+      options.execFile = vi.fn<McpTestOptions['execFile']>((_command, _args, _options, callback) =>
+        callback(null)
+      );
+      await run();
+      expect(options.execFile).toHaveBeenCalledWith(
+        process.execPath,
+        [entry, '--help'],
+        expect.any(Object),
+        expect.any(Function)
+      );
+      expect((await config('.vscode')).servers?.['stem']).toEqual({
+        type: 'stdio',
+        command: process.execPath,
+        args: [entry, 'mcp'],
+        cwd: root
+      });
+    }
+  );
 
   it('sets Electron Node mode for both the JS probe and serialized MCP invocation when Node is unavailable', async () => {
     const entry = path.join(bin, 'stem.cjs');
@@ -309,7 +553,13 @@ describe('Stem MCP setup command', () => {
       callback(null);
     });
     await run();
-    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: options.nodePath, args: [entry, 'mcp'], env: { ELECTRON_RUN_AS_NODE: '1' }, cwd: root });
+    expect((await config('.vscode')).servers?.['stem']).toEqual({
+      type: 'stdio',
+      command: options.nodePath,
+      args: [entry, 'mcp'],
+      env: { ELECTRON_RUN_AS_NODE: '1' },
+      cwd: root
+    });
   });
 
   it('tries the next PATH candidate after a broken installation', async () => {
@@ -318,7 +568,9 @@ describe('Stem MCP setup command', () => {
     const otherCli = path.join(other, path.basename(pathCli));
     await writeFile(otherCli, 'mock executable');
     options.env = { PATH: [bin, other].join(path.delimiter) };
-    options.execFile = vi.fn<McpTestOptions['execFile']>((command, _args, _probe, callback) => callback(command === otherCli ? null : new Error('broken')));
+    options.execFile = vi.fn<McpTestOptions['execFile']>((command, _args, _probe, callback) =>
+      callback(command === otherCli ? null : new Error('broken'))
+    );
     await run();
     expect((await config('.vscode')).servers?.['stem']?.['command']).toBe(otherCli);
   });
@@ -327,66 +579,105 @@ describe('Stem MCP setup command', () => {
     options.env = { PATH: '' };
     await run();
     expect(options.execFile).not.toHaveBeenCalled();
-    expect((await config('.vscode')).servers?.['stem']).toEqual({ ...legacyEntry(), type: 'stdio' });
+    expect((await config('.vscode')).servers?.['stem']).toEqual({
+      ...legacyEntry(),
+      type: 'stdio'
+    });
   });
 
   it('probes and launches a real JavaScript entrypoint without changing its arguments', async () => {
     const entry = path.join(bin, 'real entry.cjs');
     const log = path.join(root, 'js-arguments.json');
-    await writeFile(entry, `require('node:fs').writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));`);
+    await writeFile(
+      entry,
+      `require('node:fs').writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));`
+    );
     configuredCliPath = entry;
-    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
-    await run();
-    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
-    expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['--help']);
-    const generated = (await config('.vscode')).servers?.['stem'];
-    execFileSync(generated?.['command'] as string, generated?.['args'] as string[], { cwd: root, windowsHide: true });
-    expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['mcp']);
-  });
-
-  it.runIf(process.platform === 'win32')('probes a real .exe in a spaced path directly without a shell', async () => {
-    // A standalone Node executable exercises CreateProcess; mock fixtures cover
-    // the Stem protocol arguments independently of this native launch check.
-    fs.copyFileSync(process.execPath, pathCli);
-    configuredCliPath = pathCli;
-    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
-    await run();
-    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
-    expect((await config('.vscode')).servers?.['stem']).toEqual({ type: 'stdio', command: pathCli, args: ['mcp'], cwd: root });
-  });
-
-  it.runIf(process.platform === 'win32').each(['.cmd', '.bat'])('executes actual Windows %s shims and generated MCP arguments with spaces and metacharacters', async ext => {
-    const shim = path.join(bin, `stem & %PATH% !${ext}`);
-    const log = path.join(root, 'arguments.json');
-    const entry = path.join(bin, 'record args.cjs');
-    await writeFile(entry, `require('node:fs').writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));`);
-    await writeFile(shim, `@echo off\r\n"${process.execPath}" "${entry}" %*\r\n`);
-    configuredCliPath = shim;
-    options.env = { ...process.env, PATH: bin };
-    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
+    options.execFile = (command, args, probe, callback) => {
+      execFile(command, args, probe, callback);
+    };
     await run();
     expect(api.window.showErrorMessage).not.toHaveBeenCalled();
     expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['--help']);
     const generated = (await config('.vscode')).servers?.['stem'];
     execFileSync(generated?.['command'] as string, generated?.['args'] as string[], {
-      cwd: root, env: { ...process.env, ...generated?.['env'] as NodeJS.ProcessEnv }, windowsHide: true
+      cwd: root,
+      windowsHide: true
     });
     expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['mcp']);
-    expect((await config('.cursor')).mcpServers?.['stem']).toEqual(generated);
   });
 
-  it.runIf(process.platform === 'win32')('discovers a real .cmd shim from quoted Path entries and PATHEXT', async () => {
-    await writeFile(path.join(bin, 'stem.cmd'), '@echo off\r\nexit /b 0\r\n');
-    options.env = { ...process.env, PATH: undefined, Path: `"${bin}"`, PATHEXT: '.CMD;.EXE' };
-    // Avoid inheriting a differently cased PATH from the test process.
-    for (const key of Object.keys(options.env)) if (key.toLowerCase() === 'path' && key !== 'Path') delete options.env[key];
-    options.execFile = (command, args, probe, callback) => { execFile(command, args, probe, callback); };
-    await run();
-    expect((await config('.vscode')).servers?.['stem']?.['env']).toEqual({ STEM_MCP_CLI: `"${path.join(bin, 'stem.cmd')}"` });
-    expect(api.window.showErrorMessage).not.toHaveBeenCalled();
-  });
+  it.runIf(process.platform === 'win32')(
+    'probes a real .exe in a spaced path directly without a shell',
+    async () => {
+      // A standalone Node executable exercises CreateProcess; mock fixtures cover
+      // the Stem protocol arguments independently of this native launch check.
+      fs.copyFileSync(process.execPath, pathCli);
+      configuredCliPath = pathCli;
+      options.execFile = (command, args, probe, callback) => {
+        execFile(command, args, probe, callback);
+      };
+      await run();
+      expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+      expect((await config('.vscode')).servers?.['stem']).toEqual({
+        type: 'stdio',
+        command: pathCli,
+        args: ['mcp'],
+        cwd: root
+      });
+    }
+  );
 
-  it.each(['', '  \r\n\t'])('initializes empty configuration %j', async text => {
+  it.runIf(process.platform === 'win32').each(['.cmd', '.bat'])(
+    'executes actual Windows %s shims and generated MCP arguments with spaces and metacharacters',
+    async (ext) => {
+      const shim = path.join(bin, `stem & %PATH% !${ext}`);
+      const log = path.join(root, 'arguments.json');
+      const entry = path.join(bin, 'record args.cjs');
+      await writeFile(
+        entry,
+        `require('node:fs').writeFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)));`
+      );
+      await writeFile(shim, `@echo off\r\n"${process.execPath}" "${entry}" %*\r\n`);
+      configuredCliPath = shim;
+      options.env = { ...process.env, PATH: bin };
+      options.execFile = (command, args, probe, callback) => {
+        execFile(command, args, probe, callback);
+      };
+      await run();
+      expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+      expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['--help']);
+      const generated = (await config('.vscode')).servers?.['stem'];
+      execFileSync(generated?.['command'] as string, generated?.['args'] as string[], {
+        cwd: root,
+        env: { ...process.env, ...(generated?.['env'] as NodeJS.ProcessEnv) },
+        windowsHide: true
+      });
+      expect(JSON.parse(await readFile(log, 'utf8'))).toEqual(['mcp']);
+      expect((await config('.cursor')).mcpServers?.['stem']).toEqual(generated);
+    }
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'discovers a real .cmd shim from quoted Path entries and PATHEXT',
+    async () => {
+      await writeFile(path.join(bin, 'stem.cmd'), '@echo off\r\nexit /b 0\r\n');
+      options.env = { ...process.env, PATH: undefined, Path: `"${bin}"`, PATHEXT: '.CMD;.EXE' };
+      // Avoid inheriting a differently cased PATH from the test process.
+      for (const key of Object.keys(options.env))
+        if (key.toLowerCase() === 'path' && key !== 'Path') delete options.env[key];
+      options.execFile = (command, args, probe, callback) => {
+        execFile(command, args, probe, callback);
+      };
+      await run();
+      expect((await config('.vscode')).servers?.['stem']?.['env']).toEqual({
+        STEM_MCP_CLI: `"${path.join(bin, 'stem.cmd')}"`
+      });
+      expect(api.window.showErrorMessage).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['', '  \r\n\t'])('initializes empty configuration %j', async (text) => {
     await put('.cursor', text);
     await put('.vscode', text);
     await run();
@@ -395,8 +686,31 @@ describe('Stem MCP setup command', () => {
   });
 
   it('preserves unrelated keys and customized servers, including remote Stem entries', async () => {
-    const cursor = { inputs: [{ id: 'secret' }], custom: { enabled: true }, mcpServers: { other: { command: 'other' }, stem: { type: 'stdio', command: 'custom', args: ['--custom'], cwd: '/custom', env: { TOKEN: '${env:TOKEN}' } } } };
-    const vscode = { inputs: [{ id: 'secret' }], servers: { other: { command: 'other' }, stem: { type: 'http', url: 'https://example.test/mcp', headers: { Authorization: '${input:secret}' } } } };
+    const cursor = {
+      inputs: [{ id: 'secret' }],
+      custom: { enabled: true },
+      mcpServers: {
+        other: { command: 'other' },
+        stem: {
+          type: 'stdio',
+          command: 'custom',
+          args: ['--custom'],
+          cwd: '/custom',
+          env: { TOKEN: '${env:TOKEN}' }
+        }
+      }
+    };
+    const vscode = {
+      inputs: [{ id: 'secret' }],
+      servers: {
+        other: { command: 'other' },
+        stem: {
+          type: 'http',
+          url: 'https://example.test/mcp',
+          headers: { Authorization: '${input:secret}' }
+        }
+      }
+    };
     await put('.cursor', JSON.stringify(cursor));
     await put('.vscode', JSON.stringify(vscode));
     options.fs = { ...fs, openSync: vi.fn(fs.openSync) };
@@ -404,11 +718,19 @@ describe('Stem MCP setup command', () => {
     expect(await config('.cursor')).toEqual(cursor);
     expect(await config('.vscode')).toEqual(vscode);
     expect(options.fs.openSync).not.toHaveBeenCalled();
-    expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('already configured'));
+    expect(api.window.showInformationMessage).toHaveBeenCalledWith(
+      expect.stringContaining('already configured')
+    );
   });
 
   it('adds only the missing stdio type to a customized entry', async () => {
-    const custom = { command: 'node', args: ['custom.js'], env: { CUSTOM: 'yes' }, cwd: '/custom', dev: { watch: '*.js' } };
+    const custom = {
+      command: 'node',
+      args: ['custom.js'],
+      env: { CUSTOM: 'yes' },
+      cwd: '/custom',
+      dev: { watch: '*.js' }
+    };
     await put('.vscode', JSON.stringify({ servers: { stem: custom }, inputs: [] }));
     await run();
     expect((await config('.vscode')).servers?.['stem']).toEqual({ ...custom, type: 'stdio' });
@@ -417,7 +739,12 @@ describe('Stem MCP setup command', () => {
   it('does not rewrite configurations on repeated setup', async () => {
     await run();
     const original = await readFile(configPath('.vscode'));
-    options.fs = { ...fs, openSync: vi.fn(fs.openSync), renameSync: vi.fn(fs.renameSync), linkSync: vi.fn(fs.linkSync) };
+    options.fs = {
+      ...fs,
+      openSync: vi.fn(fs.openSync),
+      renameSync: vi.fn(fs.renameSync),
+      linkSync: vi.fn(fs.linkSync)
+    };
     await run();
     expect(await readFile(configPath('.vscode'))).toEqual(original);
     expect(options.fs.openSync).not.toHaveBeenCalled();
@@ -426,65 +753,114 @@ describe('Stem MCP setup command', () => {
   });
 
   it.each([
-    '{ broken', '{ // valid JSONC\n "servers": {},\n}', 'null', '[]', '42', '"text"',
-    '{"servers":null}', '{"servers":[]}', '{"servers":"bad"}', '{"mcpServers":null}',
-    '{"servers":{"stem":null}}', '{"servers":{"stem":[]}}', '{"servers":{"stem":{}}}',
+    '{ broken',
+    '{ // valid JSONC\n "servers": {},\n}',
+    'null',
+    '[]',
+    '42',
+    '"text"',
+    '{"servers":null}',
+    '{"servers":[]}',
+    '{"servers":"bad"}',
+    '{"mcpServers":null}',
+    '{"servers":{"stem":null}}',
+    '{"servers":{"stem":[]}}',
+    '{"servers":{"stem":{}}}',
     '{"servers":{"stem":{"command":"node","args":"bad"}}}',
     '{"servers":{"stem":{"command":"node","type":"http"}}}',
     '{"servers":{"stem":{"command":"node","env":[]}}}'
-  ])('leaves both files unchanged for unsupported VS Code content %j', async text => {
+  ])('leaves both files unchanged for unsupported VS Code content %j', async (text) => {
     await put('.vscode', text);
     const cursor = '{"mcpServers":{"other":{"command":"other"}}}';
     await put('.cursor', cursor);
     await run();
     expect(await readFile(configPath('.vscode'), 'utf8')).toBe(text);
     expect(await readFile(configPath('.cursor'), 'utf8')).toBe(cursor);
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining(configPath('.vscode')));
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining(configPath('.vscode'))
+    );
     expect(api.window.showInformationMessage).not.toHaveBeenCalled();
     await assertNoStagedFiles();
   });
 
-  it.each(['{"mcpServers":[]}', '{"mcpServers":{"stem":null}}', '{ // comment\n}'])('refuses unsafe Cursor content %j without creating the other file', async text => {
-    await put('.cursor', text);
-    await run();
-    expect(await readFile(configPath('.cursor'), 'utf8')).toBe(text);
-    expect(fs.existsSync(configPath('.vscode'))).toBe(false);
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining(configPath('.cursor')));
-  });
+  it.each(['{"mcpServers":[]}', '{"mcpServers":{"stem":null}}', '{ // comment\n}'])(
+    'refuses unsafe Cursor content %j without creating the other file',
+    async (text) => {
+      await put('.cursor', text);
+      await run();
+      expect(await readFile(configPath('.cursor'), 'utf8')).toBe(text);
+      expect(fs.existsSync(configPath('.vscode'))).toBe(false);
+      expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringContaining(configPath('.cursor'))
+      );
+    }
+  );
 
-  it.each(['npx', 'stem'])('repairs only recognizable legacy %s output during invoked setup', async command => {
-    const entry = legacyEntry(command);
-    await put('.vscode', JSON.stringify({ inputs: [], mcpServers: { stem: entry } }));
-    await run();
-    expect(await config('.vscode')).toEqual({ inputs: [], servers: { stem: { ...entry, type: 'stdio' } } });
-  });
+  it.each(['npx', 'stem'])(
+    'repairs only recognizable legacy %s output during invoked setup',
+    async (command) => {
+      const entry = legacyEntry(command);
+      await put('.vscode', JSON.stringify({ inputs: [], mcpServers: { stem: entry } }));
+      await run();
+      expect(await config('.vscode')).toEqual({
+        inputs: [],
+        servers: { stem: { ...entry, type: 'stdio' } }
+      });
+    }
+  );
 
   it('preserves unrelated legacy entries and reports their manual review', async () => {
-    await put('.vscode', JSON.stringify({ mcpServers: { stem: legacyEntry(), other: { command: 'other' } }, servers: { otherCurrent: { command: 'current' } } }));
+    await put(
+      '.vscode',
+      JSON.stringify({
+        mcpServers: { stem: legacyEntry(), other: { command: 'other' } },
+        servers: { otherCurrent: { command: 'current' } }
+      })
+    );
     await run();
     expect((await config('.vscode')).mcpServers).toEqual({ other: { command: 'other' } });
     expect((await config('.vscode')).servers?.['otherCurrent']).toEqual({ command: 'current' });
-    expect(api.window.showInformationMessage).toHaveBeenCalledWith(expect.stringContaining('merge those manually'));
+    expect(api.window.showInformationMessage).toHaveBeenCalledWith(
+      expect.stringContaining('merge those manually')
+    );
   });
 
   it('removes a recognizable duplicate when the current entry matches it', async () => {
     const entry = legacyEntry();
-    await put('.vscode', JSON.stringify({ servers: { stem: { ...entry, type: 'stdio' } }, mcpServers: { stem: entry } }));
+    await put(
+      '.vscode',
+      JSON.stringify({
+        servers: { stem: { ...entry, type: 'stdio' } },
+        mcpServers: { stem: entry }
+      })
+    );
     await run();
     expect((await config('.vscode')).mcpServers).toBeUndefined();
     expect((await config('.vscode')).servers?.['stem']).toEqual({ ...entry, type: 'stdio' });
   });
 
-  it.each(['customized', 'conflicting', 'other-root'])('does not repair ambiguous legacy entries: %s', async kind => {
-    const old = kind === 'customized' ? { ...legacyEntry(), env: { CUSTOM: 'yes' } }
-      : kind === 'other-root' ? { ...legacyEntry(), cwd: '/other' } : legacyEntry();
-    const text = JSON.stringify({ mcpServers: { stem: old }, ...(kind === 'conflicting' ? { servers: { stem: { command: 'custom' } } } : {}) });
-    await put('.vscode', text);
-    await run();
-    expect(await readFile(configPath('.vscode'), 'utf8')).toBe(text);
-    expect(fs.existsSync(configPath('.cursor'))).toBe(false);
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('merge it into servers.stem manually'));
-  });
+  it.each(['customized', 'conflicting', 'other-root'])(
+    'does not repair ambiguous legacy entries: %s',
+    async (kind) => {
+      const old =
+        kind === 'customized'
+          ? { ...legacyEntry(), env: { CUSTOM: 'yes' } }
+          : kind === 'other-root'
+            ? { ...legacyEntry(), cwd: '/other' }
+            : legacyEntry();
+      const text = JSON.stringify({
+        mcpServers: { stem: old },
+        ...(kind === 'conflicting' ? { servers: { stem: { command: 'custom' } } } : {})
+      });
+      await put('.vscode', text);
+      await run();
+      expect(await readFile(configPath('.vscode'), 'utf8')).toBe(text);
+      expect(fs.existsSync(configPath('.cursor'))).toBe(false);
+      expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringContaining('merge it into servers.stem manually')
+      );
+    }
+  );
 
   it('refuses setup in untrusted or absent workspaces before probing or writing', async () => {
     api.workspace.isTrusted = false;
@@ -495,7 +871,7 @@ describe('Stem MCP setup command', () => {
     await run();
     expect(api.window.showErrorMessage).toHaveBeenCalledWith('No workspace folder open.');
     expect(options.execFile).not.toHaveBeenCalled();
-    expect(await readdir(root)).toEqual([path.basename(bin)]);
+    expect((await readdir(root)).sort()).toEqual(['.stem', path.basename(bin)].sort());
   });
 
   it('targets only the first workspace folder', async () => {
@@ -507,72 +883,117 @@ describe('Stem MCP setup command', () => {
     expect((await config('.vscode')).servers?.['stem']?.['cwd']).toBe(root);
   });
 
+  it('does not select a later valid project when the first workspace folder is not initialized', async () => {
+    await rm(projectPath());
+    const second = path.join(root, 'second');
+    await mkdir(path.join(second, '.stem'), { recursive: true });
+    await writeFile(path.join(second, '.stem/config.json'), projectConfig);
+    api.workspace.workspaceFolders.push({ uri: { fsPath: second } });
+    await run();
+    expect(options.execFile).not.toHaveBeenCalled();
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining(projectPath())
+    );
+    for (const folder of [root, second])
+      for (const host of ['.cursor', '.vscode'])
+        expect(fs.existsSync(path.join(folder, host))).toBe(false);
+  });
+
   it('preserves both files when a configuration has unsaved editor changes', async () => {
     await put('.vscode', '{}');
     api.workspace.textDocuments.push({ uri: { fsPath: configPath('.vscode') }, isDirty: true });
     await run();
     expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
     expect(fs.existsSync(configPath('.cursor'))).toBe(false);
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('unsaved configuration'));
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('unsaved configuration')
+    );
   });
 
   it('reports read failures without overwriting the file', async () => {
     await put('.vscode', '{}');
-    options.fs = { ...fs, readFileSync: () => { throw new Error('EACCES fixture read denied'); } };
+    options.fs = {
+      ...fs,
+      readFileSync: () => {
+        throw new Error('EACCES fixture read denied');
+      }
+    };
     await run();
     expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
     expect(fs.existsSync(configPath('.cursor'))).toBe(false);
     expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('EACCES'));
   });
 
-  it.each(['open', 'write', 'rename'])('keeps originals intact on %s failure and cleans staged files', async operation => {
-    await put('.cursor', '{}');
-    await put('.vscode', '{}');
-    const fail = () => { throw new Error(`fixture ${operation} denied`); };
-    options.fs = { ...fs,
-      ...(operation === 'open' ? { openSync: fail } : {}),
-      ...(operation === 'write' ? { writeFileSync: fail } : {}),
-      ...(operation === 'rename' ? { renameSync: fail } : {})
-    };
-    await run();
-    for (const host of ['.cursor', '.vscode']) expect(await readFile(configPath(host), 'utf8')).toBe('{}');
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('No configuration files were changed'));
-    await assertNoStagedFiles();
-  });
+  it.each(['open', 'write', 'rename'])(
+    'keeps originals intact on %s failure and cleans staged files',
+    async (operation) => {
+      await put('.cursor', '{}');
+      await put('.vscode', '{}');
+      const fail = () => {
+        throw new Error(`fixture ${operation} denied`);
+      };
+      options.fs = {
+        ...fs,
+        ...(operation === 'open' ? { openSync: fail } : {}),
+        ...(operation === 'write' ? { writeFileSync: fail } : {}),
+        ...(operation === 'rename' ? { renameSync: fail } : {})
+      };
+      await run();
+      for (const host of ['.cursor', '.vscode'])
+        expect(await readFile(configPath(host), 'utf8')).toBe('{}');
+      expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+        expect.stringContaining('No configuration files were changed')
+      );
+      await assertNoStagedFiles();
+    }
+  );
 
   it('reports the exact partial outcome if the second replacement fails', async () => {
     await put('.cursor', '{}');
     await put('.vscode', '{}');
-    options.fs = { ...fs, renameSync: (oldPath, newPath) => {
-      if (newPath === configPath('.vscode')) throw new Error('fixture second rename denied');
-      fs.renameSync(oldPath, newPath);
-    } };
+    options.fs = {
+      ...fs,
+      renameSync: (oldPath, newPath) => {
+        if (newPath === configPath('.vscode')) throw new Error('fixture second rename denied');
+        fs.renameSync(oldPath, newPath);
+      }
+    };
     await run();
     expect((await config('.cursor')).mcpServers?.['stem']?.['type']).toBe('stdio');
     expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{}');
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining(`Updated only: ${configPath('.cursor')}`));
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining(`Updated only: ${configPath('.cursor')}`)
+    );
     expect(api.window.showInformationMessage).not.toHaveBeenCalled();
     await assertNoStagedFiles();
   });
 
   it('detects concurrent edits before committing either file', async () => {
     await put('.vscode', '{}');
-    options.fs = { ...fs, fsyncSync: fd => {
-      fs.fsyncSync(fd);
-      fs.writeFileSync(configPath('.vscode'), '{"concurrent":true}');
-    } };
+    options.fs = {
+      ...fs,
+      fsyncSync: (fd) => {
+        fs.fsyncSync(fd);
+        fs.writeFileSync(configPath('.vscode'), '{"concurrent":true}');
+      }
+    };
     await run();
     expect(await readFile(configPath('.vscode'), 'utf8')).toBe('{"concurrent":true}');
     expect(fs.existsSync(configPath('.cursor'))).toBe(false);
-    expect(api.window.showErrorMessage).toHaveBeenCalledWith(expect.stringContaining('changed during setup'));
+    expect(api.window.showErrorMessage).toHaveBeenCalledWith(
+      expect.stringContaining('changed during setup')
+    );
     await assertNoStagedFiles();
   });
 
   it('does not clobber a concurrent creator of a previously missing file', async () => {
-    options.fs = { ...fs, linkSync: (existingPath, newPath) => {
-      fs.writeFileSync(newPath, '{"concurrent":true}');
-      fs.linkSync(existingPath, newPath);
-    } };
+    options.fs = {
+      ...fs,
+      linkSync: (existingPath, newPath) => {
+        fs.writeFileSync(newPath, '{"concurrent":true}');
+        fs.linkSync(existingPath, newPath);
+      }
+    };
     await run();
     expect(await readFile(configPath('.cursor'), 'utf8')).toBe('{"concurrent":true}');
     expect(fs.existsSync(configPath('.vscode'))).toBe(false);
@@ -581,7 +1002,6 @@ describe('Stem MCP setup command', () => {
   });
 
   it('does not migrate existing configuration during activation', async () => {
-    await mkdir(path.join(root, '.stem'));
     await writeFile(path.join(root, '.stem', 'config.json'), '{}');
     const text = JSON.stringify({ mcpServers: { stem: legacyEntry() } });
     await put('.vscode', text);
@@ -590,20 +1010,35 @@ describe('Stem MCP setup command', () => {
     const disposable = () => ({ dispose() {} });
     const subscriptions: Array<{ dispose(): void }> = [];
     Object.assign(mock, {
-      EventEmitter: class { event = () => {}; dispose() {} },
+      EventEmitter: class {
+        event = () => {};
+        dispose() {}
+      },
       window: api.window,
       commands: { registerCommand: vi.fn(disposable) },
-      workspace: { ...api.workspace, registerTextDocumentContentProvider: disposable, onDidChangeTextDocument: disposable, onDidCloseTextDocument: disposable, onDidChangeConfiguration: disposable }
+      workspace: {
+        ...api.workspace,
+        registerTextDocumentContentProvider: disposable,
+        onDidChangeTextDocument: disposable,
+        onDidCloseTextDocument: disposable,
+        onDidChangeConfiguration: disposable
+      }
     });
     try {
-      extensionModule.activate({ subscriptions, globalState: { get: () => false }, workspaceState: { get: () => false } });
+      extensionModule.activate({
+        subscriptions,
+        globalState: { get: () => false },
+        workspaceState: { get: () => false }
+      });
       await Promise.resolve();
       expect(await readFile(configPath('.vscode'), 'utf8')).toBe(text);
       expect(fs.existsSync(configPath('.cursor'))).toBe(false);
       expect(api.window.showInformationMessage).not.toHaveBeenCalled();
-      expect((mock['commands'] as { registerCommand: unknown }).registerCommand).toHaveBeenCalledWith('stem.enableMcp', expect.any(Function));
+      expect(
+        (mock['commands'] as { registerCommand: unknown }).registerCommand
+      ).toHaveBeenCalledWith('stem.enableMcp', expect.any(Function));
     } finally {
-      subscriptions.forEach(subscription => subscription.dispose());
+      subscriptions.forEach((subscription) => subscription.dispose());
       for (const key of Object.keys(mock)) delete mock[key];
       Object.assign(mock, original);
     }
@@ -622,64 +1057,27 @@ describe('VS Code Stem extension helpers', () => {
   });
 
   it.each([
-    ['ordinary id', '---\nid: api-view\n---\n# API\n', 'api-view'],
-    ['quoted key and value', '---\n"id": "my-view"\n---\n', 'my-view'],
-    ['quoted value', '---\nid: "api_view-1"\n---\n', 'api_view-1'],
-    ['single-quoted value', "---\nid: 'api.view with spaces'\n---\n", 'api.view with spaces'],
-    ['inline comment', '---\nid: api-view # primary API view\n---\n', 'api-view'],
-    ['YAML opener', '---yaml\nid: yaml-view\n---\n', 'yaml-view'],
-    ['Unicode escape', '---\nid: "api\\u002dview"\n---\n', 'api-view'],
-    ['body syntax error', '---\nid: api-view\n---\n@stem[unknown:auth]', 'api-view']
-  ])('opens the core-selected view from the active buffer: %s', async (_label, content, expectedId) => {
-    const activeFilePath = path.join(testRoot, 'views/api.md');
+    '# ordinary source',
+    '---\nid: [malformed YAML\n---\nBody',
+    '@stem:block(id:a)A@stem:end()'
+  ])('opens the active source without frontmatter identity: %s', async (content) => {
+    const activeFilePath = path.join(testRoot, 'blocks/api.md');
     await mkdir(path.join(testRoot, '.stem'), { recursive: true });
-    await mkdir(path.dirname(activeFilePath), { recursive: true });
-    await writeFile(activeFilePath, '---\nid: disk-view\n---\nDisk content.');
-    const vscodeApi = createOpenPreviewFakeVscodeApi({ activeFilePath, activeContent: content });
-    const provider = { track: vi.fn<(target: { query: string; toString(): string }) => void>(), untrack: vi.fn(() => null), hasProject: () => false };
-    const watchers = { watchProject: vi.fn(), unwatchProject: vi.fn() };
-    const execute = vi.spyOn(vscodeApi.commands, 'executeCommand');
-
-    await stem.openPreviewToSide(provider, watchers, vscodeApi);
-
-    const target = provider.track.mock.calls[0]?.[0];
-    expect(target).toBeDefined();
-    expect(stem.parsePreviewUri(target!)).toEqual({
-      projectRoot: testRoot, viewId: expectedId,
-      source: vscodeApi.window.activeTextEditor!.document.uri.toString()
-    });
-    expect(execute).toHaveBeenCalledExactlyOnceWith('markdown.showPreviewToSide', target);
-    expect(watchers.watchProject).toHaveBeenCalledExactlyOnceWith(testRoot);
-    expect(vscodeApi.window.informationMessages).toEqual([]);
-  });
-
-  it.each([
-    ['malformed YAML after a valid id', '---\nid: api-view\ngroup: [broken\n---\n', 'Frontmatter could not be parsed.'],
-    ['malformed id', '---\nid: "unterminated\n---\n', 'Frontmatter could not be parsed.'],
-    ['absent frontmatter', '# No frontmatter\n', 'Missing required frontmatter field: id.'],
-    ['missing id', '---\ntitle: API\n---\n', 'Missing required frontmatter field: id.'],
-    ['non-string id', '---\nid: 42\n---\n', 'Missing required frontmatter field: id.'],
-    ['empty id', '---\nid: " "\n---\n', 'Missing required frontmatter field: id.']
-  ])('reports invalid view metadata without opening or tracking: %s', async (_label, content, message) => {
-    const vscodeApi = createOpenPreviewFakeVscodeApi({
-      activeFilePath: path.join(testRoot, 'views/api.md'), activeContent: content
-    });
+    await writeFile(path.join(testRoot, '.stem/config.json'), '{}');
+    const api = createOpenPreviewFakeVscodeApi({ activeFilePath, activeContent: content });
     const provider = { track: vi.fn(), untrack: vi.fn(() => null), hasProject: () => false };
     const watchers = { watchProject: vi.fn(), unwatchProject: vi.fn() };
-
-    await stem.openPreviewToSide(provider, watchers, vscodeApi);
-
-    expect(vscodeApi.window.informationMessages).toEqual([
-      `Stem preview could not open this view: ${message} Check the YAML frontmatter and its top-level id.`
-    ]);
-    expect(provider.track).not.toHaveBeenCalled();
-    expect(watchers.watchProject).not.toHaveBeenCalled();
-    expect(vscodeApi.commands.executedCommands).toEqual([]);
+    await stem.openPreviewToSide(provider, watchers, api);
+    expect(provider.track).toHaveBeenCalledOnce();
+    expect(stem.parsePreviewUri(provider.track.mock.calls[0]![0] as { query: string })).toEqual({
+      projectRoot: testRoot,
+      source: api.window.activeTextEditor!.document.uri.toString()
+    });
   });
-
   it('finds the nearest Stem project root', async () => {
     const nestedDir = path.join(testRoot, 'views/backend');
     await mkdir(path.join(testRoot, '.stem'), { recursive: true });
+    await writeFile(path.join(testRoot, '.stem/config.json'), '{}');
     await mkdir(nestedDir, { recursive: true });
 
     expect(stem.findProjectRoot(nestedDir)).toBe(testRoot);
@@ -688,13 +1086,12 @@ describe('VS Code Stem extension helpers', () => {
 
   it('round-trips preview URI query data', () => {
     const sourceUri = 'file:///C:/repo%20with%20spaces/views/api%20guide.md';
-    const uriText = stem.createPreviewUriText('C:\\repo with spaces\\stem', 'api/view with spaces', sourceUri);
+    const uriText = stem.createPreviewUriText('C:\\repo with spaces\\stem', sourceUri);
     const parsed = stem.parsePreviewUri({ query: uriText.slice(uriText.indexOf('?') + 1) });
 
-    expect(uriText.startsWith(`${stem.PREVIEW_SCHEME}:/view/api%2Fview%20with%20spaces.md?`)).toBe(true);
+    expect(uriText.startsWith(`${stem.PREVIEW_SCHEME}:/source.md?`)).toBe(true);
     expect(parsed).toEqual({
       projectRoot: 'C:\\repo with spaces\\stem',
-      viewId: 'api/view with spaces',
       source: sourceUri
     });
   });
@@ -712,11 +1109,10 @@ describe('VS Code Stem extension helpers', () => {
       toString: () => 'file:///C:/repo%20with%20spaces/views/api.md'
     };
 
-    const uri = stem.createPreviewUri('C:\\repo with spaces\\stem', 'api-view', sourceUri, vscodeApi);
+    const uri = stem.createPreviewUri('C:\\repo with spaces\\stem', sourceUri, vscodeApi);
 
     expect(stem.parsePreviewUri(uri)).toEqual({
       projectRoot: 'C:\\repo with spaces\\stem',
-      viewId: 'api-view',
       source: 'file:///C:/repo%20with%20spaces/views/api.md'
     });
   });
@@ -984,14 +1380,15 @@ describe('VS Code Stem extension helpers', () => {
     error.stemCwd = 'C:\\repo';
 
     const markdown = stem.formatPreviewError(error, {
-      viewId: 'api-view',
       projectRoot: 'C:\\repo',
       nextAction: 'Run `stem check`.'
     });
 
     expect(markdown).toContain('# Stem Preview Error');
-    expect(markdown).toContain('Stem could not render `api-view`.');
-    expect(markdown).toContain('## Command\n\n```text\nnode dist/cli/index.js preview view api-view\n```');
+    expect(markdown).toContain('## Summary');
+    expect(markdown).toContain(
+      '## Command\n\n```text\nnode dist/cli/index.js preview view api-view\n```'
+    );
     expect(markdown).toContain('## Exit Code\n\n`1`');
     expect(markdown).toContain('## stderr\n\n```text\nBroken block reference\n```');
     expect(markdown).toContain('## stdout\n\n```text\nChecking project\n```');
@@ -1016,7 +1413,9 @@ describe('VS Code Stem extension helpers', () => {
   it('strips leading frontmatter from displayed preview Markdown only', () => {
     expect(stem.toPreviewDisplayMarkdown('---\nid: api-view\n---\n# API\n')).toBe('# API\n');
     expect(stem.stripLeadingFrontmatter('---\nid: api-view\n---')).toBe('');
-    expect(stem.toPreviewDisplayMarkdown('# API\n\n---\nNot frontmatter\n')).toBe('# API\n\n---\nNot frontmatter\n');
+    expect(stem.toPreviewDisplayMarkdown('# API\n\n---\nNot frontmatter\n')).toBe(
+      '# API\n\n---\nNot frontmatter\n'
+    );
   });
 
   it('extracts preview error details without folding stderr into the summary', () => {
@@ -1033,7 +1432,12 @@ describe('VS Code Stem extension helpers', () => {
   });
 
   it('quotes command text for display without changing execution arguments', () => {
-    expect(stem.formatCommandText('C:\\Program Files\\node\\node.exe', ['C:\\repo with spaces\\dist\\cli\\index.js', 'preview'])).toBe(
+    expect(
+      stem.formatCommandText('C:\\Program Files\\node\\node.exe', [
+        'C:\\repo with spaces\\dist\\cli\\index.js',
+        'preview'
+      ])
+    ).toBe(
       '"C:\\Program Files\\node\\node.exe" "C:\\repo with spaces\\dist\\cli\\index.js" preview'
     );
   });
@@ -1117,6 +1521,7 @@ describe('VS Code Stem extension helpers', () => {
     const projectRoot = path.join(testRoot, 'project');
     const viewDir = path.join(projectRoot, 'views');
     await mkdir(path.join(projectRoot, '.stem'), { recursive: true });
+    await writeFile(path.join(projectRoot, '.stem/config.json'), '{}');
     await mkdir(viewDir, { recursive: true });
     const vscodeApi = createOpenPreviewFakeVscodeApi({
       activeFilePath: path.join(viewDir, 'api.md'),
@@ -1156,9 +1561,7 @@ describe('VS Code Stem extension helpers', () => {
     });
 
     it('quotes command parts that contain double quotes', () => {
-      expect(stem.formatCommandText('node', ['arg"with"quote'])).toBe(
-        'node "arg\\"with\\"quote"'
-      );
+      expect(stem.formatCommandText('node', ['arg"with"quote'])).toBe('node "arg\\"with\\"quote"');
     });
 
     it('does not quote command parts that contain no spaces or quotes', () => {
@@ -1201,201 +1604,204 @@ describe('VS Code Stem extension helpers', () => {
   });
 
   describe('StemPreviewWatcherManager', () => {
-  it('applies auto-refresh configuration without leaving stale watchers or timers', () => {
-    const fake = createFakeWatcherEnvironment();
-    const manager = new stem.StemPreviewWatcherManager(
-      {
-        getTrackedProjects: () => [testRoot],
-        refreshProject: () => {}
-      },
-      fake.options
-    );
-
-    manager.applyConfiguration();
-    manager.scheduleRefresh(testRoot);
-    expect(fake.watchers).toHaveLength(stem.WATCH_PATTERNS.length);
-
-    fake.autoRefresh = false;
-    manager.applyConfiguration();
-    expect(fake.watchers.every((watcher) => watcher.disposed)).toBe(true);
-    expect(fake.timers[0]?.cleared).toBe(true);
-
-    fake.autoRefresh = true;
-    manager.applyConfiguration();
-    expect(fake.watchers.filter((watcher) => !watcher.disposed)).toHaveLength(stem.WATCH_PATTERNS.length);
-  });
-
-  it('disposes watchers for a project when the last preview closes', () => {
-    const fake = createFakeWatcherEnvironment();
-    const manager = new stem.StemPreviewWatcherManager(
-      {
-        getTrackedProjects: () => [],
-        refreshProject: () => {}
-      },
-      fake.options
-    );
-
-    manager.watchProject(testRoot);
-    manager.scheduleRefresh(testRoot);
-    manager.unwatchProject(testRoot);
-
-    expect(fake.watchers.every((watcher) => watcher.disposed)).toBe(true);
-    expect(fake.timers[0]?.cleared).toBe(true);
-  });
-
-  it('keeps the expected watcher defaults public to the extension', () => {
-    expect(stem.DEFAULT_REFRESH_DEBOUNCE_MS).toBe(250);
-    expect(stem.WATCH_PATTERNS).toEqual([
-      'views/**/*.md',
-      'blocks/**/*.md',
-      'blocks/schemas/**/*.{yaml,yml}',
-      '.stem/config.json'
-    ]);
-  });
-});
-
-function createFakeWatcherEnvironment(): {
-  autoRefresh: boolean;
-  timers: FakeTimer[];
-  watchers: FakeWatcher[];
-  options: ConstructorParameters<StemExtensionModule['_private']['StemPreviewWatcherManager']>[1];
-} {
-  const state = {
-    autoRefresh: true,
-    timers: [] as FakeTimer[],
-    watchers: [] as FakeWatcher[]
-  };
-
-  const vscodeApi: FakeVscodeApi = {
-    Uri: {
-      file: (filePath) => ({ fsPath: filePath })
-    },
-    RelativePattern: class {
-      base: { fsPath: string };
-      pattern: string;
-
-      constructor(base: { fsPath: string }, pattern: string) {
-        this.base = base;
-        this.pattern = pattern;
-      }
-    },
-    workspace: {
-      createFileSystemWatcher: (pattern) => {
-        const watcher: FakeWatcher = {
-          basePath: pattern.base.fsPath,
-          pattern: pattern.pattern,
-          disposed: false,
-          changeCallbacks: [],
-          createCallbacks: [],
-          deleteCallbacks: [],
-          onDidChange: (callback) => {
-            watcher.changeCallbacks.push(callback);
-            return { dispose: () => {} };
-          },
-          onDidCreate: (callback) => {
-            watcher.createCallbacks.push(callback);
-            return { dispose: () => {} };
-          },
-          onDidDelete: (callback) => {
-            watcher.deleteCallbacks.push(callback);
-            return { dispose: () => {} };
-          },
-          dispose: () => {
-            watcher.disposed = true;
-          }
-        };
-        state.watchers.push(watcher);
-        return watcher;
-      }
-    }
-  };
-
-  return {
-    get autoRefresh() {
-      return state.autoRefresh;
-    },
-    set autoRefresh(value: boolean) {
-      state.autoRefresh = value;
-    },
-    timers: state.timers,
-    watchers: state.watchers,
-    options: {
-      vscodeApi,
-      isAutoRefreshEnabled: () => state.autoRefresh,
-      getRefreshDebounceMs: () => 25,
-      setTimer: (callback, ms) => {
-        const timer = { callback, ms, cleared: false };
-        state.timers.push(timer);
-        return timer;
-      },
-      clearTimer: (timer) => {
-        timer.cleared = true;
-      }
-    }
-  };
-}
-
-function createOpenPreviewFakeVscodeApi(options: {
-  isTrusted?: boolean;
-  activeFilePath?: string;
-  activeContent?: string;
-  commandError?: Error;
-}): OpenPreviewFakeVscodeApi & {
-  commands: OpenPreviewFakeVscodeApi['commands'] & { executedCommands: string[] };
-  window: OpenPreviewFakeVscodeApi['window'] & { informationMessages: string[]; warningMessages: string[] };
-} {
-  const executedCommands: string[] = [];
-  const informationMessages: string[] = [];
-  const warningMessages: string[] = [];
-  const window: OpenPreviewFakeVscodeApi['window'] & { informationMessages: string[]; warningMessages: string[] } = {
-    informationMessages,
-    warningMessages,
-    showInformationMessage: (message) => {
-      informationMessages.push(message);
-    },
-    showWarningMessage: (message) => {
-      warningMessages.push(message);
-    }
-  };
-
-  if (options.activeFilePath !== undefined) {
-    const activeFilePath = options.activeFilePath;
-    window.activeTextEditor = {
-      document: {
-        uri: {
-          scheme: 'file',
-          fsPath: activeFilePath,
-          toString: () => `file:///${activeFilePath.replaceAll('\\', '/')}`
+    it('applies auto-refresh configuration without leaving stale watchers or timers', () => {
+      const fake = createFakeWatcherEnvironment();
+      const manager = new stem.StemPreviewWatcherManager(
+        {
+          getTrackedProjects: () => [testRoot],
+          refreshProject: () => {}
         },
-        languageId: 'markdown',
-        getText: () => options.activeContent ?? '---\nid: api-view\n---\n# API\n'
+        fake.options
+      );
+
+      manager.applyConfiguration();
+      manager.scheduleRefresh(testRoot);
+      expect(fake.watchers).toHaveLength(stem.WATCH_PATTERNS.length);
+
+      fake.autoRefresh = false;
+      manager.applyConfiguration();
+      expect(fake.watchers.every((watcher) => !watcher.disposed)).toBe(true);
+      expect(fake.timers[0]?.cleared).toBe(true);
+
+      fake.autoRefresh = true;
+      manager.applyConfiguration();
+      expect(fake.watchers.filter((watcher) => !watcher.disposed)).toHaveLength(
+        stem.WATCH_PATTERNS.length
+      );
+    });
+
+    it('disposes watchers for a project when the last preview closes', () => {
+      const fake = createFakeWatcherEnvironment();
+      const manager = new stem.StemPreviewWatcherManager(
+        {
+          getTrackedProjects: () => [],
+          refreshProject: () => {}
+        },
+        fake.options
+      );
+
+      manager.watchProject(testRoot);
+      manager.scheduleRefresh(testRoot);
+      manager.unwatchProject(testRoot);
+
+      expect(fake.watchers.every((watcher) => watcher.disposed)).toBe(true);
+      expect(fake.timers[0]?.cleared).toBe(true);
+    });
+
+    it('keeps the expected watcher defaults public to the extension', () => {
+      expect(stem.DEFAULT_REFRESH_DEBOUNCE_MS).toBe(250);
+      expect(stem.WATCH_PATTERNS).toEqual(['**/*']);
+    });
+  });
+
+  function createFakeWatcherEnvironment(): {
+    autoRefresh: boolean;
+    timers: FakeTimer[];
+    watchers: FakeWatcher[];
+    options: ConstructorParameters<StemExtensionModule['_private']['StemPreviewWatcherManager']>[1];
+  } {
+    const state = {
+      autoRefresh: true,
+      timers: [] as FakeTimer[],
+      watchers: [] as FakeWatcher[]
+    };
+
+    const vscodeApi: FakeVscodeApi = {
+      Uri: {
+        file: (filePath) => ({ fsPath: filePath })
+      },
+      RelativePattern: class {
+        base: { fsPath: string };
+        pattern: string;
+
+        constructor(base: { fsPath: string }, pattern: string) {
+          this.base = base;
+          this.pattern = pattern;
+        }
+      },
+      workspace: {
+        createFileSystemWatcher: (pattern) => {
+          const watcher: FakeWatcher = {
+            basePath: pattern.base.fsPath,
+            pattern: pattern.pattern,
+            disposed: false,
+            changeCallbacks: [],
+            createCallbacks: [],
+            deleteCallbacks: [],
+            onDidChange: (callback) => {
+              watcher.changeCallbacks.push(callback);
+              return { dispose: () => {} };
+            },
+            onDidCreate: (callback) => {
+              watcher.createCallbacks.push(callback);
+              return { dispose: () => {} };
+            },
+            onDidDelete: (callback) => {
+              watcher.deleteCallbacks.push(callback);
+              return { dispose: () => {} };
+            },
+            dispose: () => {
+              watcher.disposed = true;
+            }
+          };
+          state.watchers.push(watcher);
+          return watcher;
+        }
+      }
+    };
+
+    return {
+      get autoRefresh() {
+        return state.autoRefresh;
+      },
+      set autoRefresh(value: boolean) {
+        state.autoRefresh = value;
+      },
+      timers: state.timers,
+      watchers: state.watchers,
+      options: {
+        vscodeApi,
+        isAutoRefreshEnabled: () => state.autoRefresh,
+        getRefreshDebounceMs: () => 25,
+        setTimer: (callback, ms) => {
+          const timer = { callback, ms, cleared: false };
+          state.timers.push(timer);
+          return timer;
+        },
+        clearTimer: (timer) => {
+          timer.cleared = true;
+        }
       }
     };
   }
 
-  const workspace: OpenPreviewFakeVscodeApi['workspace'] = {};
-  if (options.isTrusted !== undefined) {
-    workspace.isTrusted = options.isTrusted;
-  }
-
-  return {
-    Uri: {
-      parse: (uriText) => ({
-        query: uriText.slice(uriText.indexOf('?') + 1),
-        toString: () => uriText
-      })
-    },
-    commands: {
-      executedCommands,
-      executeCommand: async (command) => {
-        executedCommands.push(command);
-        if (options.commandError !== undefined) {
-          throw options.commandError;
-        }
+  function createOpenPreviewFakeVscodeApi(options: {
+    isTrusted?: boolean;
+    activeFilePath?: string;
+    activeContent?: string;
+    commandError?: Error;
+  }): OpenPreviewFakeVscodeApi & {
+    commands: OpenPreviewFakeVscodeApi['commands'] & { executedCommands: string[] };
+    window: OpenPreviewFakeVscodeApi['window'] & {
+      informationMessages: string[];
+      warningMessages: string[];
+    };
+  } {
+    const executedCommands: string[] = [];
+    const informationMessages: string[] = [];
+    const warningMessages: string[] = [];
+    const window: OpenPreviewFakeVscodeApi['window'] & {
+      informationMessages: string[];
+      warningMessages: string[];
+    } = {
+      informationMessages,
+      warningMessages,
+      showInformationMessage: (message) => {
+        informationMessages.push(message);
+      },
+      showWarningMessage: (message) => {
+        warningMessages.push(message);
       }
-    },
-    window,
-    workspace
-  };
-}
+    };
+
+    if (options.activeFilePath !== undefined) {
+      const activeFilePath = options.activeFilePath;
+      window.activeTextEditor = {
+        document: {
+          uri: {
+            scheme: 'file',
+            fsPath: activeFilePath,
+            toString: () => `file:///${activeFilePath.replaceAll('\\', '/')}`
+          },
+          languageId: 'markdown',
+          getText: () => options.activeContent ?? '---\nid: api-view\n---\n# API\n'
+        }
+      };
+    }
+
+    const workspace: OpenPreviewFakeVscodeApi['workspace'] = {};
+    if (options.isTrusted !== undefined) {
+      workspace.isTrusted = options.isTrusted;
+    }
+
+    return {
+      Uri: {
+        parse: (uriText) => ({
+          query: uriText.slice(uriText.indexOf('?') + 1),
+          toString: () => uriText
+        })
+      },
+      commands: {
+        executedCommands,
+        executeCommand: async (command) => {
+          executedCommands.push(command);
+          if (options.commandError !== undefined) {
+            throw options.commandError;
+          }
+        }
+      },
+      window,
+      workspace
+    };
+  }
 });

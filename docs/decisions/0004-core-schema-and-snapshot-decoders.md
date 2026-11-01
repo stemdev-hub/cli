@@ -1,6 +1,6 @@
 # 0004. Core schema and snapshot decoders
 
-Status: accepted
+Status: accepted; partially superseded by [ADR-0005](0005-pure-block-model.md) for Tag-schema decoder/export and preservation requirements (23 October 2026), and for preservation of the legacy external-snapshot shape (owner-directed ADR-0005 amendment, 26 October 2026). Pure external-snapshot decoder APIs, shared validation of the replacement shape, cached envelopes, permissive timestamp strings and consumer-owned contextual handling remain binding. The decision body below is preserved; roadmap owns implementation state.
 
 ## Context
 

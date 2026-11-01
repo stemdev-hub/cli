@@ -1,225 +1,178 @@
 import path from 'node:path';
-
-import matter from 'gray-matter';
-import { dump } from 'js-yaml';
-
-import type { OperationResult, RenderAllOptions, RenderResult, RenderViewOptions, RenderedViewResult } from '../types/index.js';
-import type { ParsedView } from '@stemdev/core';
-import { readFile, toRelativePath } from '../fs/reader.js';
-import { writeFile } from '../fs/writer.js';
-import { renderViewMarkdown } from '@stemdev/core';
-import { fromFsError, operationError } from './errors.js';
-import { loadProjectForCheck, validateLoadedProject } from './project.js';
-
-const DEFAULT_RENDER_OUT_DIR = 'rendered';
-
-export async function renderView(
-  viewId: string,
-  options: RenderViewOptions = {}
-): Promise<OperationResult<RenderResult>> {
-  const projectResult = await loadRenderableProject(options);
-  if (!projectResult.success) {
-    return projectResult;
-  }
-
-  const view = projectResult.data.views.find((candidate) => candidate.id === viewId);
-  if (view === undefined) {
-    return {
-      success: false,
-      error: operationError('INVALID_OPERATION', `View "${viewId}" was not found.`)
-    };
-  }
-
-  const renderedResult = await renderLoadedView(projectResult.data, view, options);
-  if (!renderedResult.success) {
-    return renderedResult;
-  }
-
-  return {
-      success: true,
-      data: {
-        views: [renderedResult.data],
-        total: 1,
-        outDir: options.stdout === true ? null : getNormalizedOutDir(options.outDir)
-      }
-    };
-}
-
-export async function renderAll(options: RenderAllOptions = {}): Promise<OperationResult<RenderResult>> {
-  const projectResult = await loadRenderableProject(options);
-  if (!projectResult.success) {
-    return projectResult;
-  }
-
-  const renderedViews: RenderedViewResult[] = [];
-  for (const view of projectResult.data.views) {
-    const renderedResult = await renderLoadedView(projectResult.data, view, options);
-    if (!renderedResult.success) {
-      return renderedResult;
-    }
-    renderedViews.push(renderedResult.data);
-  }
-
-  return {
-      success: true,
-      data: {
-        views: renderedViews,
-        total: renderedViews.length,
-        outDir: getNormalizedOutDir(options.outDir)
-      }
-    };
-}
-
-type LoadedRenderableProject = Awaited<ReturnType<typeof loadProjectForCheck>> extends OperationResult<infer T>
-  ? T
-  : never;
-
-async function loadRenderableProject(
-  options: RenderViewOptions | RenderAllOptions
-): Promise<OperationResult<LoadedRenderableProject>> {
-  const projectResult = await loadProjectForCheck(options);
-  if (!projectResult.success) {
-    return projectResult;
-  }
-
-  const validation = validateLoadedProject(projectResult.data, { nowMs: Date.now() });
-  if (validation.hasErrors) {
-    return {
-      success: false,
-      error: operationError(
-        'INVALID_OPERATION',
-        `Cannot render project with ${validation.errorCount} validation error${validation.errorCount === 1 ? '' : 's'}. Run stem check for details.`,
-        { cause: validation }
-      )
-    };
-  }
-
-  return projectResult;
-}
-
-async function renderLoadedView(
-  project: LoadedRenderableProject,
-  view: ParsedView,
-  options: RenderViewOptions | RenderAllOptions
-): Promise<OperationResult<RenderedViewResult>> {
-  const renderResult = renderViewMarkdown(view, project.blocks);
-  if (!renderResult.success) {
-    return {
-      success: false,
-      error: operationError(
-        'INVALID_OPERATION',
-        `Cannot render view "${view.id}" with ${renderResult.validation.errorCount} validation error${renderResult.validation.errorCount === 1 ? '' : 's'}.`,
-        { cause: renderResult.validation }
-      )
-    };
-  }
-
-  const body = renderResult.markdown;
-  const markdownResult = await attachViewFrontmatter(view, body);
-  if (!markdownResult.success) {
-    return markdownResult;
-  }
-
-  if ('stdout' in options && options.stdout === true) {
-    return {
-      success: true,
-      data: {
-        id: view.id,
-        relativePath: view.relativePath,
-        outputPath: null,
-        outputRelativePath: null,
-        markdown: markdownResult.data
-      }
-    };
-  }
-
-  const outDirResult = normalizeOutDir(options.outDir);
-  if (!outDirResult.success) {
-    return outDirResult;
-  }
-
-  const outputPath = getRenderedOutputPath(project.projectRoot, project.config.viewsDir, outDirResult.data, view);
-  const writeResult = await writeFile(outputPath, markdownResult.data, { overwrite: true });
-  if (!writeResult.success) {
-    return { success: false, error: fromFsError(writeResult.error) };
-  }
-
-  return {
-    success: true,
-    data: {
-      id: view.id,
-      relativePath: view.relativePath,
-      outputPath,
-      outputRelativePath: toRelativePath(outputPath, project.projectRoot),
-      markdown: null
-    }
-  };
-}
-
-async function attachViewFrontmatter(view: ParsedView, renderedBody: string): Promise<OperationResult<string>> {
-  const readResult = await readFile(view.filePath);
-  if (!readResult.success) {
-    return { success: false, error: fromFsError(readResult.error) };
-  }
-
+import { compose, DEFAULT_COMPOSITION_LIMITS } from '@stemdev/core';
+import type { OutputSet, Diagnostic } from '@stemdev/core';
+import type {
+  OutputSelection,
+  PreviewOptions,
+  RenderResult,
+  ResolvedStemConfig
+} from '../types/index.js';
+import { compositionTarget, loadProjectGraph, publicDiagnostics } from './project.js';
+import { resolveOutputRoot } from '../output/paths.js';
+import { publishOutputs } from '../output/publication.js';
+import type { PreparedOutputSet } from '../output/publication.js';
+import type { CleanupProtection } from '../output/cleanup.js';
+import { failure } from '../output/cleanup.js';
+/** Every current set protects its destinations, including unselected sets and other roots. */
+export async function outputProtection(config: ResolvedStemConfig): Promise<CleanupProtection> {
   try {
-    const parsed = matter(readResult.data);
+    const destinations = [];
+    for (const set of Object.values(config.outputSets))
+      destinations.push({
+        root: await outputRoot(config, set.outputDir),
+        paths: set.targets.map((t) => t.path)
+      });
+    return { status: 'complete', destinations };
+  } catch (error) {
     return {
-      success: true,
-      data: `---\n${dump(parsed.data, { lineWidth: -1, noRefs: true })}---\n${renderedBody}${renderedBody.endsWith('\n') ? '' : '\n'}`
+      status: 'unavailable',
+      reason: error instanceof Error ? error.message : 'Cannot inspect current destinations.'
     };
+  }
+}
+export function outputRoot(config: ResolvedStemConfig, outputDir: string) {
+  return resolveOutputRoot(config.projectRoot, outputDir, [
+    path.join(config.projectRoot, config.blocksDir),
+    path.join(config.projectRoot, config.cacheDir)
+  ]);
+}
+/** Prepare all selected mappings, then publish through producer-owned root coordination. */
+export async function renderOutputs(
+  selection: OutputSelection,
+  options: PreviewOptions = {}
+): Promise<RenderResult> {
+  const loaded = await loadProjectGraph(options);
+  if (!loaded.success)
+    return {
+      success: false,
+      targets: [],
+      cleanup: [],
+      errors: [
+        {
+          code: loaded.error.code,
+          message: loaded.error.message,
+          stage: 'planning',
+          root: options.startDir ?? process.cwd()
+        }
+      ]
+    };
+  const project = loaded.data;
+  const selected: {
+    name: string;
+    set: OutputSet;
+    targets: OutputSet['targets'];
+    complete: boolean;
+  }[] = [];
+  const diagnosticMap = new Map<string, readonly Diagnostic[]>();
+  const prepared: PreparedOutputSet[] = [];
+  try {
+    const names =
+      selection.kind === 'all'
+        ? Object.keys(project.config.outputSets).map((name) => ({ name }))
+        : selection.sets;
+    if (selection.kind === 'sets' && names.length === 0)
+      throw new Error('Select at least one output set.');
+    const seen = new Set<string>();
+    for (const item of names) {
+      if (seen.has(item.name)) throw new Error('Duplicate output-set selection.');
+      seen.add(item.name);
+      const set = Object.hasOwn(project.config.outputSets, item.name)
+        ? project.config.outputSets[item.name]
+        : undefined;
+      if (!set) throw new Error('Unknown output set: ' + item.name);
+      const paths = 'targets' in item ? item.targets : undefined;
+      if (
+        paths !== undefined &&
+        (paths.length === 0 ||
+          new Set(paths).size !== paths.length ||
+          paths.some((p) => !set.targets.some((t) => t.path === p)))
+      )
+        throw new Error('Unknown, empty or duplicate target selection.');
+      selected.push({
+        name: item.name,
+        set,
+        targets:
+          paths === undefined
+            ? set.targets
+            : paths.map((p) => set.targets.find((t) => t.path === p)!),
+        complete: paths === undefined
+      });
+    }
+    for (const item of selected) {
+      const root = await outputRoot(project.config, item.set.outputDir);
+      const targets = item.targets.map((target) => {
+        const mapped = compositionTarget(project, target.source);
+        const result = mapped.success
+          ? compose(project.analysis, mapped.data, options.limits ?? DEFAULT_COMPOSITION_LIMITS)
+          : {
+              content: '',
+              complete: false,
+              diagnostics: [
+                {
+                  code: mapped.error.code,
+                  message: mapped.error.message,
+                  severity: 'error' as const
+                }
+              ]
+            };
+        diagnosticMap.set(
+          JSON.stringify([item.name, target.path]),
+          publicDiagnostics(result.diagnostics)
+        );
+        const eligible = result.complete && !result.diagnostics.some((d) => d.severity === 'error');
+        return {
+          path: target.path,
+          prepared: eligible
+            ? { status: 'ready' as const, content: result.content }
+            : {
+                status: 'failed' as const,
+                code: 'INELIGIBLE_OUTPUT',
+                message: 'Composition is incomplete or has blocking diagnostics.'
+              }
+        };
+      });
+      prepared.push({
+        name: item.name,
+        root,
+        ifExists: item.set.ifExists,
+        cleanup: item.set.cleanup,
+        complete: item.complete,
+        targets
+      });
+    }
   } catch (error) {
     return {
       success: false,
-      error: operationError('INVALID_OPERATION', 'View frontmatter could not be parsed.', {
-        path: view.filePath,
-        cause: error
-      })
+      targets: selected.flatMap((item) =>
+        item.targets.map((t) => ({
+          root: path.resolve(project.projectRoot, item.set.outputDir),
+          outputSet: item.name,
+          path: t.path,
+          status: 'not-published' as const,
+          tracking: 'unchanged' as const,
+          reason: 'Output planning failed.',
+          diagnostics: diagnosticMap.get(JSON.stringify([item.name, t.path])) ?? []
+        }))
+      ),
+      cleanup: [],
+      errors: [failure(error, 'planning', project.projectRoot)]
     };
   }
-}
-
-function normalizeOutDir(value: string | undefined): OperationResult<string> {
-  const raw = value?.trim() ?? DEFAULT_RENDER_OUT_DIR;
-  const normalized = raw.replaceAll('\\', '/').replaceAll(/\/+/g, '/').replaceAll(/^\/|\/$/g, '');
-
-  if (normalized.length === 0) {
-    return {
-      success: false,
-      error: operationError('INVALID_OPERATION', 'Render output directory must not be empty.')
-    };
-  }
-
-  if (path.isAbsolute(raw) || path.win32.isAbsolute(raw) || path.posix.isAbsolute(raw)) {
-    return {
-      success: false,
-      error: operationError('INVALID_OPERATION', `Render output directory "${value ?? ''}" must be project-relative.`)
-    };
-  }
-
-  if (normalized.split('/').includes('..')) {
-    return {
-      success: false,
-      error: operationError('INVALID_OPERATION', `Render output directory "${value ?? ''}" must not contain "..".`)
-    };
-  }
-
-  return { success: true, data: normalized };
-}
-
-function getNormalizedOutDir(value: string | undefined): string {
-  const result = normalizeOutDir(value);
-  return result.success ? result.data : DEFAULT_RENDER_OUT_DIR;
-}
-
-function getRenderedOutputPath(
-  projectRoot: string,
-  viewsDir: string,
-  outDir: string,
-  view: ParsedView
-): string {
-  const viewPathParts = view.relativePath.split('/');
-  const viewsDirParts = viewsDir.split('/');
-  const suffixParts = viewPathParts.slice(viewsDirParts.length);
-  return path.join(projectRoot, ...outDir.split('/'), ...suffixParts);
+  const result = await publishOutputs(
+    project.config.projectId,
+    prepared,
+    await outputProtection(project.config)
+  );
+  return Object.freeze({
+    ...result,
+    targets: Object.freeze(
+      result.targets.map((target) =>
+        Object.freeze({
+          ...target,
+          diagnostics:
+            diagnosticMap.get(JSON.stringify([target.outputSet, target.path])) ?? Object.freeze([])
+        })
+      )
+    )
+  });
 }

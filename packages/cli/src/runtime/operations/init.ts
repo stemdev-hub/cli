@@ -1,17 +1,22 @@
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 import type { InitProjectOptions, InitResult, OperationResult } from '../types/index.js';
 import { STEM_CONFIG_DEFAULTS, STEM_CONFIG_FILE } from '@stemdev/core';
+import { loadStemConfig, resolveStemConfig } from '../config/index.js';
 import { findProjectRoot } from '../fs/finder.js';
 import { readFile } from '../fs/reader.js';
 import { ensureDir, writeFile } from '../fs/writer.js';
-import { fromFsError, operationError } from './errors.js';
+import { fromConfigError, fromFsError, operationError } from './errors.js';
 
 export async function initProject(
   options: InitProjectOptions = {}
 ): Promise<OperationResult<InitResult>> {
   const projectRoot = path.resolve(options.startDir ?? process.cwd());
   const existingProjectResult = await findProjectRoot(projectRoot);
+  if (!existingProjectResult.success && existingProjectResult.error.code !== 'NO_PROJECT_ROOT') {
+    return { success: false, error: fromFsError(existingProjectResult.error) };
+  }
   if (existingProjectResult.success && path.resolve(existingProjectResult.data) !== projectRoot) {
     return {
       success: false,
@@ -23,40 +28,50 @@ export async function initProject(
     };
   }
 
-  const config = {
-    version: STEM_CONFIG_DEFAULTS.version,
-    blocksDir: STEM_CONFIG_DEFAULTS.blocksDir,
-    viewsDir: STEM_CONFIG_DEFAULTS.viewsDir,
-    schemasDir: STEM_CONFIG_DEFAULTS.schemasDir,
-    cacheDir: STEM_CONFIG_DEFAULTS.cacheDir
-  };
+  const configPath = path.join(projectRoot, STEM_CONFIG_FILE);
+  let configResult = await loadStemConfig(projectRoot);
+  if (configResult.success) {
+    if (!options.force) {
+      return {
+        success: false,
+        error: operationError('CONFLICT', `File already exists: ${configPath}.`, {
+          path: configPath
+        })
+      };
+    }
+  } else {
+    if (configResult.error.code !== 'CONFIG_NOT_FOUND') {
+      return { success: false, error: fromConfigError(configResult.error) };
+    }
+    let projectId: string;
+    try {
+      projectId = randomUUID();
+    } catch (cause) {
+      return {
+        success: false,
+        error: operationError('FS_ERROR', 'Failed to generate project identity.', {
+          path: configPath,
+          cause
+        })
+      };
+    }
+    const raw = { projectId, ...STEM_CONFIG_DEFAULTS };
+    configResult = resolveStemConfig(raw, projectRoot);
+    if (!configResult.success) {
+      return { success: false, error: fromConfigError(configResult.error) };
+    }
+    // Force never replaces identity, including a concurrent creator's configuration.
+    const written = await writeProjectFile(configPath, `${JSON.stringify(raw, null, 2)}\n`, false);
+    if (!written.success) return written;
+  }
+  const config = configResult.data;
 
   const dirResult = await ensureProjectDirs(projectRoot, config);
   if (!dirResult.success) {
     return dirResult;
   }
 
-  const configWriteResult = await writeProjectFile(
-    path.join(projectRoot, STEM_CONFIG_FILE),
-    `${JSON.stringify(config, null, 2)}\n`,
-    options.force ?? false
-  );
-  if (!configWriteResult.success) {
-    return configWriteResult;
-  }
-
-  for (const schema of BUILT_IN_SCHEMAS) {
-    const schemaWriteResult = await writeProjectFile(
-      path.join(projectRoot, config.schemasDir, schema.fileName),
-      schema.content,
-      options.force ?? false
-    );
-    if (!schemaWriteResult.success) {
-      return schemaWriteResult;
-    }
-  }
-
-  const gitignoreResult = await ensureGitignoreCacheEntry(projectRoot);
+  const gitignoreResult = await ensureGitignoreCacheEntry(projectRoot, config.cacheDir);
   if (!gitignoreResult.success) {
     return gitignoreResult;
   }
@@ -65,48 +80,14 @@ export async function initProject(
     success: true,
     data: {
       projectRoot,
-      blocksDir: path.join(projectRoot, config.blocksDir),
-      viewsDir: path.join(projectRoot, config.viewsDir),
-      schemasDir: path.join(projectRoot, config.schemasDir)
+      blocksDir: path.join(projectRoot, config.blocksDir)
     }
   };
 }
 
 interface InitConfigPaths {
   blocksDir: string;
-  viewsDir: string;
-  schemasDir: string;
 }
-
-interface BuiltInSchema {
-  fileName: string;
-  content: string;
-}
-
-const GITIGNORE_ENTRIES = ['.stem/cache/', 'rendered/'];
-
-const BUILT_IN_SCHEMAS: BuiltInSchema[] = [
-  {
-    fileName: 'api.yaml',
-    content: `name: api
-required:
-  - endpoint
-  - request
-  - response
-description: API documentation must describe endpoint, request, and response details.
-`
-  },
-  {
-    fileName: 'adr.yaml',
-    content: `name: adr
-required:
-  - context
-  - decision
-  - consequences
-description: Architecture decision records must describe context, decision, and consequences.
-`
-  }
-];
 
 async function ensureProjectDirs(
   projectRoot: string,
@@ -114,9 +95,7 @@ async function ensureProjectDirs(
 ): Promise<OperationResult<void>> {
   for (const dirPath of [
     path.join(projectRoot, '.stem'),
-    path.join(projectRoot, config.blocksDir),
-    path.join(projectRoot, config.viewsDir),
-    path.join(projectRoot, config.schemasDir)
+    path.join(projectRoot, config.blocksDir)
   ]) {
     const result = await ensureDir(dirPath);
     if (!result.success) {
@@ -141,12 +120,19 @@ async function writeProjectFile(
     success: false,
     error:
       result.error.code === 'ALREADY_EXISTS'
-        ? operationError('CONFLICT', result.error.message, { path: result.error.path, cause: result.error })
+        ? operationError('CONFLICT', result.error.message, {
+            path: result.error.path,
+            cause: result.error
+          })
         : fromFsError(result.error)
   };
 }
 
-async function ensureGitignoreCacheEntry(projectRoot: string): Promise<OperationResult<void>> {
+async function ensureGitignoreCacheEntry(
+  projectRoot: string,
+  cacheDir: string
+): Promise<OperationResult<void>> {
+  const entries = [`${cacheDir}/`];
   const gitignorePath = path.join(projectRoot, '.gitignore');
   const readResult = await readFile(gitignorePath);
 
@@ -155,16 +141,20 @@ async function ensureGitignoreCacheEntry(projectRoot: string): Promise<Operation
       return { success: false, error: fromFsError(readResult.error) };
     }
 
-    return writeProjectFile(gitignorePath, `${GITIGNORE_ENTRIES.join('\n')}\n`, false);
+    return writeProjectFile(gitignorePath, `${entries.join('\n')}\n`, false);
   }
 
-  const missingEntries = GITIGNORE_ENTRIES.filter((entry) => !hasGitignoreEntry(readResult.data, entry));
+  const missingEntries = entries.filter((entry) => !hasGitignoreEntry(readResult.data, entry));
   if (missingEntries.length === 0) {
     return { success: true, data: undefined };
   }
 
   const separator = readResult.data.length === 0 || readResult.data.endsWith('\n') ? '' : '\n';
-  return writeProjectFile(gitignorePath, `${readResult.data}${separator}${missingEntries.join('\n')}\n`, true);
+  return writeProjectFile(
+    gitignorePath,
+    `${readResult.data}${separator}${missingEntries.join('\n')}\n`,
+    true
+  );
 }
 
 function hasGitignoreEntry(content: string, entry: string): boolean {

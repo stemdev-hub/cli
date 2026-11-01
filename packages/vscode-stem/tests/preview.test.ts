@@ -1,164 +1,205 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import * as fs from 'node:fs/promises';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type * as vscode from 'vscode';
-import { fileUri, mockApi, openDocument, previewUri, stem, uri, vscodeMock, writeProjectFile } from './helpers.js';
-
+import { tmpdir } from 'node:os';
+import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { mockApi, openDocument, fileUri, previewUri, stem, writeProjectFile } from './helpers.js';
 let root: string;
+const projectId = '0f671f2d-657d-4f3c-9a7d-d22f769c083a';
 beforeEach(async () => {
-  root = await mkdtemp(path.join(tmpdir(), 'stem-preview-core-'));
-  await mkdir(path.join(root, '.stem'));
-  await writeProjectFile(root, 'blocks/auth.md', '---\nid: auth\n---\nDisk.');
-  await writeProjectFile(root, 'views/api.md', '---\nid: api\n---\n@stem[block:auth]');
+  root = await fs.mkdtemp(path.join(tmpdir(), 'stem-editor-'));
+  await writeProjectFile(root, '.stem/config.json', JSON.stringify({ projectId }));
+  await writeProjectFile(root, 'blocks/api.md', 'before@stem:include(a)after');
+  await writeProjectFile(root, 'blocks/a.md', '@stem:block(id:a) disk @stem:end()');
 });
-afterEach(async () => { vi.useRealTimers(); await rm(root, { recursive: true, force: true }); });
-
-describe('built extension preview', () => {
-  it('loads the vscode test module without resolving the real module', () => {
-    expect(vscodeMock.__stemTestMock).toBe(true);
+afterEach(async () => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  await fs.rm(root, { recursive: true, force: true });
+});
+it('uses unsaved source and config inputs without saving them', async () => {
+  const { api, documents } = mockApi();
+  documents.push(
+    openDocument(path.join(root, 'blocks/a.md'), () => '@stem:block(id:a) unsaved @stem:end()')
+  );
+  documents.push(
+    openDocument(path.join(root, '.stem/config.json'), () =>
+      JSON.stringify({ projectId, outputSets: {} })
+    )
+  );
+  expect(await stem.renderPreview(previewUri(root), api)).toMatchObject({
+    content: 'before unsaved after',
+    complete: true,
+    diagnostics: []
   });
-
-  it('prefers unsaved blocks and views over disk', async () => {
-    const { api, documents, raw } = mockApi();
-    documents.push(openDocument(path.join(root, 'blocks/auth.md'), () => '---\nid: auth\n---\nUnsaved.'));
-    documents.push(openDocument(path.join(root, 'views/api.md'), () => '---\nid: api\n---\n# Unsaved view\n\n@stem[block:auth]'));
-    expect(await stem.renderProjectPreview(api, fileUri(root), 'api')).toBe('# Unsaved view\n\nUnsaved.\n');
-    expect(raw.workspace.fs.readFile.mock.calls.map(([target]) => target.fsPath)).not.toContain(path.join(root, 'blocks/auth.md'));
-    expect(raw.workspace.fs.readFile.mock.calls.map(([target]) => target.fsPath)).not.toContain(path.join(root, 'views/api.md'));
+  expect(await fs.readFile(path.join(root, 'blocks/a.md'), 'utf8')).toContain(' disk ');
+  expect(await fs.readdir(path.join(root, '.stem'))).toEqual(['config.json']);
+});
+it('preserves ordinary frontmatter and partial content; reports diagnostics separately', async () => {
+  await writeProjectFile(
+    root,
+    'blocks/api.md',
+    '---\nid: [ordinary\n---\npre@stem:include(missing)post'
+  );
+  const { api } = mockApi();
+  const result = await stem.renderPreview(previewUri(root), api);
+  expect(result.content).toBe('---\nid: [ordinary\n---\nprepost');
+  expect(result.complete).toBe(false);
+  expect(result.diagnostics.length).toBeGreaterThan(0);
+});
+it('allows unsaved identity correction but never repairs disk configuration', async () => {
+  await writeProjectFile(root, '.stem/config.json', '{}');
+  const { api, documents } = mockApi();
+  await expect(stem.renderPreview(previewUri(root), api)).rejects.toThrow('projectId');
+  documents.push(
+    openDocument(path.join(root, '.stem/config.json'), () => JSON.stringify({ projectId }))
+  );
+  expect((await stem.renderPreview(previewUri(root), api)).complete).toBe(true);
+  expect(await fs.readFile(path.join(root, '.stem/config.json'), 'utf8')).toBe('{}');
+});
+it('rejects unknown unsaved configuration before source loading', async () => {
+  const { api, documents, raw } = mockApi();
+  documents.push(
+    openDocument(path.join(root, '.stem/config.json'), () =>
+      JSON.stringify({ projectId, viewsDir: 'views' })
+    )
+  );
+  await expect(stem.renderPreview(previewUri(root), api)).rejects.toThrow('Unknown');
+  expect(raw.workspace.fs.readDirectory).not.toHaveBeenCalled();
+});
+it('includes a new unsaved source buffer within the source boundary', async () => {
+  const { api, documents } = mockApi();
+  documents.push(openDocument(path.join(root, 'blocks/new.md'), () => 'unsaved file'));
+  expect(
+    await stem.renderProjectPreview(api, fileUri(root), fileUri(path.join(root, 'blocks/new.md')))
+  ).toMatchObject({ content: 'unsaved file', complete: true });
+});
+it('rejects outdated overlapping work without substituting cached content', async () => {
+  const { api, raw, documents } = mockApi();
+  let release!: () => void;
+  let started!: () => void;
+  const pending = new Promise<void>((r) => (release = r));
+  const begun = new Promise<void>((r) => (started = r));
+  const read = raw.workspace.fs.readFile.getMockImplementation()!;
+  raw.workspace.fs.readFile.mockImplementation(async (target) => {
+    if (target.fsPath.endsWith('a.md')) {
+      started();
+      await pending;
+    }
+    return read(target);
   });
-
-  it.each([
-    ['quoted id', '---\n"id": "my-view"\n---\n', 'my-view'],
-    ['YAML opener', '---yaml\nid: yaml-view\n---\n', 'yaml-view'],
-    ['Unicode escape', '---\nid: "api\\u002dview"\n---\n', 'api-view']
-  ])('renders the decoded view id from unsaved YAML: %s', async (_label, frontmatter, viewId) => {
-    const { api, documents } = mockApi();
-    documents.push(openDocument(path.join(root, 'views/api.md'), () => `${frontmatter}# Unsaved\n\n@stem[block:auth]`));
-
-    expect(await stem.renderPreview(previewUri(root, viewId), api)).toBe('# Unsaved\n\nDisk.\n');
+  const provider = new stem.StemPreviewProvider(
+    {},
+    {
+      ...api,
+      window: raw.window,
+      EventEmitter: class {
+        event = () => ({ dispose() {} });
+        fire() {}
+        dispose() {}
+      }
+    }
+  );
+  const target = previewUri(root);
+  provider.track(target);
+  const first = provider.provideTextDocumentContent(target);
+  const rejected = expect(first).rejects.toThrow();
+  await begun;
+  documents.push(
+    openDocument(path.join(root, 'blocks/a.md'), () => '@stem:block(id:a) latest @stem:end()')
+  );
+  const second = provider.provideTextDocumentContent(target);
+  expect(await second).toBe('before latest after');
+  release();
+  await rejected;
+  provider.cancelProject(root);
+  expect(await provider.provideTextDocumentContent(target)).toBe('');
+  provider.refreshProject(root);
+  expect(await provider.provideTextDocumentContent(target)).toBe('before latest after');
+  provider.untrack(target);
+});
+it('invalidates immediately with auto-refresh off', () => {
+  const provider = {
+    getTrackedProjects: () => [root],
+    hasProject: () => true,
+    cancelProject: vi.fn(),
+    refreshProject: vi.fn()
+  };
+  const watchers = new stem.StemPreviewWatcherManager(provider, {
+    isAutoRefreshEnabled: () => false,
+    getRefreshDebounceMs: () => 250
   });
-
-  it('displays a core frontmatter error when an open view becomes invalid', async () => {
-    const { api, documents } = mockApi();
-    documents.push(openDocument(path.join(root, 'views/api.md'), () => '---\nid: api\ngroup: [broken\n---\n@stem[block:auth]'));
-
-    const result = await stem.renderPreview(previewUri(root), api);
-    expect(result).toContain('# Stem Preview Error');
-    expect(result).toContain('INVALID_FRONTMATTER');
-    expect(result).toContain('Frontmatter could not be parsed.');
-  });
-
-  it('prefers open config and schemas and preserves duplicate-name overwrite', async () => {
-    await writeProjectFile(root, '.stem/config.json', '{}');
-    await writeProjectFile(root, 'custom/schemas/a.yaml', 'invalid');
-    await writeProjectFile(root, 'custom/schemas/z.yml', 'name: api\nrequired: [last]');
-    const { api, documents } = mockApi();
-    documents.push(openDocument(path.join(root, '.stem/config.json'), () => '{"schemasDir":"custom/schemas"}'));
-    documents.push(openDocument(path.join(root, 'custom/schemas/a.yaml'), () => 'name: api\nrequired: [first]'));
-    const loaded = await stem.loadProjectSnapshot(api, fileUri(root));
-    expect([...loaded.snapshot.schemas.values()]).toEqual([{ name: 'api', required: ['last'] }]);
-  });
-
-  it('rejects a non-file project or source before reading', async () => {
-    const { api, raw } = mockApi();
-    await expect(stem.loadProjectSnapshot(api, uri('vscode-remote://host/project'))).rejects.toThrow('on disk');
-    const target = uri(stem.createPreviewUriText(root, 'api', 'untitled:api.md'));
-    expect(await stem.renderPreview(target, api)).toContain('Stem preview is available for Markdown files on disk.');
-    expect(raw.workspace.fs.readFile).not.toHaveBeenCalled();
-    expect(raw.workspace.fs.readDirectory).not.toHaveBeenCalled();
-  });
-
-  it('rejects cancelled reads without displaying an error document', async () => {
-    const { api, raw } = mockApi();
-    const controller = new AbortController();
-    controller.abort();
-    await expect(stem.renderPreview(previewUri(root), api, controller.signal)).rejects.toThrow();
-    expect(raw.workspace.fs.readFile).not.toHaveBeenCalled();
-  });
-
-  it('uses POSIX relative paths for Windows drives and UNC paths', () => {
-    expect(stem.relativePath('C:\\project with spaces', 'C:\\project with spaces\\blocks\\nested\\api.md')).toBe('blocks/nested/api.md');
-    expect(stem.relativePath('\\\\server\\share\\project', '\\\\server\\share\\project\\views\\api.md')).toBe('views/api.md');
-  });
-
-  it('reads local snapshots before cache and honors useRemote without changing cacheDir behavior', async () => {
-    const localGraph = { version: '1', namespace: 'other', publishedAt: '', contentSha: 'local', blocks: [], renames: [] };
-    const remoteGraph = { ...localGraph, contentSha: 'remote' };
-    await writeProjectFile(root, '.stem/config.json', JSON.stringify({ cacheDir: 'ignored', namespaces: { other: { localPath: 'sibling', graphUrl: 'unused' } } }));
-    await writeProjectFile(root, 'sibling/.stem/cache/stem-graph.json', JSON.stringify(localGraph));
-    await writeProjectFile(root, '.stem/cache/namespaces/other.json', JSON.stringify({ graph: remoteGraph, fetchedAt: 'not a date' }));
-    const { api } = mockApi();
-    const before = Date.now();
-    const local = (await stem.loadProjectSnapshot(api, fileUri(root))).snapshot.externalGraphs.get('other');
-    expect(local?.graph.contentSha).toBe('local');
-    expect(local?.isLocalFallback).toBe(true);
-    expect(Date.parse(local!.fetchedAt)).toBeGreaterThanOrEqual(before);
-    expect(Date.parse(local!.fetchedAt)).toBeLessThanOrEqual(Date.now());
-    expect((await stem.loadProjectSnapshot(api, fileUri(root), { useRemote: true })).snapshot.externalGraphs.get('other')).toEqual({
-      graph: remoteGraph, fetchedAt: 'not a date', isLocalFallback: false
-    });
+  watchers.documentChanged(openDocument(path.join(root, 'blocks/a.md'), () => ''));
+  expect(provider.cancelProject).toHaveBeenCalledExactlyOnceWith(root);
+  expect(provider.refreshProject).not.toHaveBeenCalled();
+  watchers.dispose();
+});
+it('retains decoder envelope/timestamp policy while metadata cannot supply bodies', async () => {
+  await writeProjectFile(
+    root,
+    '.stem/config.json',
+    JSON.stringify({ projectId, namespaces: { lib: { graphUrl: 'unused' } } })
+  );
+  await writeProjectFile(
+    root,
+    '.stem/cache/namespaces/lib.json',
+    JSON.stringify({
+      fetchedAt: 'not a date',
+      graph: {
+        version: '2',
+        projectId,
+        namespace: 'lib',
+        publishedAt: '',
+        contentSha: '',
+        blocks: [{ id: 'x', tags: [] }],
+        renames: []
+      }
+    })
+  );
+  await writeProjectFile(root, 'blocks/api.md', 'pre@stem:include(lib:x)post');
+  const { api } = mockApi();
+  const loaded = await stem.loadProjectSnapshot(api, fileUri(root));
+  expect(loaded.externalGraphs.get('lib')?.fetchedAt).toBe('not a date');
+  expect(await stem.renderPreview(previewUri(root), api)).toMatchObject({
+    content: 'prepost',
+    complete: false
   });
 });
 
-describe('preview refresh', () => {
-  it('debounces only project documents while a preview is open and cancels immediately', () => {
-    vi.useFakeTimers();
-    let open = false;
-    const provider = {
-      getTrackedProjects: () => open ? [root] : [], hasProject: () => open,
-      cancelProject: vi.fn(), refreshProject: vi.fn()
-    };
-    const watchers = new stem.StemPreviewWatcherManager(provider, {
-      isAutoRefreshEnabled: () => true, getRefreshDebounceMs: () => 250
-    });
-    const document = openDocument(path.join(root, 'blocks/auth.md'), () => '');
-    watchers.documentChanged(document);
-    expect(provider.cancelProject).not.toHaveBeenCalled();
-    open = true;
-    watchers.documentChanged(openDocument(path.join(root + '-other', 'auth.md'), () => ''));
-    watchers.documentChanged({ uri: uri('stem-preview:/view/api.md') } as vscode.TextDocument);
-    expect(provider.cancelProject).not.toHaveBeenCalled();
-    watchers.documentChanged(document);
-    vi.advanceTimersByTime(200);
-    watchers.documentChanged(document);
-    expect(provider.cancelProject).toHaveBeenCalledTimes(2);
-    vi.advanceTimersByTime(249);
-    expect(provider.refreshProject).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    expect(provider.refreshProject).toHaveBeenCalledExactlyOnceWith(root);
-    watchers.documentChanged(document);
-    open = false;
-    vi.advanceTimersByTime(250);
-    expect(provider.refreshProject).toHaveBeenCalledTimes(1);
-    watchers.dispose();
-  });
-
-  it('returns the latest result to overlapping requests and stops obsolete loading', async () => {
-    const { api, raw, documents } = mockApi();
-    let release!: () => void;
-    let started!: () => void;
-    const readStarted = new Promise<void>((resolve) => { started = resolve; });
-    const paused = new Promise<void>((resolve) => { release = resolve; });
-    const read = raw.workspace.fs.readFile.getMockImplementation()!;
-    raw.workspace.fs.readFile.mockImplementation(async (target) => {
-      if (target.fsPath.endsWith('auth.md')) { started(); await paused; }
-      return read(target);
-    });
-    const provider = new stem.StemPreviewProvider({}, { ...api, EventEmitter: class {
-      event = () => ({ dispose() {} });
-      fire() {}
-    } });
-    const target = previewUri(root);
-    provider.track(target);
-    const first = provider.provideTextDocumentContent(target);
-    await readStarted;
-    documents.push(openDocument(path.join(root, 'blocks/auth.md'), () => '---\nid: auth\n---\nLatest.'));
-    const second = provider.provideTextDocumentContent(target);
-    expect(await second).toBe('Latest.\n');
-    release();
-    expect(await first).toBe('Latest.\n');
-    expect(provider.untrack(target)).toBe(root);
-    expect(provider.hasProject(root)).toBe(false);
-  });
+it('includes new unsaved inputs under a configured hidden source root', async () => {
+  await writeProjectFile(
+    root,
+    '.stem/config.json',
+    JSON.stringify({ projectId, blocksDir: '.sources' })
+  );
+  const { api, documents } = mockApi();
+  documents.push(openDocument(path.join(root, '.sources/new.md'), () => 'new source'));
+  expect(
+    await stem.renderProjectPreview(api, fileUri(root), fileUri(path.join(root, '.sources/new.md')))
+  ).toMatchObject({ content: 'new source', complete: true });
 });
+
+it.each(['api', 'workspace', 'document'] as const)(
+  'does not evaluate unrelated %s getters while capturing unsaved input',
+  async (surface) => {
+    const { api, documents } = mockApi();
+    const document = openDocument(
+      path.join(root, 'blocks/a.md'),
+      () => '@stem:block(id:a) unsaved @stem:end()'
+    );
+    documents.push(document);
+    const guarded = vi.fn(() => {
+      throw new Error("Extension 'stemdev.vscode-stem' CANNOT use API proposal: tunnels.");
+    });
+    const target = surface === 'api' ? api : surface === 'workspace' ? api.workspace : document;
+    Object.defineProperty(target, surface === 'workspace' ? 'tunnels' : 'unrelated', {
+      enumerable: true,
+      get: guarded
+    });
+    expect(await stem.renderPreview(previewUri(root), api)).toMatchObject({
+      content: 'before unsaved after',
+      complete: true
+    });
+    expect(guarded).not.toHaveBeenCalled();
+    expect(await fs.readFile(path.join(root, 'blocks/a.md'), 'utf8')).toContain(' disk ');
+  }
+);

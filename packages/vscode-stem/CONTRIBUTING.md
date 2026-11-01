@@ -2,39 +2,40 @@
 
 ## How Preview Works (Architecture)
 
-Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`. The extension:
+Open a Markdown source under `blocksDir` and run `Stem: Open Preview to Side`. The extension:
 
-1. Parses the active buffer with the public `@stemdev/core` `parseViewFile` API and uses its decoded `id`, reporting invalid frontmatter before opening.
-2. Finds the nearest Stem project root by walking up to `.stem`.
-3. Loads project files through VS Code filesystem APIs, preferring open buffers, then analyzes and renders the selected view with bundled core.
-4. Serves the rendered Markdown body through a readonly `stem-preview:` virtual document.
+1. Selects the active source URI without requiring frontmatter metadata.
+2. Finds the nearest `.stem/config.json`.
+3. Captures unsaved source/configuration buffers, loads disk sources and analyzes them with bundled core.
+4. Serves exact composition content through a readonly `stem-preview:` document, with diagnostics in
+   the separate Stem Preview Diagnostics output channel.
 5. Opens that virtual document in VS Code's native Markdown preview.
 
-The extension does not duplicate Stem parser or renderer logic, and it does not use a custom webview.
-Core supplies parsing, validation, and rendering semantics. Preview is available only in trusted VS Code workspaces and does not spawn a CLI process.
-
-Open previews refresh automatically when project files or unsaved buffers change, including:
-
-- `views/**/*.md`
-- `blocks/**/*.md`
-- `blocks/schemas/**/*.{yaml,yml}`
-- `.stem/config.json`
-
-Preview requires no CLI installation or path configuration. For the separate AI server, see [MCP setup and CLI discovery](README.md#ai-context-server-mcp).
+Relevant disk/buffer/configuration changes invalidate content and diagnostics together, even with
+auto-refresh off. Later evaluation rejects obsolete results; it cannot return cached content as current.
+Preview performs no writes and never spawns CLI. Core supplies all parsing and composition semantics.
+See [architecture](https://github.com/stemdev-hub/cli/blob/main/docs/architecture.md#editor-adapter).
 
 ## Manual Test Checklist
 
-1. Open a Markdown view from a Stem project and run `Stem: Open Preview to Side`.
-2. Edit a referenced block without saving; the preview should refresh. Save and confirm it still renders.
-3. Edit the source view without saving; the preview should reflect the active buffer.
-4. Introduce a broken block reference; the preview should show a Markdown-formatted Stem error.
-5. Open views with `"id": "my-view"`, a `---yaml` opener, and `id: "api\u002dview"`; confirm the intended view renders. Try malformed YAML after a valid `id`, a missing ID, and a numeric ID; expect a useful notification and no new preview.
-6. Disable `stem.preview.autoRefresh`, edit a referenced file, and confirm manual refresh still works.
-7. Re-enable `stem.preview.autoRefresh` without reloading VS Code and confirm changes refresh again.
-8. In a multi-root workspace, open previews from two Stem projects and confirm edits refresh only the matching project's previews.
-9. In an untrusted workspace, confirm preview is refused. Close or refresh a preview during loading and confirm cancellation does not display an obsolete error.
+Record host name/version, trust state, fixture and results; automated tests do not establish host acceptance.
 
-Run the shared [code validation profile](../../roadmap.md#shared-task-requirements-and-validation), then `pnpm --filter vscode-stem exec vitest run tests/preview.test.ts tests/vscode-stem.test.ts`. Inspect a temporary VSIX for its bundled entry and exclusions. These automated checks use mocked VS Code APIs; record the exact editor version and results of this checklist separately for real-host acceptance.
+1. Open a source with surrounding text, nested Blocks and no frontmatter ID. Preview it.
+2. Edit a referenced Block and the active source without saving; verify exact current content.
+3. Edit configuration without saving, including `blocksDir`, invalid identity and an unknown key.
+   Confirm errors appear separately and disk files remain unchanged.
+4. Introduce a missing inclusion, a cycle and a low work/output limit. Verify partial content and scoped
+   diagnostics; fix the source and ensure stale content/diagnostics disappear together.
+5. Turn auto-refresh off, edit/delete a source and confirm the previous result is invalidated.
+   Manually refresh. Trigger overlapping slow evaluations and ensure the older result cannot replace it.
+6. Change files in two projects and confirm only the affected project is invalidated.
+7. Close the last preview and confirm watchers stop; try an untrusted workspace and confirm preview refuses.
+8. Verify original frontmatter, whitespace, BOM and final-newline behavior in the virtual document.
+   Native Markdown presentation may visually format these bytes.
+9. Verify source-boundary rejection for an outside file and a symlink escaping `blocksDir`.
+
+Preview requires no CLI installation. The separate server uses
+[MCP setup and CLI discovery](README.md#ai-context-server-mcp).
 
 ## MCP Validation
 
@@ -47,14 +48,15 @@ pnpm --filter vscode-stem build
 pnpm --filter vscode-stem exec vitest run tests/vscode-stem.test.ts
 ```
 
-The command tests use real temporary files and mocked executable probing, with actual Windows shim invocations on Windows. They cover explicit/relative/PATH CLI settings, JavaScript entries, failed probes, fallback, spaces and shell metacharacters, alongside both host formats, preservation, legacy repair, trust, dirty buffers, concurrent writes and write failures. Run the shared [code validation profile](../../roadmap.md#shared-task-requirements-and-validation), including CLI tests, and package a temporary VSIX. These checks do not prove editor integration.
+The command tests use real temporary files and mocked executable probing, with actual Windows shim invocations on Windows. They cover project validation, unsaved configuration and project changes during setup, plus explicit/relative/PATH CLI settings, JavaScript entries, failed probes, fallback, spaces and shell metacharacters, alongside both host formats, preservation, legacy repair, trust, dirty buffers, concurrent writes and write failures. Run the shared [code validation profile](../../CONTRIBUTING.md#verification), including CLI tests, and package a temporary VSIX. These checks do not prove editor integration.
 
 For real-host validation, resolve absolute temporary paths for the candidate VSIX, fixture workspace, and each editor's user-data/extensions directories. Install with `code --user-data-dir <data> --extensions-dir <extensions> --install-extension <vsix>` and open with the same isolation flags plus `--new-window <fixture>`; repeat using `cursor`. Verify that no home-global MCP source is being used. Record exact editor/CLI versions, source SHA, VSIX SHA-256 and platform.
 
-1. **Configuration recognition:** invoke Stem setup, inspect both workspace files, and confirm each editor lists Stem from its own expected file. Repeat with existing unrelated servers, legacy output, JSONC, and a two-folder workspace. Configuration recognition is separate from server startup.
-2. **Startup:** start Stem through the editor's MCP controls, inspect MCP output, confirm initialization/tool discovery, and use a harmless read-only tool against the fixture. Record trust or organizational-policy restrictions without bypassing them.
-3. **CLI discovery:** use fresh fixture entries for an explicit executable, JavaScript entry, Windows `.cmd` shim, and PATH installation, including paths with spaces. Confirm setup probes `--help`, then start the generated entry without substitutions. An invalid explicit setting must notify without writing configuration; empty settings with no working PATH CLI must produce the npx fallback. Changing the setting preserves existing valid entries as described in the usage guide. Record real process results separately from mocks and editor recognition.
-4. **Coverage:** check VS Code 1.101.x and an available newer build, plus Cursor with its exact version recorded. Verify remote file placement and process cwd when a remote host is available; otherwise record that limitation.
-5. **Artifact:** inspect the VSIX's `extension/package.json`, `dist/extension.js`, assets and README, confirming source/test/fixture exclusions. Source checks and candidate inspection do not verify a published artifact; distribution remains under R10.
+1. **Project preflight:** in an uninitialized disposable folder, invoke setup and confirm actionable guidance with no MCP files created. Repeat with invalid identity, malformed JSON and unsaved project configuration; existing MCP files must remain unchanged. Use a saved, valid Stem project for the remaining checks. In a two-folder workspace, an invalid first folder must not select a valid second folder.
+2. **Configuration recognition:** invoke Stem setup, inspect both workspace files, and confirm each editor lists Stem from its own expected file. Repeat with existing unrelated servers, legacy output, JSONC, and a two-folder workspace. Configuration recognition is separate from server startup.
+3. **Startup:** start Stem through the editor's MCP controls, inspect MCP output, confirm initialization/tool discovery, and use a harmless read-only tool against the fixture. Record trust or organizational-policy restrictions without bypassing them.
+4. **CLI discovery:** use fresh fixture entries for an explicit executable, JavaScript entry, Windows `.cmd` shim, and PATH installation, including paths with spaces. Confirm setup probes `--help`, then start the generated entry without substitutions. An invalid explicit setting must notify without writing configuration; empty settings with no working PATH CLI must produce the npx fallback. Changing the setting preserves existing valid entries as described in the usage guide. Record real process results separately from mocks and editor recognition.
+5. **Coverage:** check VS Code 1.101.x and an available newer build, plus Cursor with its exact version recorded. Verify remote file placement and process cwd when a remote host is available; otherwise record that limitation.
+6. **Artifact:** inspect the VSIX's `extension/package.json`, `dist/extension.js`, assets and README, confirming source/test/fixture exclusions. Source checks and candidate inspection do not verify a published artifact; distribution remains under R10.
 
 Both files are validated and staged before replacement. Each file is published whole, but the pair is not one atomic transaction. On a partial failure, follow the error's list of changed files and review before retrying; reverting extension code cannot restore user configuration. New-file publication requires filesystem hard-link support and fails safely if unavailable. Existing JSON can be reformatted; arbitrary external writers are not locked out by the baseline recheck.
