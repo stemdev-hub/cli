@@ -2,7 +2,7 @@
   "name": "vscode-stem",
   "displayName": "Stem",
   "description": "Compose Markdown source with Stem Blocks and Tags, and configure Stem MCP.",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "publisher": "stemdev",
   "author": "stemdev",
   "repository": {
