@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0](https://github.com/stemdev-hub/cli/compare/cli-v0.3.1...cli-v0.4.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* retire Tag schemas and reject unknown config fields
+
+### Features
+
+* **cli:** add private output bookkeeping foundation ([7f06f08](https://github.com/stemdev-hub/cli/commit/7f06f0833d8efb4197526cd61d3aaf2294fe3927))
+* **cli:** implement private publication and selective cleanup ([df5c156](https://github.com/stemdev-hub/cli/commit/df5c156b5c3f0e14a32eec737b9a667c3ec73fc0))
+* establish durable project identity lifecycle ([225fdc8](https://github.com/stemdev-hub/cli/commit/225fdc8dc6f28963c49c6a4f19925d9e3b95f8ce))
+* integrate public Pure Block workflows ([48aa4b1](https://github.com/stemdev-hub/cli/commit/48aa4b17a3ba5904c2dfc4196b01dc1dcc0ab5da))
+
+
+### Bug Fixes
+
+* **cli:** prevent file writer races and temporary-file collisions ([cdd1389](https://github.com/stemdev-hub/cli/commit/cdd13892438c7787b42e3c80b56aa4e740e27fab))
+
+
+### Code Refactoring
+
+* retire Tag schemas and reject unknown config fields ([d775326](https://github.com/stemdev-hub/cli/commit/d775326b678da76184e9c9cf2c0faa280b59c22b))
+
 ## [0.3.1](https://github.com/stemdev-hub/cli/compare/cli-v0.3.0...cli-v0.3.1) (2026-10-11)
 
 

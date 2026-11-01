@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.4.1...vscode-stem-v0.5.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* retire Tag schemas and reject unknown config fields
+
+### Features
+
+* establish durable project identity lifecycle ([225fdc8](https://github.com/stemdev-hub/cli/commit/225fdc8dc6f28963c49c6a4f19925d9e3b95f8ce))
+* integrate public Pure Block workflows ([48aa4b1](https://github.com/stemdev-hub/cli/commit/48aa4b17a3ba5904c2dfc4196b01dc1dcc0ab5da))
+
+
+### Bug Fixes
+
+* **vscode:** validate MCP projects and avoid preview API getters ([717abbd](https://github.com/stemdev-hub/cli/commit/717abbde0d8db503486efa1438b27087aa78a3b2))
+
+
+### Code Refactoring
+
+* retire Tag schemas and reject unknown config fields ([d775326](https://github.com/stemdev-hub/cli/commit/d775326b678da76184e9c9cf2c0faa280b59c22b))
+
 ## [0.4.1](https://github.com/stemdev-hub/cli/compare/vscode-stem-v0.4.0...vscode-stem-v0.4.1) (2026-10-11)
 
 
