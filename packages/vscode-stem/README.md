@@ -16,8 +16,6 @@ Stem is a Git-native, file-based documentation system for software developers. T
 
 Requires VS Code 1.101 or later. Install [Stem from the Marketplace](https://marketplace.visualstudio.com/items?itemName=stemdev.vscode-stem), or install a release VSIX using **Extensions: Install from VSIX**. See the [repository](https://github.com/stemdev-hub/cli) for the CLI and portable engine packages.
 
-This guide describes the repository's Pure Block extension implementation. Marketplace availability is tracked in [R10](https://github.com/stemdev-hub/cli/blob/main/roadmap.md#r10-verify-an-authorized-release-delivers-selected-fixes); for an unreleased candidate, use the [local candidate verification procedure](https://github.com/stemdev-hub/cli/blob/main/CONTRIBUTING.md#verification).
-
 See the [shared current reference](https://github.com/stemdev-hub/cli/blob/main/docs/reference.md) for authoring semantics and known rendering/namespace limitations. The accepted Pure Block specifications govern the source model; source-connection resolution remains deferred.
 
 ## Features

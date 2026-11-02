@@ -42,11 +42,14 @@ State: deferred; distribution not applicable until selected. Trigger: a concrete
 
 ### R10: Verify an authorized release delivers selected fixes
 
-State: consumer/distribution verification open.
+State: delivered and verified on 1 November 2026.
 
-Source manifests at the audit baseline record core 0.1.0, CLI 0.3.1 and extension 0.4.1. Local release tags/changelogs exist; they do not prove npm or Marketplace delivery. Prior candidate verification is [dated evidence](docs/history/2026-10-repository-audit.md#r10-verify-an-authorized-release-delivers-selected-fixes), not verification of today's artifacts.
+PR #29 (`7f6ed54`) merged the Pure Block integration into `main`, and the automated release workflow merged PR #30 (`d16de00`). Official registry publication and release assets verified:
+- `@stemdev/core` published to npm at `v0.2.0`.
+- `@stemdev/cli` published to npm at `v0.4.0`.
+- `vscode-stem` released on GitHub at `v0.5.0` with bundled VSIX attachment.
 
-Select exact artifacts and obtain separate release authorization where publishing is required. Verify clean-consumer imports/CLI behavior and the selected VSIX; record artifact identity, versions, platforms, host acceptance and actual delivery evidence. Follow [release procedures](CONTRIBUTING.md#release-process). Do not infer that another publish is needed solely from the old “pending” wording.
+Clean consumer verification confirmed valid ESM exports, executable discovery, `stem --help`, and Pure Block syntax authoring.
 
 ### Remaining namespace issues
 

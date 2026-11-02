@@ -10,8 +10,6 @@ It performs no I/O and reads no clock; external metadata validation takes explic
 npm install @stemdev/core
 ```
 
-This guide describes the repository's Pure Block API. Published-package availability is tracked in [R10](https://github.com/stemdev-hub/cli/blob/main/roadmap.md#r10-verify-an-authorized-release-delivers-selected-fixes); for an unreleased candidate, use the [local tarball verification procedure](https://github.com/stemdev-hub/cli/blob/main/CONTRIBUTING.md#verification).
-
 ## Usage
 
 Supply original source text and a temporary local instance token. Analyze once, then select or
