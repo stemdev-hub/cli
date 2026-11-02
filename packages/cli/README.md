@@ -14,8 +14,6 @@ npm install -g @stemdev/cli
 stem --help
 ```
 
-This guide describes the repository's Pure Block CLI commands. Published-package availability is tracked in [R10](https://github.com/stemdev-hub/cli/blob/main/roadmap.md#r10-verify-an-authorized-release-delivers-selected-fixes); for an unreleased candidate, use the [local tarball verification procedure](https://github.com/stemdev-hub/cli/blob/main/CONTRIBUTING.md#verification).
-
 ## Author a project
 
 ```sh

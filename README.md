@@ -1,17 +1,63 @@
 # Stem
 
 [![CI Status](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/stemdev-hub/cli/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@stemdev/cli.svg?color=blue&label=npm)](https://www.npmjs.com/package/@stemdev/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Stem is a Git-native, file-based documentation system for software developers. It keeps reusable knowledge in Markdown blocks and lets teams compose those blocks into multiple outputs without duplicating content.
+Stem is a Git-native documentation compiler for software developers. It keeps reusable knowledge in Markdown blocks and compiles them into clean, 100% standard Markdown outputs (such as repository READMEs, onboarding guides, or AI agent instructions) ensuring a **Single Source of Truth** without copy-paste drift.
 
-Reusability is Stem's primary purpose; identity, ownership, Tags, and diagnostics support reliable reuse and composition.
+### Clean Output Guarantee
+**Zero syntax leakage in published outputs.** You author reusable blocks in your internal source files, but every generated file is pure, standard Markdown with all directives resolved and stripped. External contributors and GitHub readers see clean documentation without needing to know Stem exists.
 
-Stem is designed for teams working with AI coding agents and LLM workflows: the block store and dynamic connection graph provide structured, queryable context while keeping every source file plain Markdown in Git.
+---
 
-## The Problem
+## How It Works
 
-Software documentation gets stale, duplicated, bloated, and locked into a single perspective. Stem separates canonical content from the views people read, so one block can power onboarding, backend, frontend, architecture, and AI-agent context views.
+1. **Define reusable content in `blocks/`:**
+   ```markdown
+   @stem:block(id:install-steps tags:[guide])
+   Run `npm install` and configure your environment variables.
+   @stem:end()
+   ```
+
+2. **Compose your target document:**
+   ```markdown
+   # My Project
+
+   ## Getting Started
+   @stem:include(install-steps)
+   ```
+
+3. **Compile exact, standard Markdown:**
+   ```markdown
+   # My Project
+
+   ## Getting Started
+   Run `npm install` and configure your environment variables.
+   ```
+
+---
+
+## Quickstart
+
+You can run Stem immediately without installing it globally:
+
+```sh
+# Initialize a Stem project (creates blocks/ and .stem/config.json)
+npx @stemdev/cli init
+
+# Create a reusable block
+npx @stemdev/cli create block welcome --file blocks/guide.md --tag guide
+
+# Verify project references
+npx @stemdev/cli check
+
+# Preview or render compiled Markdown to stdout
+npx @stemdev/cli preview block welcome
+npx @stemdev/cli render block welcome --stdout
+```
+
+---
 
 ## Ecosystem
 
@@ -33,7 +79,7 @@ Install the CLI to manage a project, the extension for editor previews, or core 
 - Look up current format semantics and limitations: [shared reference](docs/reference.md).
 - Contribute or release: [contribution guide](CONTRIBUTING.md). Find active/deferred work in [roadmap](roadmap.md).
 
-Stem is beta, maintained by its owner. Current usage and accepted design awaiting implementation have separate reading routes; source package versions do not by themselves establish distribution or host acceptance.
+Stem is beta, maintained by its owner. Current usage and accepted design awaiting implementation have separate reading routes.
 
 ## Architecture
 
